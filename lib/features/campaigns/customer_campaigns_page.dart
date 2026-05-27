@@ -258,67 +258,70 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return FutureBuilder<List<_CampaignItem>>(
-      future: _future,
-      builder: (context, snapshot) {
-        final all = snapshot.data ?? <_CampaignItem>[];
-        final visible = _filtered(all);
-        final categories = _categories(all);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: FutureBuilder<List<_CampaignItem>>(
+        future: _future,
+        builder: (context, snapshot) {
+          final all = snapshot.data ?? <_CampaignItem>[];
+          final visible = _filtered(all);
+          final categories = _categories(all);
 
-        final freshCount = all.where(_isFresh).length;
-        final activeCount = all.where(_isActiveNow).length;
-        final upcomingCount = all.where(_isUpcoming).length;
-        final pastCount = all.where(_isPast).length;
+          final freshCount = all.where(_isFresh).length;
+          final activeCount = all.where(_isActiveNow).length;
+          final upcomingCount = all.where(_isUpcoming).length;
+          final pastCount = all.where(_isPast).length;
 
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-            children: [
-              const _Header(),
-              const SizedBox(height: 12),
-              _Tabs(
-                selected: _selectedTab,
-                fresh: freshCount,
-                active: activeCount,
-                upcoming: upcomingCount,
-                past: pastCount,
-                onChanged: (v) => setState(() => _selectedTab = v),
-              ),
-              const SizedBox(height: 10),
-              _CategoryScroller(
-                categories: categories,
-                selected: _selectedCategory,
-                onChanged: (v) => setState(() => _selectedCategory = v),
-              ),
-              const SizedBox(height: 12),
-              if (snapshot.connectionState == ConnectionState.waiting)
-                const _InfoCard(
-                  icon: Icons.hourglass_empty_rounded,
-                  title: 'Kampanyalar hazırlanıyor',
-                  text: 'Kampanyalar yükleniyor.',
-                )
-              else if (visible.isEmpty)
-                const _InfoCard(
-                  icon: Icons.local_offer_outlined,
-                  title: 'Kampanya bulunamadı',
-                  text:
-                      'Bu filtrede kampanya yok. Farklı sekme veya kategori deneyin.',
-                )
-              else
-                ...visible.map(
-                  (item) => _CampaignCard(
-                    item: item,
-                    onTap: () => _openDetail(item),
-                    onOpenBusiness: item.businessId.trim().isEmpty
-                        ? null
-                        : () => _openBusiness(item),
-                  ),
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+              children: [
+                const _Header(),
+                const SizedBox(height: 12),
+                _Tabs(
+                  selected: _selectedTab,
+                  fresh: freshCount,
+                  active: activeCount,
+                  upcoming: upcomingCount,
+                  past: pastCount,
+                  onChanged: (v) => setState(() => _selectedTab = v),
                 ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 10),
+                _CategoryScroller(
+                  categories: categories,
+                  selected: _selectedCategory,
+                  onChanged: (v) => setState(() => _selectedCategory = v),
+                ),
+                const SizedBox(height: 12),
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const _InfoCard(
+                    icon: Icons.hourglass_empty_rounded,
+                    title: 'Kampanyalar hazırlanıyor',
+                    text: 'Kampanyalar yükleniyor.',
+                  )
+                else if (visible.isEmpty)
+                  const _InfoCard(
+                    icon: Icons.local_offer_outlined,
+                    title: 'Kampanya bulunamadı',
+                    text:
+                        'Bu filtrede kampanya yok. Farklı sekme veya kategori deneyin.',
+                  )
+                else
+                  ...visible.map(
+                    (item) => _CampaignCard(
+                      item: item,
+                      onTap: () => _openDetail(item),
+                      onOpenBusiness: item.businessId.trim().isEmpty
+                          ? null
+                          : () => _openBusiness(item),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

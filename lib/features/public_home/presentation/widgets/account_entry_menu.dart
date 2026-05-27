@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/core/app_state/fix_shell_nav_state.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/pages/customer_appointments_page.dart';
 import 'package:rxpro_mobile/features/business/pages/business_profile_edit_entry_page.dart';
 import 'package:rxpro_mobile/features/businesses/business_pos_page.dart';
 import 'package:rxpro_mobile/features/businesses/business_products_page.dart';
 import 'package:rxpro_mobile/features/businesses/staff_tasks_entry_page.dart';
 import 'package:rxpro_mobile/features/campaigns/campaign_ai_create_safe_page.dart';
-import 'package:rxpro_mobile/features/campaigns/customer_campaigns_page.dart';
-import 'package:rxpro_mobile/features/favorites/favorite_feed_page.dart';
 import 'package:rxpro_mobile/features/notifications/notification_center_page.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/models/account_entry_context.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/pages/account_entry_lite_pages.dart';
@@ -274,18 +273,14 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Takipler',
             subtitle: 'Favori işletmeler',
             color: const Color(0xFFEF4444),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const FavoriteFeedPage()),
-            ),
+            onTap: () => FixShellNavState.setIndividualIndex(1),
           ),
           AccountActionGridItem(
             icon: Icons.sell_outlined,
             title: 'Kampanyalar',
             subtitle: 'Bana uygun',
             color: const Color(0xFF0EA5E9),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CustomerCampaignsPage()),
-            ),
+            onTap: () => FixShellNavState.setIndividualIndex(3),
           ),
         ],
       ),

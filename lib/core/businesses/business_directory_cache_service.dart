@@ -26,9 +26,6 @@ class BusinessDirectoryCacheService {
   static const Duration cacheTtl = Duration(minutes: 5);
   static const Duration _firestoreTimeout = Duration(seconds: 5);
   static const Duration _placesTimeout = Duration(seconds: 10);
-  static const double _starterLatitude = 41.0082;
-  static const double _starterLongitude = 28.9784;
-  static const int _cachedNearbySufficiencyCount = 60;
 
   bool get _isFresh {
     final last = _lastLoadedAt;
@@ -68,23 +65,13 @@ class BusinessDirectoryCacheService {
     bool forceRefresh = false,
   }) async {
     if (position == null) {
-      return _loadStarterBusinesses(
-        radiusKm: radiusKm,
-        categoryLabel: categoryLabel,
-        forceRefresh: forceRefresh,
-      );
+      return _loadStarterBusinesses(forceRefresh: forceRefresh);
     }
 
     final local = await _loadNearbyBusinesses(
       position: position,
       radiusKm: radiusKm,
     ).catchError((_) => <BusinessDirectoryItem>[]);
-
-    if (!forceRefresh &&
-        _categoryMatchCount(local, categoryLabel) >=
-            _cachedNearbySufficiencyCount) {
-      return local;
-    }
 
     final live = await _loadGooglePlacesNearbyBusinesses(
       position: position,
@@ -102,23 +89,7 @@ class BusinessDirectoryCacheService {
     return merged;
   }
 
-  int _categoryMatchCount(
-    List<BusinessDirectoryItem> items,
-    String categoryLabel,
-  ) {
-    return items
-        .where(
-          (item) => BusinessCategories.matches(
-            selectedLabel: categoryLabel,
-            businessCategory: item.category,
-          ),
-        )
-        .length;
-  }
-
   Future<List<BusinessDirectoryItem>> _loadStarterBusinesses({
-    required double radiusKm,
-    required String categoryLabel,
     required bool forceRefresh,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -135,20 +106,13 @@ class BusinessDirectoryCacheService {
       return local;
     }
 
-    final live = await _loadGooglePlacesStarterBusinesses(
-      radiusKm: radiusKm,
-      categoryLabel: categoryLabel,
-      forceRefresh: forceRefresh,
-    ).catchError((_) => <BusinessDirectoryItem>[]);
-    final merged = _mergeDirectoryItems(local: local, live: live);
-
     debugPrint(
       'FIX_EXPLORE_DIRECTORY_STARTER local=${local.length} '
-      'live=${live.length} merged=${merged.length} '
+      'live=0 merged=${local.length} mode=registeredOnly '
       'elapsedMs=${stopwatch.elapsedMilliseconds}',
     );
 
-    return merged.isNotEmpty ? merged : local;
+    return local;
   }
 
   Future<List<BusinessDirectoryItem>> _loadBusinesses() async {
@@ -271,74 +235,6 @@ class BusinessDirectoryCacheService {
         .where((item) => item.visible && item.hasCoordinate)
         .where((item) => item.distanceKmFrom(position) <= radiusKm)
         .toList(growable: false);
-  }
-
-  Future<List<BusinessDirectoryItem>> _loadGooglePlacesStarterBusinesses({
-    required double radiusKm,
-    required String categoryLabel,
-    required bool forceRefresh,
-  }) async {
-    final rawItems = await _googlePlacesDirectoryService
-        .searchNearbyCoordinates(
-          latitude: _starterLatitude,
-          longitude: _starterLongitude,
-          radiusKm: radiusKm.clamp(10, 35).toDouble(),
-          categoryLabel: categoryLabel,
-          forceRefresh: forceRefresh,
-        )
-        .timeout(
-          _placesTimeout,
-          onTimeout: () => <Map<String, dynamic>>[],
-        );
-
-    return rawItems
-        .map(BusinessDirectoryItem.fromMap)
-        .where((item) => item.visible)
-        .toList(growable: false);
-  }
-
-  List<BusinessDirectoryItem> _mergeDirectoryItems({
-    required List<BusinessDirectoryItem> local,
-    required List<BusinessDirectoryItem> live,
-  }) {
-    final byKey = <String, BusinessDirectoryItem>{};
-
-    void put(BusinessDirectoryItem item) {
-      final key = item.placeId.trim().isNotEmpty
-          ? 'place:${item.placeId.trim()}'
-          : 'id:${item.id.trim()}';
-      final existing = byKey[key];
-
-      if (existing == null) {
-        byKey[key] = item;
-        return;
-      }
-
-      if (existing.isMember) return;
-      if (item.isMember || existing.name.trim().isEmpty) {
-        byKey[key] = item;
-      }
-    }
-
-    for (final item in local) {
-      put(item);
-    }
-    for (final item in live) {
-      put(item);
-    }
-
-    return byKey.values.toList()
-      ..sort((a, b) {
-        if (a.isMember != b.isMember) return a.isMember ? -1 : 1;
-
-        final ratingCompare = b.ratingAvg.compareTo(a.ratingAvg);
-        if (ratingCompare != 0) return ratingCompare;
-
-        final ratingCountCompare = b.ratingCount.compareTo(a.ratingCount);
-        if (ratingCountCompare != 0) return ratingCountCompare;
-
-        return a.name.compareTo(b.name);
-      });
   }
 
   List<BusinessDirectoryItem> _mergeNearbyBusinesses({

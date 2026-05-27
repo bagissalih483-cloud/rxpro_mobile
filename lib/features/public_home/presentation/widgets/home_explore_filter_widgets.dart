@@ -144,10 +144,10 @@ class HomeExploreControlPanel<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = hasPosition ? 'Yakınındaki işletmeler' : 'İstanbul vitrini';
+    final title = hasPosition ? 'Yakınındaki işletmeler' : 'Kayıtlı işletmeler';
     final subtitle = hasPosition
-        ? 'Konumuna göre yaklaşık yakınlık hesaplanıyor'
-        : 'Konum alındığında yakınındaki işletmeler öne çıkar';
+        ? 'Seçili kilometre içindeki kayıtlı işletmeler öne çıkar'
+        : 'Konumdan bağımsız tüm kayıtlı işletmeler listelenir';
     final visibleSortModes = sortModes
         .where((mode) => primarySortMode == null || mode != primarySortMode)
         .toList(growable: false);

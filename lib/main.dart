@@ -950,6 +950,27 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
   void initState() {
     super.initState();
     selectedIndex = FixShellNavState.individualIndex;
+    if (FixShellNavState.individualIndexNotifier.value != selectedIndex) {
+      FixShellNavState.individualIndexNotifier.value = selectedIndex;
+    }
+    FixShellNavState.individualIndexNotifier.addListener(
+      _handleExternalTabChange,
+    );
+  }
+
+  @override
+  void dispose() {
+    FixShellNavState.individualIndexNotifier.removeListener(
+      _handleExternalTabChange,
+    );
+    super.dispose();
+  }
+
+  void _handleExternalTabChange() {
+    final nextIndex = FixShellNavState.individualIndexNotifier.value;
+    if (!mounted || selectedIndex == nextIndex) return;
+
+    setState(() => selectedIndex = nextIndex);
   }
 
   static const titles = ['Keşfet', 'Favori', 'Randevu', 'Kampanya', 'Hesap'];
@@ -1003,8 +1024,10 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
       titles: titles,
       pages: pages,
       onSelected: (index) {
-        FixShellNavState.individualIndex = index;
-        setState(() => selectedIndex = index);
+        FixShellNavState.setIndividualIndex(index);
+        if (selectedIndex != index) {
+          setState(() => selectedIndex = index);
+        }
       },
       destinations: const [
         NavigationDestination(

@@ -495,6 +495,8 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         case _ExploreSortMode.name:
           return a.name.compareTo(b.name);
         case _ExploreSortMode.recommended:
+          if (currentPosition != null) return _compareDistance(a, b);
+
           final score = _businessScore(b).compareTo(_businessScore(a));
           if (score != 0) return score;
           return _compareDistance(a, b);
@@ -505,6 +507,10 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   }
 
   int _compareDistance(BusinessDirectoryItem a, BusinessDirectoryItem b) {
+    if (currentPosition != null && a.isMember != b.isMember) {
+      return a.isMember ? -1 : 1;
+    }
+
     final distance = a
         .distanceKmFrom(currentPosition)
         .compareTo(b.distanceKmFrom(currentPosition));
@@ -571,7 +577,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                     radiusKm: radiusKm,
                   );
                   final sectionTitle = currentPosition == null
-                      ? 'İstanbul’da öne çıkan işletmeler'
+                      ? 'Kayıtlı işletmeler'
                       : 'Yakındaki işletmeler';
                   final emptyTitle = _loadingBusinesses
                       ? 'İşletmeler yükleniyor'
@@ -580,9 +586,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                       : '${radiusKm.round()} km içinde sonuç yok';
                   final emptyText =
                       _loadingBusinesses || !_hasCompletedInitialBusinessLoad
-                      ? 'Önce İstanbul vitrini hazırlanıyor; konum alınırsa yakındaki işletmeler bunun üzerine güncellenecek.'
+                      ? 'Kayıtlı işletmeler hazırlanıyor. Konum alınırsa seçili kilometreye göre yakın işletmeler öne taşınacak.'
                       : currentPosition == null
-                      ? 'Aramayı temizleyin, kategoriyi değiştirin veya konum alarak yakındaki işletmeleri listeleyin.'
+                      ? 'Aramayı temizleyin veya kategori filtresini değiştirerek kayıtlı işletmeleri listeleyin.'
                       : 'Bu konum ve kilometre aralığında kategoriye uygun işletme bulunamadı. Kilometre aralığını büyütün veya konumu tekrar alın.';
                   final waitingForManualLoad =
                       RxRuntimeDiagnostics.disableExploreAutoLoad &&
@@ -655,8 +661,8 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                         RxSectionHeader(
                           title: sectionTitle,
                           subtitle: currentPosition == null
-                              ? 'Kullanıcı konum vermeden önce vitrin boş kalmaz.'
-                              : '${radiusKm.round()} km içinde en yakın işletmeler',
+                              ? 'Konumdan bağımsız tüm kayıtlı işletmeler.'
+                              : '${radiusKm.round()} km içinde kayıtlı işletmeler önce gösterilir.',
                           trailing: RxStatusChip(
                             label: '${filtered.length} sonuç',
                             color: RxColors.success,
@@ -715,7 +721,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                           )
                         else
                           ...filtered
-                              .take(60)
+                              .take(200)
                               .toList(growable: false)
                               .asMap()
                               .entries

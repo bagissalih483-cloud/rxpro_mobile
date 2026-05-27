@@ -12,9 +12,9 @@ class GooglePlacesDirectoryService {
   static const _functionName = 'searchNearbyDirectoryBusinesses';
   static const Duration _cacheTtl = Duration(minutes: 10);
   static const Duration _callTimeout = Duration(seconds: 18);
-  static const int _resultLimit = 80;
-  static const int _allCategorySearchCalls = 12;
-  static const int _singleCategorySearchCalls = 8;
+  static const int _resultLimit = 200;
+  static const int _allCategorySearchCalls = 18;
+  static const int _singleCategorySearchCalls = 12;
   static const Set<String> _supportedLiveCategoryIds = <String>{
     'beauty_care',
     'health_clinic',

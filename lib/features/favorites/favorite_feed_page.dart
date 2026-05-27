@@ -195,53 +195,56 @@ class _FavoriteFeedPageState extends State<FavoriteFeedPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return StreamBuilder(
-      stream: _authService.authStateChanges(),
-      initialData: _authService.currentUser,
-      builder: (context, snapshot) {
-        final user = snapshot.data;
-        _ensureLoaded(user?.uid);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: StreamBuilder(
+        stream: _authService.authStateChanges(),
+        initialData: _authService.currentUser,
+        builder: (context, snapshot) {
+          final user = snapshot.data;
+          _ensureLoaded(user?.uid);
 
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              const _FavoriteHeader(),
-              const SizedBox(height: 12),
-              _FavoriteTabs(
-                selectedIndex: selectedTab,
-                onChanged: (index) {
-                  setState(() => selectedTab = index);
-                },
-              ),
-              const SizedBox(height: 14),
-              if (user == null)
-                const _FavoriteInfoCard(
-                  icon: Icons.lock_outline_rounded,
-                  title: 'Giriş yapmanız gerekiyor',
-                  text:
-                      'Takip ettiğiniz kurumsal kullanıcıları ve kaydettiğiniz paylaşımları görmek için giriş yapın.',
-                )
-              else if (selectedTab == 0)
-                _FavoritePostsSection(
-                  future: feedFuture,
-                  onOpenBusiness: _openBusinessPost,
-                )
-              else if (selectedTab == 1)
-                _FollowedDirectSection(
-                  future: feedFuture,
-                  onOpenBusiness: _openBusinessFollow,
-                )
-              else
-                _SavedPostsSection(
-                  future: savedFuture,
-                  onOpenBusiness: _openBusinessPost,
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                const _FavoriteHeader(),
+                const SizedBox(height: 12),
+                _FavoriteTabs(
+                  selectedIndex: selectedTab,
+                  onChanged: (index) {
+                    setState(() => selectedTab = index);
+                  },
                 ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 14),
+                if (user == null)
+                  const _FavoriteInfoCard(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Giriş yapmanız gerekiyor',
+                    text:
+                        'Takip ettiğiniz kurumsal kullanıcıları ve kaydettiğiniz paylaşımları görmek için giriş yapın.',
+                  )
+                else if (selectedTab == 0)
+                  _FavoritePostsSection(
+                    future: feedFuture,
+                    onOpenBusiness: _openBusinessPost,
+                  )
+                else if (selectedTab == 1)
+                  _FollowedDirectSection(
+                    future: feedFuture,
+                    onOpenBusiness: _openBusinessFollow,
+                  )
+                else
+                  _SavedPostsSection(
+                    future: savedFuture,
+                    onOpenBusiness: _openBusinessPost,
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -256,14 +259,22 @@ class _FavoriteHeader extends StatelessWidget {
       children: [
         Text(
           'Favori',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+          ),
         ),
         SizedBox(height: 4),
         Text(
           'Takip ettiğiniz kurumsal kullanıcılar, paylaşımlar ve kaydedilen içerikler.',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: Color(0xFF6B7280),
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
+            height: 1.25,
           ),
         ),
       ],

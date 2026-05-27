@@ -626,7 +626,7 @@ exports.searchNearbyDirectoryBusinesses = onCall(
     }
 
     const radiusMeters = clampNumber(data.radiusMeters, 500, 50000, 10000);
-    const maxResultCount = Math.round(clampNumber(data.limit, 1, 80, 60));
+    const maxResultCount = Math.round(clampNumber(data.limit, 1, 200, 120));
     const maxSearchCalls = Math.round(clampNumber(data.maxSearchCalls, 1, 20, 10));
     const categoryId = directoryCategoryId(data);
     const plannedQueries = directoryTypeQueriesForCategory(categoryId)
