@@ -1,0 +1,16 @@
+﻿{
+  "firestore": {
+    "rules": "infra/rules/firestore.rules",
+    "indexes": "infra/rules/firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "infra/rules/storage.rules"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": ["node_modules", ".git", "firebase-debug.log", "firebase-debug.*.log"]
+    }
+  ]
+}

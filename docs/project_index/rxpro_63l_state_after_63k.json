@@ -1,0 +1,38 @@
+{
+  "step": "63L_PROJECT_INDEX_UPDATE_AFTER_63K_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_63K",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "63K_BUILD_LOCK_AFTER_63J_PARTIAL_INFO_CLEANUP",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "servicesMigration": {
+    "businessServicesListRepositoryBased": true,
+    "toggleRepositoryBased": true,
+    "deleteRepositoryBased": true,
+    "serviceFormSaveRepositoryBased": true,
+    "directFirebaseRemovedFromServicesPage": true,
+    "serviceTypeDropdownInitialValue": true,
+    "protectedDomainsTouched": false,
+    "productionDeploy": false,
+    "changedFiles": [
+      "lib\\features\\businesses\\business_services_manage_page.dart",
+      "lib\\features\\businesses\\data\\business_services_repository.dart"
+    ]
+  },
+  "targetAnalyze": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 1,
+    "parkedInfo": [
+      "business_services_manage_page.dart:645:25 curly_braces_in_flow_control_structures"
+    ]
+  },
+  "nextRecommendedRoute": [
+    "64A_BUSINESSES_NEXT_SAFE_CANDIDATE_AUDIT_ONLY"
+  ]
+}

@@ -1,0 +1,177 @@
+// FIX Firestore Rules Draft - 51A-I
+// DO NOT DEPLOY DIRECTLY.
+// This file is documentation/staging draft only.
+// This draft repairs the 51A-H static findings in docs only.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function hasBusinessId(data) {
+      return data.businessId is string && data.businessId.size() > 0;
+    }
+
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function businessDoc(businessId) {
+      return get(/databases/$(database)/documents/businesses/$(businessId));
+    }
+
+    function isBusinessOwnerByBusinessDoc(businessId) {
+      return signedIn() && exists(/databases/$(database)/documents/businesses/$(businessId)) && (
+        businessDoc(businessId).data.ownerUid == request.auth.uid ||
+        businessDoc(businessId).data.ownerId == request.auth.uid ||
+        businessDoc(businessId).data.businessOwnerUid == request.auth.uid ||
+        businessDoc(businessId).data.userId == request.auth.uid ||
+        businessDoc(businessId).data.uid == request.auth.uid ||
+        businessDoc(businessId).data.createdBy == request.auth.uid ||
+        businessDoc(businessId).data.adminUid == request.auth.uid ||
+        businessDoc(businessId).data.managerUid == request.auth.uid
+      );
+    }
+
+    function isBusinessOwnerByUserDoc(businessId) {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        userDoc(request.auth.uid).data.businessId == businessId ||
+        userDoc(request.auth.uid).data.ownedBusinessId == businessId ||
+        userDoc(request.auth.uid).data.activeBusinessId == businessId ||
+        userDoc(request.auth.uid).data.selectedBusinessId == businessId
+      );
+    }
+
+    function isBusinessOwner(businessId) {
+      return isBusinessOwnerByBusinessDoc(businessId) || isBusinessOwnerByUserDoc(businessId);
+    }
+
+    function isBusinessMemberByUserDoc(businessId) {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        userDoc(request.auth.uid).data.activeBusinessId == businessId ||
+        userDoc(request.auth.uid).data.staffBusinessId == businessId ||
+        userDoc(request.auth.uid).data.businessId == businessId
+      );
+    }
+
+    function isBusinessMember(businessId) {
+      return isBusinessOwner(businessId) || isBusinessMemberByUserDoc(businessId);
+    }
+
+    function notificationRecipient(data) {
+      return signedIn() && (
+        (data.targetScope == 'user' && data.recipientUid == request.auth.uid) ||
+        (data.targetScope == 'business' && data.businessId is string && isBusinessMember(data.businessId))
+      );
+    }
+
+    function messageParticipant(data) {
+      return signedIn() && (
+        data.customerUid == request.auth.uid ||
+        data.senderUid == request.auth.uid ||
+        data.recipientUid == request.auth.uid ||
+        (data.businessId is string && isBusinessMember(data.businessId))
+      );
+    }
+
+    function threadParticipant(threadId) {
+      return signedIn() && exists(/databases/$(database)/documents/messageThreads/$(threadId)) &&
+        messageParticipant(get(/databases/$(database)/documents/messageThreads/$(threadId)).data);
+    }
+
+    function createsOwnBusiness(data) {
+      return signedIn() && (
+        data.ownerUid == request.auth.uid ||
+        data.ownerId == request.auth.uid ||
+        data.businessOwnerUid == request.auth.uid ||
+        data.userId == request.auth.uid ||
+        data.uid == request.auth.uid ||
+        data.createdBy == request.auth.uid ||
+        data.adminUid == request.auth.uid ||
+        data.managerUid == request.auth.uid
+      );
+    }
+
+    match /users/{uid} {
+      allow read, create: if isSelf(uid);
+      allow update: if isSelf(uid);
+      allow delete: if false;
+
+      match /fcmTokens/{tokenId} {
+        allow read, create, update, delete: if isSelf(uid);
+      }
+    }
+
+    match /businesses/{businessId} {
+      allow read: if true;
+      allow create: if createsOwnBusiness(request.resource.data);
+      allow update: if isBusinessOwner(businessId);
+      allow delete: if false;
+    }
+
+    match /businessStaff/{staffId} {
+      allow read: if signedIn() && (isBusinessOwner(resource.data.businessId) || resource.data.linkedUid == request.auth.uid || isBusinessMember(resource.data.businessId));
+      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessOwner(request.resource.data.businessId);
+      allow update: if signedIn() && hasBusinessId(resource.data) && (isBusinessOwner(resource.data.businessId) || resource.data.linkedUid == request.auth.uid);
+      allow delete: if false;
+    }
+
+    match /businessServices/{serviceId} {
+      allow read: if true;
+      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessOwner(request.resource.data.businessId);
+      allow update: if signedIn() && hasBusinessId(resource.data) && isBusinessOwner(resource.data.businessId);
+      allow delete: if false;
+    }
+
+    match /appointments/{appointmentId} {
+      allow read: if signedIn() && (resource.data.customerUid == request.auth.uid || isBusinessMember(resource.data.businessId));
+      allow create: if signedIn() && hasBusinessId(request.resource.data) && (request.resource.data.customerUid == request.auth.uid || isBusinessMember(request.resource.data.businessId));
+      allow update: if signedIn() && hasBusinessId(resource.data) && (resource.data.customerUid == request.auth.uid || isBusinessMember(resource.data.businessId));
+      allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if notificationRecipient(resource.data);
+      allow create: if notificationRecipient(request.resource.data);
+      allow update: if notificationRecipient(resource.data);
+      allow delete: if false;
+    }
+
+    match /messageThreads/{threadId} {
+      allow read: if messageParticipant(resource.data);
+      allow create: if messageParticipant(request.resource.data);
+      allow update: if messageParticipant(resource.data);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if threadParticipant(threadId);
+        allow create: if threadParticipant(threadId);
+        allow update: if threadParticipant(threadId);
+        allow delete: if false;
+      }
+    }
+
+    match /businessExpenses/{expenseId} {
+      allow read: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
+      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessMember(request.resource.data.businessId);
+      allow update: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
+      allow delete: if false;
+    }
+
+    match /businessActivityLogs/{logId} {
+      allow read: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
+      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessMember(request.resource.data.businessId);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

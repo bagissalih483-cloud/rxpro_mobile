@@ -1,0 +1,96 @@
+// FIX Finance Rules Draft - 51B-G
+// DO NOT DEPLOY DIRECTLY.
+// This file is documentation/staging draft only.
+// Production infra/rules/firestore.rules is not modified by this step.
+
+// Finance target helper rules draft:
+// - businessExpenses
+// - financeRecords
+// - businessFinanceRecords
+// - businessActivityLogs
+// - businesses/{businessId}/accounting* subcollections
+
+function financeSignedIn() {
+  return request.auth != null;
+}
+
+function financeHasBusinessId(data) {
+  return data.businessId is string && data.businessId.size() > 0;
+}
+
+function financeCanReadBusinessFinance(businessId) {
+  return isBusinessOwner(businessId) || isBusinessMember(businessId);
+}
+
+function financeCanWriteBusinessFinance(businessId) {
+  // Final production version should prefer owner or explicit finance permission.
+  return isBusinessOwner(businessId);
+}
+
+// Legacy active financeRecords draft:
+match /financeRecords/{recordId} {
+  allow read: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanReadBusinessFinance(resource.data.businessId);
+  allow create: if financeSignedIn() && financeHasBusinessId(request.resource.data) && financeCanWriteBusinessFinance(request.resource.data.businessId);
+  allow update: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanWriteBusinessFinance(resource.data.businessId);
+  allow delete: if false;
+}
+
+// Legacy active businessExpenses draft:
+match /businessExpenses/{expenseId} {
+  allow read: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanReadBusinessFinance(resource.data.businessId);
+  allow create: if financeSignedIn() && financeHasBusinessId(request.resource.data) && financeCanWriteBusinessFinance(request.resource.data.businessId);
+  allow update: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanWriteBusinessFinance(resource.data.businessId);
+  allow delete: if false;
+}
+
+// Legacy businessFinanceRecords draft:
+match /businessFinanceRecords/{recordId} {
+  allow read: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanReadBusinessFinance(resource.data.businessId);
+  allow create: if financeSignedIn() && financeHasBusinessId(request.resource.data) && financeCanWriteBusinessFinance(request.resource.data.businessId);
+  allow update: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanWriteBusinessFinance(resource.data.businessId);
+  allow delete: if false;
+}
+
+// Activity logs draft:
+match /businessActivityLogs/{logId} {
+  allow read: if financeSignedIn() && financeHasBusinessId(resource.data) && financeCanReadBusinessFinance(resource.data.businessId);
+  allow create: if financeSignedIn() && financeHasBusinessId(request.resource.data) && financeCanWriteBusinessFinance(request.resource.data.businessId);
+  allow update, delete: if false;
+}
+
+// Canonical accounting nested collections draft:
+match /businesses/{businessId}/accountingSales/{saleId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}
+
+match /businesses/{businessId}/accountingPayments/{paymentId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}
+
+match /businesses/{businessId}/accountingReceivables/{receivableId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}
+
+match /businesses/{businessId}/accountingExpenses/{expenseId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}
+
+match /businesses/{businessId}/accountingRecurringExpenses/{recurringExpenseId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}
+
+match /businesses/{businessId}/accountingReports/{reportId} {
+  allow read: if financeCanReadBusinessFinance(businessId);
+  allow create, update: if financeCanWriteBusinessFinance(businessId);
+  allow delete: if false;
+}

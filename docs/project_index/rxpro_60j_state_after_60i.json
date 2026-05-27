@@ -1,0 +1,38 @@
+{
+  "step": "60J_PROJECT_INDEX_UPDATE_AFTER_60I_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_60I",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "60I_BUILD_LOCK_AFTER_60H_REV6",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "cleanup": {
+    "step": "60H_REV6_EXACT_SAFE_UNUSED_PRIVATE_DECL_CLEANUP_NOBUILD",
+    "status": "PATCH_PASS_NOBUILD",
+    "removedPrivateDeclarations": 9,
+    "changedFiles": [
+      "lib\\features\\favorites\\favorite_feed_page.dart",
+      "lib\\features\\public_home\\account_entry_page.dart"
+    ]
+  },
+  "analyzeBaseline": {
+    "errors": 0,
+    "warnings": 24,
+    "info": 107,
+    "total": 131
+  },
+  "protectedDomains": [
+    "notifications/push/FCM",
+    "messages/chat",
+    "appointment core",
+    "finance core",
+    "staff_workspace",
+    "Firestore rules/index/functions",
+    "locked lines"
+  ],
+  "nextRecommendedRoute": "Return to main product checklist; keep analyze cleanup parked unless explicitly requested."
+}

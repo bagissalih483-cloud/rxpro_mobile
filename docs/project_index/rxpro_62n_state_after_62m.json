@@ -1,0 +1,40 @@
+{
+  "step": "62N_PROJECT_INDEX_UPDATE_AFTER_62M_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_62M",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "62M_BUILD_LOCK_AFTER_62L_BUSINESS_CATEGORY_SAVE_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "businessesMigration": {
+    "nextCandidateAudit": "62J",
+    "categorySaveAudit": "62K",
+    "categorySaveWiring": "62L",
+    "buildLock": "62M",
+    "changedFiles": [
+      "lib\\features\\businesses\\business_category_required_page.dart",
+      "lib\\features\\businesses\\data\\registered_business_gateway_repository.dart"
+    ],
+    "categorySaveRepositoryBased": true,
+    "directFirebaseRemovedFromCategoryPage": true,
+    "protectedDomainsTouched": false,
+    "productionDeploy": false
+  },
+  "targetAnalyze": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 2,
+    "infoDetails": [
+      "business_category_required_page.dart groupValue deprecated",
+      "business_category_required_page.dart onChanged deprecated"
+    ]
+  },
+  "nextRecommendedRoute": [
+    "62O_BUSINESSES_NEXT_SAFE_CANDIDATE_AUDIT_ONLY",
+    "62O_BUSINESS_CATEGORY_RADIO_DEPRECATION_EXACT_AUDIT_ONLY"
+  ]
+}

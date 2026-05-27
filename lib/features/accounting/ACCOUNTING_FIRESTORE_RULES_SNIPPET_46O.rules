@@ -1,0 +1,56 @@
+/*
+  46O MUHASEBE RULES TASLAÄI
+
+  Bu snippet doÄŸrudan deploy edilmemelidir.
+  Mevcut firestore.rules yapÄ±sÄ± analiz edilip elle/patch ile kontrollÃ¼ entegre edilecektir.
+*/
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function isBusinessOwner(businessId) {
+  return isSignedIn()
+    && exists(/databases/$(database)/documents/businesses/$(businessId))
+    && (
+      get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid
+      || get(/databases/$(database)/documents/businesses/$(businessId)).data.uid == request.auth.uid
+      || get(/databases/$(database)/documents/businesses/$(businessId)).data.createdByUid == request.auth.uid
+    );
+}
+
+function hasBusinessPermission(businessId, permissionKey) {
+  return isSignedIn()
+    && exists(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid))
+    && get(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid)).data.permissions[permissionKey] == true;
+}
+
+function canReadAccounting(businessId) {
+  return isBusinessOwner(businessId)
+    || hasBusinessPermission(businessId, 'financeRead');
+}
+
+match /businesses/{businessId}/accountingSales/{saleId} {
+  allow read: if canReadAccounting(businessId);
+  allow write: if false; // Callable Function dÄ±ÅŸÄ± kapalÄ±.
+}
+
+match /businesses/{businessId}/accountingPayments/{paymentId} {
+  allow read: if canReadAccounting(businessId);
+  allow write: if false;
+}
+
+match /businesses/{businessId}/accountingReceivables/{receivableId} {
+  allow read: if canReadAccounting(businessId);
+  allow write: if false;
+}
+
+match /businesses/{businessId}/accountingExpenses/{expenseId} {
+  allow read: if canReadAccounting(businessId);
+  allow write: if false;
+}
+
+match /businesses/{businessId}/accountingRecurringExpenses/{expenseId} {
+  allow read: if canReadAccounting(businessId);
+  allow write: if false;
+}

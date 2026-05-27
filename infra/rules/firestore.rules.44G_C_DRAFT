@@ -1,0 +1,510 @@
+﻿rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function myUserExists() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function myUser() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function cleanId(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function hasAccountKind(kind) {
+      return myUserExists() && myUser().accountKind == kind;
+    }
+
+    function myCorporateBusinessMatches(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && myUserExists()
+        && myUser().accountKind == "corporate"
+        && (
+          myUser().businessId == businessId
+          || myUser().ownedBusinessId == businessId
+          || myUser().activeBusinessId == businessId
+          || myUser().selectedBusinessId == businessId
+          || myUser().staffBusinessId == businessId
+        );
+    }
+
+    function isBusinessOwnerByUserDoc(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && myUserExists()
+        && myUser().accountKind == "corporate"
+        && (
+          myUser().role == "businessOwner"
+          || myUser().role == "corporateOwner"
+          || myUser().legacyRole == "businessOwner"
+          || myUser().isBusinessOwner == true
+        )
+        && (
+          myUser().ownedBusinessId == businessId
+          || myUser().businessId == businessId
+          || myUser().activeBusinessId == businessId
+          || myUser().selectedBusinessId == businessId
+        );
+    }
+
+    function isBusinessOwnerByBusinessDoc(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && exists(/databases/$(database)/documents/businesses/$(businessId))
+        && (
+          get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.businessOwnerUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.createdBy == request.auth.uid
+        );
+    }
+
+    function isBusinessOwner(businessId) {
+      return isBusinessOwnerByUserDoc(businessId)
+        || isBusinessOwnerByBusinessDoc(businessId);
+    }
+
+    function isCorporateStaffForBusiness(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && myUserExists()
+        && myUser().accountKind == "corporate"
+        && (
+          myUser().role == "corporateStaff"
+          || myUser().role == "staff"
+          || myUser().legacyRole == "staff"
+        )
+        && (
+          myUser().activeBusinessId == businessId
+          || myUser().staffBusinessId == businessId
+          || myUser().businessId == businessId
+        );
+    }
+
+    function staffHasPermission(permissionKey) {
+      return myUserExists()
+        && myUser().permissions is map
+        && myUser().permissions[permissionKey] == true;
+    }
+
+    function canReadBusinessData(businessId) {
+      return isBusinessOwner(businessId)
+        || isCorporateStaffForBusiness(businessId);
+    }
+
+    function canWriteBusinessData(businessId, permissionKey) {
+      return isBusinessOwner(businessId)
+        || (
+          isCorporateStaffForBusiness(businessId)
+          && staffHasPermission(permissionKey)
+        );
+    }
+
+    function isOwnUserData(data) {
+      return signedIn()
+        && (
+          data.userId == request.auth.uid
+          || data.uid == request.auth.uid
+          || data.customerId == request.auth.uid
+          || data.customerUid == request.auth.uid
+          || data.clientUid == request.auth.uid
+          || data.recipientUid == request.auth.uid
+          || data.targetUid == request.auth.uid
+          || data.targetUserId == request.auth.uid
+          || data.receiverUid == request.auth.uid
+        );
+    }
+
+    function hasBusinessId(data) {
+      return cleanId(data.businessId);
+    }
+
+    function canReadByUserOrBusiness(data) {
+      return signedIn()
+        && (
+          isOwnUserData(data)
+          || (hasBusinessId(data) && canReadBusinessData(data.businessId))
+        );
+    }
+
+    function canWriteByUserOrBusiness(data, permissionKey) {
+      return signedIn()
+        && (
+          isOwnUserData(data)
+          || (
+            hasBusinessId(data)
+            && canWriteBusinessData(data.businessId, permissionKey)
+          )
+        );
+    }
+
+    function isParticipant(data) {
+      return signedIn()
+        && (
+          isOwnUserData(data)
+          || (
+            data.participants is list
+            && request.auth.uid in data.participants
+          )
+          || (
+            data.participantIds is list
+            && request.auth.uid in data.participantIds
+          )
+          || (
+            hasBusinessId(data)
+            && canReadBusinessData(data.businessId)
+          )
+        );
+    }
+
+    function isPublicBusinessRead() {
+      return true;
+    }
+
+    // ------------------------------------------------------------
+    // USERS
+    // ------------------------------------------------------------
+
+    match /users/{uid} {
+      allow get: if isSelf(uid);
+      allow list: if false;
+
+      // Geçiş dönemi: uygulama client tarafında kullanıcı belgesi oluşturuyor.
+      // Nihai yapıda role/accountKind/businessId değişimleri Cloud Functions ile yapılmalı.
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid;
+
+      allow update: if isSelf(uid)
+        && (!("uid" in request.resource.data) || request.resource.data.uid == uid);
+
+      allow delete: if false;
+
+      match /fcmTokens/{tokenId} {
+        allow read, create, update, delete: if isSelf(uid);
+      }
+
+      match /{document=**} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // Top-level fcmTokens kullanımı varsa kullanıcı sahipliği aranır.
+    match /fcmTokens/{tokenId} {
+      allow read: if false;
+      allow create, update, delete: if signedIn()
+        && (
+          request.resource.data.uid == request.auth.uid
+          || request.resource.data.userId == request.auth.uid
+          || request.resource.data.ownerUid == request.auth.uid
+        );
+    }
+
+    // ------------------------------------------------------------
+    // BUSINESSES / PUBLIC PROFILE
+    // ------------------------------------------------------------
+
+    match /businesses/{businessId} {
+      allow read: if isPublicBusinessRead();
+
+      allow create: if signedIn()
+        && (
+          request.resource.data.ownerUid == request.auth.uid
+          || request.resource.data.ownerId == request.auth.uid
+          || request.resource.data.businessOwnerUid == request.auth.uid
+          || request.resource.data.createdBy == request.auth.uid
+        );
+
+      allow update: if isBusinessOwner(businessId);
+
+      allow delete: if false;
+
+      match /{document=**} {
+        allow read: if true;
+        allow write: if isBusinessOwner(businessId);
+      }
+    }
+
+    // ------------------------------------------------------------
+    // APPOINTMENTS
+    // ------------------------------------------------------------
+
+    match /appointments/{appointmentId} {
+      allow read: if canReadByUserOrBusiness(resource.data);
+
+      allow create: if signedIn()
+        && (
+          isOwnUserData(request.resource.data)
+          || (
+            hasBusinessId(request.resource.data)
+            && canWriteBusinessData(request.resource.data.businessId, "appointmentsWrite")
+          )
+        );
+
+      allow update: if signedIn()
+        && (
+          canWriteByUserOrBusiness(resource.data, "appointmentsWrite")
+          || canWriteByUserOrBusiness(request.resource.data, "appointmentsWrite")
+        );
+
+      allow delete: if hasBusinessId(resource.data)
+        && canWriteBusinessData(resource.data.businessId, "appointmentsWrite");
+    }
+
+    // ------------------------------------------------------------
+    // NOTIFICATIONS
+    // ------------------------------------------------------------
+
+    match /notifications/{notificationId} {
+      allow read: if canReadByUserOrBusiness(resource.data);
+
+      allow create: if signedIn()
+        && (
+          isOwnUserData(request.resource.data)
+          || (
+            hasBusinessId(request.resource.data)
+            && canWriteBusinessData(request.resource.data.businessId, "notificationsWrite")
+          )
+        );
+
+      allow update: if canReadByUserOrBusiness(resource.data);
+
+      allow delete: if false;
+    }
+
+    match /customerNotifications/{notificationId} {
+      allow read, update: if canReadByUserOrBusiness(resource.data);
+      allow create: if signedIn();
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------
+    // STAFF / PERMISSIONS
+    // ------------------------------------------------------------
+
+    match /businessStaff/{staffId} {
+      allow read: if signedIn()
+        && (
+          isOwnUserData(resource.data)
+          || (
+            hasBusinessId(resource.data)
+            && canReadBusinessData(resource.data.businessId)
+          )
+        );
+
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && isBusinessOwner(request.resource.data.businessId);
+    }
+
+    // ------------------------------------------------------------
+    // SERVICES / PUBLIC BUSINESS CONTENT
+    // ------------------------------------------------------------
+
+    match /businessServices/{serviceId} {
+      allow read: if true;
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "servicesManage");
+    }
+
+    match /businessCampaigns/{campaignId} {
+      allow read: if true;
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "campaignWrite");
+    }
+
+    match /businessProfilePosts/{postId} {
+      allow read: if true;
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "profileEdit");
+    }
+
+    match /businessProfilePostLikes/{likeId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn()
+        && (
+          request.resource.data.userId == request.auth.uid
+          || request.resource.data.uid == request.auth.uid
+        );
+    }
+
+    match /businessProfilePostSaves/{saveId} {
+      allow read, create, update, delete: if signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || request.resource.data.userId == request.auth.uid
+          || resource.data.uid == request.auth.uid
+          || request.resource.data.uid == request.auth.uid
+        );
+    }
+
+    match /businessStories/{storyId} {
+      allow read: if true;
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "profileEdit");
+    }
+
+    match /businessReviews/{reviewId} {
+      allow read: if true;
+      allow create: if signedIn() && isOwnUserData(request.resource.data);
+      allow update, delete: if signedIn() && isOwnUserData(resource.data);
+    }
+
+    match /businessRatings/{ratingId} {
+      allow read: if true;
+      allow create: if signedIn() && isOwnUserData(request.resource.data);
+      allow update, delete: if signedIn() && isOwnUserData(resource.data);
+    }
+
+    match /businessFollowers/{followId} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn()
+        && (
+          request.resource.data.userId == request.auth.uid
+          || request.resource.data.uid == request.auth.uid
+          || resource.data.userId == request.auth.uid
+          || resource.data.uid == request.auth.uid
+        );
+    }
+
+    // ------------------------------------------------------------
+    // MESSAGES
+    // ------------------------------------------------------------
+
+    match /messageThreads/{threadId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if signedIn() && isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if signedIn() && isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if signedIn() && isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+    }
+
+    match /chatThreads/{threadId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if signedIn() && isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+    }
+
+    match /directMessages/{messageId} {
+      allow read: if isParticipant(resource.data);
+      allow create: if signedIn() && isParticipant(request.resource.data);
+      allow update: if isParticipant(resource.data);
+      allow delete: if false;
+    }
+
+    match /businessCustomerMessages/{messageId} {
+      allow read: if canReadByUserOrBusiness(resource.data);
+      allow create: if signedIn() && canWriteByUserOrBusiness(request.resource.data, "messagesWrite");
+      allow update: if canReadByUserOrBusiness(resource.data);
+      allow delete: if false;
+    }
+
+    match /customerMessages/{messageId} {
+      allow read: if canReadByUserOrBusiness(resource.data);
+      allow create: if signedIn();
+      allow update: if canReadByUserOrBusiness(resource.data);
+      allow delete: if false;
+    }
+
+    match /userMessages/{messageId} {
+      allow read: if canReadByUserOrBusiness(resource.data);
+      allow create: if signedIn();
+      allow update: if canReadByUserOrBusiness(resource.data);
+      allow delete: if false;
+    }
+
+    // ------------------------------------------------------------
+    // FINANCE / POS / STOCK / PRODUCTS
+    // ------------------------------------------------------------
+
+    match /businessExpenses/{expenseId} {
+      allow read: if hasBusinessId(resource.data)
+        && canWriteBusinessData(resource.data.businessId, "financeRead");
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "financeWrite");
+    }
+
+    match /businessFinanceRecords/{recordId} {
+      allow read: if hasBusinessId(resource.data)
+        && canWriteBusinessData(resource.data.businessId, "financeRead");
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "financeWrite");
+    }
+
+    match /businessProducts/{productId} {
+      allow read: if true;
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "stockManage");
+    }
+
+    match /businessProductSales/{saleId} {
+      allow read: if hasBusinessId(resource.data)
+        && canWriteBusinessData(resource.data.businessId, "financeRead");
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "posUse");
+    }
+
+    match /businessProductPurchases/{purchaseId} {
+      allow read: if hasBusinessId(resource.data)
+        && canWriteBusinessData(resource.data.businessId, "financeRead");
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "stockManage");
+    }
+
+    match /businessActivityLogs/{logId} {
+      allow read: if hasBusinessId(resource.data)
+        && canReadBusinessData(resource.data.businessId);
+      allow create: if hasBusinessId(request.resource.data)
+        && canReadBusinessData(request.resource.data.businessId);
+      allow update, delete: if false;
+    }
+
+    // ------------------------------------------------------------
+    // BULK MESSAGES / DRAFTS
+    // ------------------------------------------------------------
+
+    match /bulkMessageDrafts/{draftId} {
+      allow read: if hasBusinessId(resource.data)
+        && canReadBusinessData(resource.data.businessId);
+      allow create, update, delete: if hasBusinessId(request.resource.data)
+        && canWriteBusinessData(request.resource.data.businessId, "campaignWrite");
+    }
+
+    // ------------------------------------------------------------
+    // DEFAULT DENY
+    // ------------------------------------------------------------
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

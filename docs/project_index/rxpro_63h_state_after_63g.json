@@ -1,0 +1,46 @@
+{
+  "step": "63H_PROJECT_INDEX_UPDATE_AFTER_63G_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_63G",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "63G_BUILD_LOCK_AFTER_63F_REV1_BUSINESS_SERVICES_FULL_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "servicesMigration": {
+    "listStreamWiring": "62Q",
+    "listStreamFieldCleanup": "62Q_REV1",
+    "toggleDeletePatch": "63B_REV1",
+    "serviceFormSaveAudit": "63E",
+    "serviceFormSavePatch": "63F",
+    "unusedImportCleanup": "63F_REV1",
+    "buildLock": "63G",
+    "changedFiles": [
+      "lib\\features\\businesses\\business_services_manage_page.dart",
+      "lib\\features\\businesses\\data\\business_services_repository.dart"
+    ],
+    "businessServicesListRepositoryBased": true,
+    "toggleRepositoryBased": true,
+    "deleteRepositoryBased": true,
+    "serviceFormSaveRepositoryBased": true,
+    "directFirebaseRemovedFromServicesPage": true,
+    "protectedDomainsTouched": false,
+    "productionDeploy": false
+  },
+  "targetAnalyze": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 2,
+    "infoDetails": [
+      "business_services_manage_page.dart deprecated value usage",
+      "business_services_manage_page.dart if statement should use braces"
+    ]
+  },
+  "nextRecommendedRoute": [
+    "63I_BUSINESS_SERVICES_LOCAL_INFO_CLEANUP_EXACT_AUDIT_ONLY",
+    "63I_BUSINESSES_NEXT_SAFE_CANDIDATE_AUDIT_ONLY"
+  ]
+}

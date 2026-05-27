@@ -1,0 +1,67 @@
+﻿# RxPro Firestore Usage Dictionary
+
+Generated: 20260524_224933
+
+| Path | Firebase | Collection | Doc | Set | Add | Update | Delete | Snapshots | Get | Risk |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| lib/features/appointments/appointment_entry_page.dart | 2 | 2 | 0 | 0 | 5 | 0 | 0 | 2 | 0 | HIGH |
+| lib/features/appointments/customer_appointments_page.dart | 4 | 4 | 4 | 3 | 0 | 0 | 0 | 0 | 1 | HIGH |
+| lib/features/appointments/data/customer_appointment_repository.dart | 3 | 1 | 2 | 1 | 2 | 0 | 0 | 1 | 1 | HIGH |
+| lib/features/appointments/data/firestore_appointment_repository.dart | 3 | 4 | 2 | 0 | 1 | 0 | 0 | 0 | 3 | HIGH |
+| lib/features/auth/data/fix_login_gate_repository.dart | 3 | 2 | 5 | 3 | 0 | 0 | 9 | 0 | 3 | HIGH |
+| lib/features/auth/fix_login_gate_page.dart | 1 | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 3 | HIGH |
+| lib/features/business/data/business_profile_post_interaction_repository.dart | 3 | 9 | 9 | 3 | 0 | 5 | 2 | 2 | 4 | HIGH |
+| lib/features/business/pages/business_profile_edit_entry_page.dart | 5 | 5 | 3 | 1 | 0 | 0 | 0 | 0 | 4 | HIGH |
+| lib/features/business/pages/business_profile_edit_page.dart | 1 | 1 | 1 | 3 | 0 | 0 | 0 | 0 | 1 | HIGH |
+| lib/features/business_analysis/business_analysis_page.dart | 0 | 0 | 0 | 0 | 14 | 0 | 0 | 0 | 0 | HIGH |
+| lib/features/business_analysis/business_product_movement_page.dart | 2 | 2 | 0 | 0 | 1 | 0 | 0 | 1 | 0 | HIGH |
+| lib/features/businesses/business_appointment_management_page.dart | 3 | 22 | 20 | 16 | 2 | 0 | 0 | 1 | 1 | HIGH |
+| lib/features/businesses/business_duration_analytics_page.dart | 1 | 1 | 0 | 0 | 3 | 0 | 0 | 1 | 0 | HIGH |
+| lib/features/businesses/business_finance_page.dart | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 0 | 0 | HIGH |
+| lib/features/businesses/business_live_flow_page.dart | 3 | 3 | 0 | 0 | 0 | 0 | 0 | 3 | 0 | HIGH |
+| lib/features/businesses/business_owner_hub_page.dart | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 0 | 2 | HIGH |
+| lib/features/businesses/business_products_page.dart | 3 | 3 | 0 | 3 | 1 | 0 | 1 | 1 | 1 | HIGH |
+| lib/features/businesses/business_profile_page.dart | 10 | 11 | 8 | 6 | 2 | 0 | 1 | 2 | 4 | HIGH |
+| lib/features/businesses/business_services_manage_page.dart | 2 | 2 | 1 | 2 | 1 | 0 | 1 | 1 | 0 | HIGH |
+| lib/features/businesses/business_staff_manage_page.dart | 2 | 2 | 0 | 1 | 1 | 0 | 0 | 0 | 1 | HIGH |
+| lib/features/businesses/data/business_profile_repository.dart | 3 | 9 | 2 | 0 | 0 | 0 | 0 | 5 | 4 | HIGH |
+| lib/features/businesses/data/business_staff_repository.dart | 3 | 3 | 3 | 2 | 2 | 0 | 2 | 1 | 1 | HIGH |
+| lib/features/businesses/data/registered_business_gateway_repository.dart | 3 | 4 | 2 | 1 | 4 | 0 | 0 | 0 | 3 | HIGH |
+| lib/features/businesses/staff_tasks_entry_page.dart | 2 | 4 | 2 | 1 | 4 | 0 | 0 | 0 | 3 | HIGH |
+| lib/features/businesses/staff_workspace_page.dart | 2 | 5 | 0 | 4 | 8 | 0 | 0 | 1 | 0 | HIGH |
+| lib/features/campaigns/bulk_message_create_page.dart | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | HIGH |
+| lib/features/campaigns/business_campaigns_page.dart | 2 | 2 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | HIGH |
+| lib/features/campaigns/campaign_ai_create_safe_page.dart | 2 | 4 | 2 | 1 | 3 | 0 | 0 | 0 | 3 | HIGH |
+| lib/features/favorites/data/favorite_feed_repository.dart | 3 | 6 | 3 | 0 | 8 | 0 | 0 | 0 | 10 | HIGH |
+| lib/features/favorites/favorite_feed_page.dart | 6 | 7 | 2 | 0 | 3 | 0 | 0 | 0 | 6 | HIGH |
+| lib/features/finance/data/business_finance_repository.dart | 3 | 3 | 0 | 0 | 1 | 0 | 0 | 2 | 4 | HIGH |
+| lib/features/finance/services/finance_record_service.dart | 3 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | HIGH |
+| lib/features/messages/data/chat_repository.dart | 3 | 2 | 3 | 5 | 0 | 0 | 0 | 7 | 2 | HIGH |
+| lib/features/messages/messages_inbox_page.dart | 3 | 21 | 14 | 7 | 2 | 0 | 0 | 7 | 1 | HIGH |
+| lib/features/public_home/account_entry_page.dart | 5 | 5 | 2 | 0 | 1 | 0 | 0 | 4 | 3 | HIGH |
+| lib/features/public_home/home_explore_page.dart | 2 | 2 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | HIGH |
+| lib/features/staff_invites/staff_invite_service.dart | 3 | 8 | 4 | 4 | 1 | 0 | 0 | 0 | 4 | HIGH |
+| lib/features/stories/business_story_service.dart | 2 | 6 | 3 | 2 | 5 | 0 | 0 | 1 | 2 | HIGH |
+| lib/core/realtime/rx_notification_service.dart | 1 | 1 | 2 | 2 | 1 | 0 | 0 | 0 | 0 | LOCKED/HIGH |
+| lib/core/realtime/rx_push_notification_service.dart | 5 | 8 | 6 | 7 | 0 | 0 | 0 | 0 | 2 | LOCKED/HIGH |
+| lib/features/notifications/data/customer_notification_repository.dart | 3 | 1 | 2 | 2 | 2 | 0 | 0 | 1 | 0 | LOCKED/HIGH |
+| lib/features/notifications/domain/notification_service.dart | 3 | 2 | 1 | 1 | 2 | 0 | 0 | 0 | 0 | LOCKED/HIGH |
+| lib/features/notifications/notification_center_page.dart | 2 | 2 | 1 | 0 | 0 | 0 | 0 | 2 | 1 | LOCKED/HIGH |
+| lib/core/app_cache/app_cache_service.dart | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/core/app_state/current_user_state_service.dart | 3 | 2 | 2 | 0 | 4 | 0 | 0 | 1 | 1 | MEDIUM |
+| lib/core/app_state/follow_cache_warmup_service.dart | 3 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | MEDIUM |
+| lib/core/businesses/business_directory_cache_service.dart | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | MEDIUM |
+| lib/core/services/firestore_service.dart | 3 | 2 | 4 | 2 | 0 | 0 | 0 | 0 | 2 | MEDIUM |
+| lib/core/session/app_session_controller.dart | 2 | 3 | 2 | 0 | 0 | 0 | 0 | 1 | 2 | MEDIUM |
+| lib/features/accounting/data/accounting_installment_plan.dart | 0 | 0 | 0 | 0 | 3 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/features/accounting/pages/accounting_expenses_page.dart | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/features/accounting/pages/accounting_permissions_page.dart | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | MEDIUM |
+| lib/features/accounting/pages/accounting_sales_page.dart | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/features/business/pages/business_profile_post_create_page.dart | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/features/business/widgets/business_profile_post_interactive_card.dart | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | MEDIUM |
+| lib/features/business_analysis/data/business_analysis_repository.dart | 3 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 | MEDIUM |
+| lib/features/business_role/business_role_resolver.dart | 3 | 3 | 2 | 0 | 0 | 0 | 0 | 0 | 3 | MEDIUM |
+| lib/features/businesses/business_activity_logs_page.dart | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | MEDIUM |
+| lib/features/businesses/business_category_required_page.dart | 1 | 1 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | MEDIUM |
+| lib/features/campaigns/customer_campaigns_page.dart | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | MEDIUM |
+| lib/features/staff/data/firestore_staff_repository.dart | 3 | 3 | 1 | 0 | 0 | 0 | 0 | 1 | 2 | MEDIUM |

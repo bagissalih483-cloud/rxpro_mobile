@@ -1,0 +1,37 @@
+{
+  "step": "61M_PROJECT_INDEX_UPDATE_AFTER_61L_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_61L",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "61L_BUILD_LOCK_AFTER_61K_BUSINESS_CAMPAIGNS_READ_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "campaignsMigration": {
+    "foundation": "61C CampaignRepository + CampaignModels",
+    "customerReadWiring": "61G + 61G_FIX_REV2 + 61H build lock",
+    "businessReadWiring": "61K + 61L build lock",
+    "changedFiles": [
+      "lib\\features\\campaigns\\business_campaigns_page.dart"
+    ],
+    "businessLoadRepositoryBased": true,
+    "unpublishDirectFirestoreLeftForLater": true,
+    "productionDeploy": false,
+    "protectedDomainsTouched": false
+  },
+  "targetAnalyze": {
+    "business_campaigns_page_errors": 0,
+    "business_campaigns_page_warnings": 1,
+    "business_campaigns_page_info": 4,
+    "note": "_BusinessCampaignItem.fromDoc unused after read path migration; cleanup/wiring should be handled after exact audit."
+  },
+  "nextRecommendedRoute": [
+    "61N_BUSINESS_CAMPAIGNS_UNPUBLISH_EXACT_AUDIT_ONLY",
+    "61O_MARK_PASSIVE_REPOSITORY_WIRING",
+    "61P_BUILD_LOCK",
+    "61Q_PROJECT_INDEX_UPDATE"
+  ]
+}

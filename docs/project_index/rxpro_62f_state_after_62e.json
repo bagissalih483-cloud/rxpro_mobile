@@ -1,0 +1,38 @@
+{
+  "step": "62F_PROJECT_INDEX_UPDATE_AFTER_62E_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_62E",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "62E_BUILD_LOCK_AFTER_62D_BUSINESS_OWNER_HUB_RESOLVE_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "businessesMigration": {
+    "mainChecklistAudit": "62A",
+    "businessesFeatureAudit": "62B_REV1",
+    "ownerHubResolveAudit": "62C",
+    "ownerHubResolveWiring": "62D",
+    "buildLock": "62E",
+    "changedFiles": [
+      "lib\\features\\businesses\\business_owner_hub_page.dart",
+      "lib\\features\\businesses\\data\\registered_business_gateway_repository.dart"
+    ],
+    "ownerHubResolveRepositoryBased": true,
+    "directFirebaseRemovedFromOwnerHubPage": true,
+    "protectedDomainsTouched": false,
+    "productionDeploy": false
+  },
+  "targetAnalyze": {
+    "errors": 0,
+    "warnings": 1,
+    "info": null,
+    "warningDetail": "business_owner_hub_page.dart _nameOf unused"
+  },
+  "nextRecommendedRoute": [
+    "62G_BUSINESS_OWNER_HUB_UNUSED_NAMEOF_CLEANUP_NOBUILD",
+    "62G_BUSINESSES_NEXT_SAFE_CANDIDATE_AUDIT_ONLY"
+  ]
+}

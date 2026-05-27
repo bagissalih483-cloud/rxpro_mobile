@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isSmallEnough() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    function userDocExists() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function userData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function businessDocExists(businessId) {
+      return businessId is string
+        && businessId.size() > 0
+        && firestore.exists(/databases/(default)/documents/businesses/$(businessId));
+    }
+
+    function businessData(businessId) {
+      return firestore.get(/databases/(default)/documents/businesses/$(businessId)).data;
+    }
+
+    function ownsBusinessByDoc(businessId) {
+      return signedIn()
+        && businessDocExists(businessId)
+        && (
+          businessData(businessId).ownerUid == request.auth.uid
+          || businessData(businessId).ownerId == request.auth.uid
+          || businessData(businessId).businessOwnerUid == request.auth.uid
+          || businessData(businessId).userId == request.auth.uid
+          || businessData(businessId).uid == request.auth.uid
+          || businessData(businessId).createdBy == request.auth.uid
+          || businessData(businessId).createdByUid == request.auth.uid
+          || businessData(businessId).adminUid == request.auth.uid
+          || businessData(businessId).managerUid == request.auth.uid
+        );
+    }
+
+    function ownsBusinessByUserDoc(businessId) {
+      return signedIn()
+        && businessId is string
+        && businessId.size() > 0
+        && userDocExists()
+        && (
+          userData().ownedBusinessId == businessId
+          || userData().businessId == businessId
+          || userData().activeBusinessId == businessId
+          || userData().selectedBusinessId == businessId
+          || userData().staffBusinessId == businessId
+          || userData().linkedBusinessId == businessId
+        );
+    }
+
+    function canWriteBusinessAsset(businessId) {
+      return signedIn()
+        && isImage()
+        && isSmallEnough()
+        && (
+          businessId == request.auth.uid
+          || ownsBusinessByDoc(businessId)
+          || ownsBusinessByUserDoc(businessId)
+        );
+    }
+
+    match /business_logos/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_covers/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_intro/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /user_profiles/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn()
+        && request.auth.uid == uid
+        && isImage()
+        && isSmallEnough();
+    }
+
+    match /business_stories/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_campaigns/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

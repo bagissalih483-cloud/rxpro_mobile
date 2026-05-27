@@ -1,0 +1,106 @@
+﻿rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isSmallEnough() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    function myUserExists() {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid));
+    }
+
+    function myUser() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function cleanId(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function myCorporateBusinessMatches(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && myUserExists()
+        && myUser().accountKind == "corporate"
+        && (
+          myUser().businessId == businessId
+          || myUser().ownedBusinessId == businessId
+          || myUser().activeBusinessId == businessId
+          || myUser().selectedBusinessId == businessId
+          || myUser().staffBusinessId == businessId
+        );
+    }
+
+    function isBusinessOwnerByBusinessDoc(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && firestore.exists(/databases/(default)/documents/businesses/$(businessId))
+        && (
+          firestore.get(/databases/(default)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid
+          || firestore.get(/databases/(default)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid
+          || firestore.get(/databases/(default)/documents/businesses/$(businessId)).data.businessOwnerUid == request.auth.uid
+          || firestore.get(/databases/(default)/documents/businesses/$(businessId)).data.createdBy == request.auth.uid
+        );
+    }
+
+    function canWriteBusinessAsset(businessId) {
+      return signedIn()
+        && cleanId(businessId)
+        && (
+          myCorporateBusinessMatches(businessId)
+          || isBusinessOwnerByBusinessDoc(businessId)
+        )
+        && isImage()
+        && isSmallEnough();
+    }
+
+    match /business_logos/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_covers/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_intro/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_stories/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /business_campaigns/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if canWriteBusinessAsset(businessId);
+    }
+
+    match /user_profiles/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn()
+        && request.auth.uid == uid
+        && isImage()
+        && isSmallEnough();
+    }
+
+    match /{allPaths=**} {
+      allow read: if false;
+      allow write: if false;
+    }
+  }
+}

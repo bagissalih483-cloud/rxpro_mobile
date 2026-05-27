@@ -1,0 +1,82 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.dart_appdata/
+.dart_localappdata/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Firebase / local tooling
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+
+# Node dependencies are restored from package-lock.json
+functions/node_modules/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.template
+*.local
+*.bak
+*.bak_*
+*.tmp
+*.jks
+*.keystore
+*.p12
+*.pem
+android/key.properties
+google-places-api.txt
+google-palaces-api.txt
+
+# Local Codex/debug artifacts
+.codex_tmp/
+.codex_push_worktree/
+_debug_freeze_*/
+EXPLORE_FREEZE_DEBUG_*/
+FREEZE_RUNTIME_DEBUG_*/
+RxPro_Audit_Packages/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release

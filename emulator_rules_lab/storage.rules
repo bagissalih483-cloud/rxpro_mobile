@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isSmallEnough() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /business_logos/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && isImage() && isSmallEnough();
+    }
+
+    match /business_covers/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && isImage() && isSmallEnough();
+    }
+
+    match /business_intro/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && isImage() && isSmallEnough();
+    }
+
+    match /user_profiles/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn()
+        && request.auth.uid == uid
+        && isImage()
+        && isSmallEnough();
+    }
+
+    match /business_stories/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && isImage() && isSmallEnough();
+    }
+    match /business_campaigns/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if signedIn() && isImage() && isSmallEnough();
+    }
+
+
+
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

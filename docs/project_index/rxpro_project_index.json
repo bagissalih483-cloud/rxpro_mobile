@@ -1,0 +1,65 @@
+{
+    "last_stage":  "59O_PROJECT_INDEX_UPDATE_AFTER_59N_NOBUILD",
+    "last_build_lock":  "59U_BUILD_LOCK_AFTER_59T",
+    "last_updated":  "20260525_171742",
+    "analyze_error_count":  0,
+    "analyze_warning_count":  35,
+    "analyze_info_count":  107,
+    "analyze_total_count":  142,
+    "last_apk_path":  "build\\app\\outputs\\flutter-apk\\app-debug.apk",
+    "protected_domains":  [
+                              "Notification/push/FCM",
+                              "messages/chat",
+                              "appointment core",
+                              "finance core",
+                              "staff_workspace",
+                              "Firestore rules/index/functions"
+                          ],
+    "next_recommended_step":  "59W remaining warning candidate audit or safe cleanup batch outside protected domains",
+    "last_updated_local":  "2026-05-25 16:59:49",
+    "last_build_result":  "PASS",
+    "analyze_baseline":  {
+                             "error":  0,
+                             "warning":  43,
+                             "info":  107,
+                             "total":  150,
+                             "source":  "59N_BUILD_LOCK_AFTER_59M"
+                         },
+    "next_recommended_stage":  "59P_REMAINING_WARNING_CLASSIFICATION_OR_SAFE_BATCH_PLANNING",
+    "last_updated_stage":  "59R_PROJECT_INDEX_UPDATE_AFTER_59Q_NOBUILD",
+    "last_updated_at":  "2026-05-25 17:06:32",
+    "last_build_status":  "PASS",
+    "production_deploy":  "NO",
+    "source_code_changed_by_last_stage":  "NO",
+    "recommended_next_stage":  "59S_REMAINING_WARNING_CLASSIFICATION_AUDIT_OR_SAFE_CLEANUP",
+    "current_stage":  "59V_PROJECT_INDEX_UPDATE_AFTER_59U_NOBUILD",
+    "analyze_cleanup_reduction_from_59A":  37,
+    "current_status":  {
+                           "last_stage":  "59Z_PROJECT_INDEX_UPDATE_AFTER_59Y_NOBUILD",
+                           "last_build_lock":  "59Y_BUILD_LOCK_AFTER_59X",
+                           "build_status":  "PASS",
+                           "analyze_error_count":  0,
+                           "analyze_warning_count":  32,
+                           "analyze_info_count":  107,
+                           "analyze_total_count":  139,
+                           "updated_at":  "20260525_172737"
+                       },
+    "locked_domains":  [
+                           "Notification/push/FCM",
+                           "messages/chat",
+                           "appointment core",
+                           "finance core",
+                           "staff_workspace",
+                           "Firestore rules/index/functions"
+                       ],
+    "rxpro_automation":  {
+                             "last_stage":  "60D_PROJECT_INDEX_UPDATE_AFTER_60C_NOBUILD",
+                             "last_build_lock":  "60C_BUILD_LOCK_AFTER_60B_REV5",
+                             "last_build_status":  "PASS",
+                             "analyze_error":  0,
+                             "analyze_warning":  30,
+                             "analyze_info":  107,
+                             "analyze_total":  137,
+                             "updated_at":  "20260525_174728"
+                         }
+}

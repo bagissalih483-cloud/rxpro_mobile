@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "506651509967",
+    "project_id": "rxpro-mobile-202605172210",
+    "storage_bucket": "rxpro-mobile-202605172210.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506651509967:android:f5b6a2743a57402a5063ba",
+        "android_client_info": {
+          "package_name": "com.example.rxpro_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtB_kRmAyeaUVIdDYKdDTg-6pSm6NIm7Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

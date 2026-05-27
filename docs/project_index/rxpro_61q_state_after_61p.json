@@ -1,0 +1,37 @@
+{
+  "step": "61Q_PROJECT_INDEX_UPDATE_AFTER_61P_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_61P",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "61P_BUILD_LOCK_AFTER_61O_BUSINESS_CAMPAIGNS_UNPUBLISH_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "campaignsMigration": {
+    "foundation": "61C CampaignRepository + CampaignModels",
+    "customerReadWiring": "61G + 61G_FIX_REV2 + 61H build lock",
+    "businessReadWiring": "61K + 61L build lock",
+    "businessUnpublishWiring": "61O + 61P build lock",
+    "changedFiles": [
+      "lib\\features\\campaigns\\business_campaigns_page.dart"
+    ],
+    "businessLoadRepositoryBased": true,
+    "businessUnpublishRepositoryBased": true,
+    "directFirebaseRemovedFromBusinessCampaignsPage": true,
+    "cloudFirestoreRemovedFromBusinessCampaignsPage": true,
+    "productionDeploy": false,
+    "protectedDomainsTouched": false
+  },
+  "targetAnalyze": {
+    "business_campaigns_page_errors": 0,
+    "business_campaigns_page_warnings": 0,
+    "business_campaigns_page_info": 4
+  },
+  "nextRecommendedRoute": [
+    "61R_CAMPAIGN_AI_CREATE_SAFE_EXACT_AUDIT_ONLY",
+    "62A_MAIN_CHECKLIST_NEXT_SAFE_CANDIDATE_AUDIT_ONLY"
+  ]
+}

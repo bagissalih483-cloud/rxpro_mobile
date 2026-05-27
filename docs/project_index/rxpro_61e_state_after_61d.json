@@ -1,0 +1,36 @@
+{
+  "step": "61E_PROJECT_INDEX_UPDATE_AFTER_61D_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_61D",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "61D_BUILD_LOCK_AFTER_61C_CAMPAIGNS_FOUNDATION",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "campaignFoundation": {
+    "step": "61C_CAMPAIGNS_REPOSITORY_MODELS_FOUNDATION_NOBUILD",
+    "status": "PATCH_PASS_NOBUILD",
+    "createdFiles": [
+      "lib\\features\\campaigns\\campaign_models.dart",
+      "lib\\features\\campaigns\\campaign_repository.dart"
+    ],
+    "uiWiring": false,
+    "productionDeploy": false,
+    "protectedDomainsTouched": false
+  },
+  "analyzeBaseline": {
+    "errors": 0,
+    "warnings": 24,
+    "info": 107,
+    "total": 131
+  },
+  "nextRecommendedRoute": [
+    "61F_CAMPAIGNS_UI_WIRING_EXACT_AUDIT_ONLY",
+    "61G_ONE_PAGE_REPOSITORY_WIRING",
+    "61H_BUILD_LOCK",
+    "61I_PROJECT_INDEX_UPDATE"
+  ]
+}

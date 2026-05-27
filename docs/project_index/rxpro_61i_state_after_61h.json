@@ -1,0 +1,32 @@
+{
+  "step": "61I_PROJECT_INDEX_UPDATE_AFTER_61H_NOBUILD",
+  "status": "PASS_PROJECT_INDEX_UPDATE_AFTER_61H",
+  "projectRoot": "C:\\Users\\Casper\\Desktop\\rxpro_mobile",
+  "auditRoot": "C:\\Users\\Casper\\Desktop\\RxPro_Audit_Packages",
+  "lastBuildLock": {
+    "step": "61H_BUILD_LOCK_AFTER_61G_CUSTOMER_CAMPAIGNS_WIRING",
+    "status": "PASS_BUILD_LOCK",
+    "buildExitCode": 0,
+    "apkFound": true,
+    "apkPath": "build\\app\\outputs\\flutter-apk\\app-debug.apk"
+  },
+  "campaignsMigration": {
+    "foundation": "61C CampaignRepository + CampaignModels",
+    "customerReadWiring": "61G + 61G_FIX_REV2",
+    "buildLock": "61H PASS_BUILD_LOCK",
+    "changedFiles": [
+      "lib\\features\\campaigns\\customer_campaigns_page.dart",
+      "lib\\features\\campaigns\\campaign_models.dart"
+    ],
+    "directFirebaseRemovedFromCustomerPage": true,
+    "customerPageRepositoryBased": true,
+    "productionDeploy": false,
+    "protectedDomainsTouched": false
+  },
+  "nextRecommendedRoute": [
+    "61J_CAMPAIGNS_BUSINESS_PAGE_EXACT_AUDIT_ONLY",
+    "61K_ONE_METHOD_BUSINESS_CAMPAIGN_REPOSITORY_WIRING",
+    "61L_BUILD_LOCK",
+    "61M_PROJECT_INDEX_UPDATE"
+  ]
+}
