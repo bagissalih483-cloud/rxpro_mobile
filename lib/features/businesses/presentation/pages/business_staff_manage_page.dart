@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/features/businesses/data/business_staff_repository.dart';
-import 'package:rxpro_mobile/features/businesses/presentation/pages/business_staff_form_page.dart';
 import 'package:rxpro_mobile/features/businesses/presentation/widgets/business_staff_manage_widgets.dart';
 
 /// Business staff management keeps staff writes behind BusinessStaffRepository.
@@ -74,14 +74,13 @@ class _BusinessStaffManagePageState extends State<BusinessStaffManagePage> {
     String? staffId,
     Map<String, dynamic>? initialData,
   }) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StaffFormPage(
-          businessId: widget.businessId,
-          businessAccessCode: code,
-          staffId: staffId,
-          initialData: initialData,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessStaffForm,
+      arguments: BusinessStaffFormRouteArgs(
+        businessId: widget.businessId,
+        businessAccessCode: code,
+        staffId: staffId,
+        initialData: initialData,
       ),
     );
   }

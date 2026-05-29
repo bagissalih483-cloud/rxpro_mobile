@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../pages/business_profile_edit_page.dart';
+import '../../../app/app_routes.dart';
 
 class BusinessProfileEditButton extends StatelessWidget {
   final String businessId;
@@ -16,11 +16,9 @@ class BusinessProfileEditButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () async {
-        final updated = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BusinessProfileEditPage(businessId: businessId),
-          ),
+        final updated = await Navigator.of(context).pushNamed<bool>(
+          AppRoutes.businessProfileEdit,
+          arguments: BusinessProfileEditRouteArgs(businessId: businessId),
         );
 
         if (updated == true) {

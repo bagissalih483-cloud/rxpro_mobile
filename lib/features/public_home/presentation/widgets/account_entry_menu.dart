@@ -1,17 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_route_catalog.dart';
 import 'package:rxpro_mobile/core/app_state/fix_shell_nav_state.dart';
-import 'package:rxpro_mobile/features/appointments/presentation/pages/customer_appointments_page.dart';
-import 'package:rxpro_mobile/features/business/pages/business_profile_edit_entry_page.dart';
-import 'package:rxpro_mobile/features/businesses/business_pos_page.dart';
-import 'package:rxpro_mobile/features/businesses/business_products_page.dart';
-import 'package:rxpro_mobile/features/businesses/staff_tasks_entry_page.dart';
-import 'package:rxpro_mobile/features/campaigns/campaign_ai_create_safe_page.dart';
-import 'package:rxpro_mobile/features/notifications/notification_center_page.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/models/account_entry_context.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/pages/account_entry_lite_pages.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/widgets/account_entry_cards.dart';
-import 'package:rxpro_mobile/features/staff_invites/staff_invite_code_page.dart';
 
 class AccountEntryMenu extends StatelessWidget {
   const AccountEntryMenu({
@@ -19,7 +12,8 @@ class AccountEntryMenu extends StatelessWidget {
     required this.openSections,
     required this.onToggle,
     required this.onOpenPage,
-    required this.onRequireLogin,
+    required this.onOpenRoute,
+    required this.onRequireLoginRoute,
     required this.onOpenBusinessModule,
     required this.onInfo,
     required this.onSignOut,
@@ -30,14 +24,22 @@ class AccountEntryMenu extends StatelessWidget {
   final Set<int> openSections;
   final ValueChanged<int> onToggle;
   final Future<void> Function(BuildContext context, Widget page) onOpenPage;
-  final Future<void> Function(BuildContext context, User? user, Widget page)
-  onRequireLogin;
+  final Future<void> Function(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) onOpenRoute;
+  final Future<void> Function(
+    BuildContext context,
+    User? user,
+    String routeName, {
+    Object? arguments,
+  }) onRequireLoginRoute;
   final Future<void> Function(
     BuildContext context,
     AccountEntryContext account,
     String target,
-  )
-  onOpenBusinessModule;
+  ) onOpenBusinessModule;
   final void Function(BuildContext context, String text) onInfo;
   final Future<void> Function(BuildContext context) onSignOut;
 
@@ -116,18 +118,14 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Adisyon',
             subtitle: 'Satış ve ödeme',
             color: const Color(0xFF2563EB),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BusinessPosPage()),
-            ),
+            onTap: () => onOpenRoute(context, AppRoutes.businessPos),
           ),
           AccountActionGridItem(
             icon: Icons.inventory_2_outlined,
             title: 'Stok',
             subtitle: 'Ürün hareketi',
             color: const Color(0xFF059669),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BusinessProductsPage()),
-            ),
+            onTap: () => onOpenRoute(context, AppRoutes.businessProducts),
           ),
           AccountActionGridItem(
             icon: Icons.timer_outlined,
@@ -155,10 +153,10 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Profil düzenle',
             subtitle: 'Vitrin bilgileri',
             color: const Color(0xFF7C3AED),
-            onTap: () => onRequireLogin(
+            onTap: () => onRequireLoginRoute(
               context,
               ctx.user,
-              const BusinessProfileEditEntryPage(),
+              AppRoutes.businessProfileEditEntry,
             ),
           ),
           AccountActionGridItem(
@@ -176,6 +174,13 @@ class AccountEntryMenu extends StatelessWidget {
             onTap: () => onOpenBusinessModule(context, ctx, 'stories'),
           ),
           AccountActionGridItem(
+            icon: Icons.add_photo_alternate_outlined,
+            title: 'Hikaye paylaş',
+            subtitle: '24 saatlik yayın',
+            color: const Color(0xFF0891B2),
+            onTap: () => onOpenBusinessModule(context, ctx, 'stories'),
+          ),
+          AccountActionGridItem(
             icon: Icons.local_offer_outlined,
             title: 'Kampanyalar',
             subtitle: 'Yayın ve indirim',
@@ -187,10 +192,10 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'AI kampanya',
             subtitle: 'Metin oluştur',
             color: const Color(0xFF9333EA),
-            onTap: () => onRequireLogin(
+            onTap: () => onRequireLoginRoute(
               context,
               ctx.user,
-              const CampaignAiCreateSafePage(),
+              AppRoutes.campaignAiCreate,
             ),
           ),
         ],
@@ -205,9 +210,7 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Bildirimler',
             subtitle: 'Sistem uyarıları',
             color: const Color(0xFFF59E0B),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
-            ),
+            onTap: () => onOpenRoute(context, AppRoutes.notificationCenter),
           ),
           AccountActionGridItem(
             icon: Icons.settings_outlined,
@@ -220,6 +223,14 @@ class AccountEntryMenu extends StatelessWidget {
             ),
           ),
           AccountActionGridItem(
+            icon: Icons.tune_rounded,
+            title: 'Bildirim tercihleri',
+            subtitle: 'Push izinleri',
+            color: const Color(0xFF7C3AED),
+            onTap: () =>
+                onOpenRoute(context, AppRoutes.notificationPreferences),
+          ),
+          AccountActionGridItem(
             icon: Icons.cloud_done_outlined,
             title: 'Oturum',
             subtitle: ctx.pending ? 'Hazırlanıyor' : 'Bağlantı aktif',
@@ -230,6 +241,21 @@ class AccountEntryMenu extends StatelessWidget {
                   ? 'Hesap bağlamı hazırlanıyor.'
                   : 'Firebase bağlantısı aktif. Oturum: ${ctx.user?.email ?? ctx.user?.uid}',
             ),
+          ),
+          AccountActionGridItem(
+            icon: Icons.policy_outlined,
+            title: 'Yasal metinler',
+            subtitle: 'KVKK ve şartlar',
+            color: const Color(0xFF334155),
+            onTap: () => onOpenRoute(context, AppRoutes.legalDocuments),
+          ),
+          AccountActionGridItem(
+            icon: Icons.delete_outline_rounded,
+            title: 'Hesabı sil',
+            subtitle: 'Veri talebi',
+            color: const Color(0xFFDC2626),
+            onTap: () =>
+                onOpenRoute(context, AppRoutes.accountDeletionRequest),
           ),
         ],
       ),
@@ -253,20 +279,15 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Randevularım',
             subtitle: 'Aktif ve geçmiş',
             color: const Color(0xFF2563EB),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const CustomerAppointmentsPage(),
-              ),
-            ),
+            onTap: () =>
+                onOpenRoute(context, AppRoutes.customerAppointments),
           ),
           AccountActionGridItem(
             icon: Icons.notifications_none_rounded,
             title: 'Bildirimler',
             subtitle: 'Talepler ve uyarı',
             color: const Color(0xFFF59E0B),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const NotificationCenterPage()),
-            ),
+            onTap: () => onOpenRoute(context, AppRoutes.notificationCenter),
           ),
           AccountActionGridItem(
             icon: Icons.favorite_border_rounded,
@@ -294,7 +315,7 @@ class AccountEntryMenu extends StatelessWidget {
             title: 'Davet kodu',
             subtitle: 'Kurumsal role bağlan',
             color: const Color(0xFF16A34A),
-            onTap: () => onOpenPage(context, const StaffInviteCodePage()),
+            onTap: () => onOpenRoute(context, AppRoutes.staffInviteCode),
           ),
           AccountActionGridItem(
             icon: Icons.person_outline_rounded,
@@ -319,6 +340,14 @@ class AccountEntryMenu extends StatelessWidget {
             ),
           ),
           AccountActionGridItem(
+            icon: Icons.tune_rounded,
+            title: 'Bildirim tercihleri',
+            subtitle: 'Push izinleri',
+            color: const Color(0xFF7C3AED),
+            onTap: () =>
+                onOpenRoute(context, AppRoutes.notificationPreferences),
+          ),
+          AccountActionGridItem(
             icon: Icons.cloud_done_outlined,
             title: 'Oturum',
             subtitle: ctx.pending ? 'Hazırlanıyor' : 'Bağlantı aktif',
@@ -329,6 +358,40 @@ class AccountEntryMenu extends StatelessWidget {
                   ? 'Hesap bağlamı hazırlanıyor.'
                   : 'Firebase bağlantısı aktif. Oturum: ${ctx.user?.email ?? ctx.user?.uid}',
             ),
+          ),
+          AccountActionGridItem(
+            icon: Icons.policy_outlined,
+            title: 'Yasal metinler',
+            subtitle: 'KVKK ve şartlar',
+            color: const Color(0xFF334155),
+            onTap: () => onOpenRoute(context, AppRoutes.legalDocuments),
+          ),
+          AccountActionGridItem(
+            icon: Icons.delete_outline_rounded,
+            title: 'Hesabı sil',
+            subtitle: 'Veri talebi',
+            color: const Color(0xFFDC2626),
+            onTap: () =>
+                onOpenRoute(context, AppRoutes.accountDeletionRequest),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _adminSections(BuildContext context) {
+    return [
+      AccountActionGridSection(
+        title: 'Admin',
+        subtitle: 'Doğrulama kuyruğu ve güvenlik kayıtları.',
+        icon: Icons.admin_panel_settings_outlined,
+        items: [
+          AccountActionGridItem(
+            icon: Icons.verified_user_outlined,
+            title: 'Moderasyon',
+            subtitle: 'Talepler ve abuse log',
+            color: const Color(0xFF4F46E5),
+            onTap: () => onOpenRoute(context, AppRoutes.adminModeration),
           ),
         ],
       ),
@@ -355,6 +418,10 @@ class AccountEntryMenu extends StatelessWidget {
             badge: ctx.accountBadge,
           ),
           const SizedBox(height: 12),
+          if (loggedIn && ctx.isPlatformAdmin) ...[
+            ..._adminSections(context),
+            const SizedBox(height: 12),
+          ],
           if (loggedIn && ctx.shouldShowStaffTasks) ...[
             _LiveFlowActionTile(
               onTap: () {
@@ -363,11 +430,7 @@ class AccountEntryMenu extends StatelessWidget {
                   return;
                 }
 
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const StaffTasksEntryPage(),
-                  ),
-                );
+                onOpenRoute(context, AppRoutes.staffTasks);
               },
             ),
             const SizedBox(height: 12),

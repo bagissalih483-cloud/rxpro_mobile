@@ -246,16 +246,6 @@ class NotificationCenterItem {
   final int createdMillis;
   final String createdText;
 
-  bool get opensCustomerAppointments {
-    final normalizedRoute = route.toLowerCase();
-    final normalizedType = type.toLowerCase();
-
-    return normalizedRoute == 'customerappointments' ||
-        normalizedRoute == 'customer_appointments' ||
-        (normalizedType.contains('appointment') &&
-            !normalizedRoute.contains('business'));
-  }
-
   static int _createdMillis(Map<String, dynamic> data) {
     final ts = data[NotificationCenterFieldNames.createdAt];
     if (ts is Timestamp) return ts.millisecondsSinceEpoch;

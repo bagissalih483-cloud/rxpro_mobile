@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:rxpro_mobile/features/business_analysis/presentation/pages/business_product_movement_page.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/features/business_analysis/presentation/models/business_analysis_view_models.dart';
 import 'package:rxpro_mobile/features/business_analysis/presentation/widgets/business_analysis_widgets.dart';
 import 'package:rxpro_mobile/features/business_analysis/services/business_analysis_ai_service.dart';
@@ -270,12 +270,11 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => BusinessProductMovementPage(
-                            businessId: widget.businessId,
-                            businessName: widget.businessName,
-                          ),
+                      Navigator.of(context).pushNamed(
+                        AppRoutes.businessProductMovement,
+                        arguments: BusinessProductMovementRouteArgs(
+                          businessId: widget.businessId,
+                          businessName: widget.businessName,
                         ),
                       );
                     },
@@ -384,4 +383,3 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
     );
   }
 }
-

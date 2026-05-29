@@ -17,4 +17,16 @@ abstract class AppointmentRepository {
   Future<DocumentReference<Map<String, dynamic>>> createAppointment(
     Map<String, dynamic> payload,
   );
+
+  Future<DocumentReference<Map<String, dynamic>>> createAppointmentWithSlotLock({
+    required Map<String, dynamic> payload,
+    required DateTime startAt,
+    required DateTime endAt,
+    required String businessId,
+    required String businessStaffId,
+  });
+}
+
+class AppointmentSlotConflictException implements Exception {
+  const AppointmentSlotConflictException();
 }

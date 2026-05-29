@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
+import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/features/businesses/data/staff_tasks_entry_repository.dart';
-
-import 'staff_workspace_page.dart';
 
 /// Staff tasks entry keeps account discovery and session sync in a repository.
 class StaffTasksEntryPage extends StatelessWidget {
-  const StaffTasksEntryPage({super.key});
+  const StaffTasksEntryPage({
+    super.key,
+    this.businessId,
+    this.title = 'Görevlerim',
+    this.workspaceTitle = 'Görevlerim',
+    this.tasksOnlyWorkspace = false,
+  });
+
+  final String? businessId;
+  final String title;
+  final String workspaceTitle;
+  final bool tasksOnlyWorkspace;
 
   static final StaffTasksEntryRepository _repository =
       StaffTasksEntryRepository();
@@ -26,9 +37,12 @@ class StaffTasksEntryPage extends StatelessWidget {
       await _syncSession(context, account);
 
       if (!context.mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => StaffWorkspacePage(memberData: account.data),
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.staffWorkspace,
+        arguments: StaffWorkspaceRouteArgs(
+          memberData: account.data,
+          title: workspaceTitle,
+          tasksOnly: tasksOnlyWorkspace,
         ),
       );
     } catch (e) {
@@ -42,19 +56,39 @@ class StaffTasksEntryPage extends StatelessWidget {
     }
   }
 
+  List<StaffTaskAccount> _accountsForBusiness(List<StaffTaskAccount> items) {
+    final targetId = (businessId ?? '').trim();
+    if (targetId.isEmpty) return items;
+
+    return items.where((item) {
+      final data = item.data;
+      final ids = <String>{
+        item.id,
+        (data[FirestoreFields.businessId] ?? '').toString(),
+        (data[FirestoreFields.ownedBusinessId] ?? '').toString(),
+        (data[FirestoreFields.activeBusinessId] ?? '').toString(),
+        (data[FirestoreFields.selectedBusinessId] ?? '').toString(),
+      };
+
+      return ids.map((value) => value.trim()).contains(targetId);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Görevlerim'),
+        title: Text(title),
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
       ),
       body: FutureBuilder<List<StaffTaskAccount>>(
         future: _loadStaffAccounts(),
         builder: (context, snapshot) {
-          final items = snapshot.data ?? <StaffTaskAccount>[];
+          final items = _accountsForBusiness(
+            snapshot.data ?? <StaffTaskAccount>[],
+          );
 
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

@@ -167,6 +167,30 @@ class CampaignRepository {
     );
   }
 
+  Future<void> reportCampaign({
+    required CampaignRecord campaign,
+    required String reason,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('Kampanya sikayeti icin oturum gerekir.');
+    }
+
+    final cleanReason = reason.trim().isEmpty ? 'inappropriate' : reason.trim();
+    await _firestore.collection(CampaignCollections.campaignReports).add(
+      <String, dynamic>{
+        'uid': user.uid,
+        'campaignId': campaign.id,
+        'sourceCollection': campaign.sourceCollection,
+        'businessId': campaign.businessId,
+        'reason': cleanReason,
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
+  }
+
   Future<CampaignBusinessContext?> _readBusinessById(String businessId) async {
     const collections = <String>[
       'businesses',

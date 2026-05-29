@@ -1,30 +1,37 @@
 # RxPro Release Readiness Checklist
 
-This checklist is the practical release gate after the 64U clean-analyze baseline.
+This checklist is the current release gate. Older 64U clean-baseline notes are
+historical; the current commercial release decision must use the checks below.
 
 ## Current Clean Baseline
 
-- `flutter analyze`: PASS, no issues in the user environment.
-- `flutter test`: PASS, 16 tests in the user environment.
-- `flutter build apk --release`: PASS, APK generated at `build/app/outputs/flutter-apk/app-release.apk`.
-- `tools/architecture_check.ps1`: PASS, direct Firebase surface remains 8 approved infrastructure files.
-- `tools/quality_check.ps1 -SkipFlutter`: PASS.
+- `tools/ci_quality_check.ps1 -SkipFlutter`: PASS in Codex environment.
+- Firestore/Storage emulator rules: PASS, 17 tests.
+- Secret scan: PASS.
+- Cloud Functions syntax: PASS.
+- Text quality check: PASS for runtime Dart/JS surfaces.
+- `flutter analyze`, `flutter test`, and `flutter build apk --release`: not
+  currently trusted from the Codex environment and must be rerun locally after
+  external Firebase/signing files are supplied.
+- `tools/release_gate_check.ps1`: FAIL until the external release assets below
+  are provided.
 
 ## Required Before Production Release
 
-1. Create the first Git commit from the current clean baseline.
-2. Push to a remote repository and enable `.github/workflows/flutter_quality.yml`.
-3. Replace starter package ids:
-   - Android: `com.example.rxpro_mobile`
-   - iOS/macOS: `com.example.rxproMobile`
-   - desktop/web metadata where applicable.
-4. Configure Android release signing with a production keystore.
-5. Add real iOS `GoogleService-Info.plist` under `ios/Runner/`.
-6. Run Firebase rules validation and emulator tests before deploying rules.
+1. Replace `android/app/google-services.json` with a Firebase config whose
+   Android package is `com.fix.mobile`.
+2. Create a real Android upload/release keystore and local
+   `android/key.properties`.
+3. Add the iOS Firebase config at `ios/Runner/GoogleService-Info.plist`.
+4. Configure Apple Developer Team / `DEVELOPMENT_TEAM` for `com.fix.mobile`.
+5. Run `tools/release_gate_check.ps1` until it passes.
+6. Run `flutter analyze`, `flutter test`, and `flutter build apk --release`
+   locally with the real external files.
 7. Validate Crashlytics delivery from a real release build.
-8. Add Analytics event contracts for auth, discovery, booking, campaign, message and finance flows.
-9. Add staging/production Firebase project separation.
-10. Complete visible mojibake/encoding cleanup across auth, appointments, notifications and business profile screens.
+8. Validate Analytics DebugView on a real Android/iOS release candidate.
+9. Enable Firebase App Check production enforcement after debug tokens are
+   removed.
+10. Finalize Play Store / App Store privacy and support URLs.
 11. Run manual smoke tests on a real device:
     - login and role gate,
     - guest explore,
@@ -46,7 +53,10 @@ powershell -ExecutionPolicy Bypass -File tools\ci_quality_check.ps1
 The gate checks:
 
 - architecture boundaries,
+- user-visible text quality for runtime Dart/JS files,
+- secret scan,
 - Cloud Functions syntax,
+- Firebase emulator rules tests,
 - Flutter dependency resolution,
 - Dart formatting normalization,
 - Flutter analyze,
@@ -62,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File tools\ci_quality_check.ps1 -EnforceForm
 Encoding scan:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\mojibake_scan.ps1 -CountOnly
+powershell -ExecutionPolicy Bypass -File tools\text_quality_check.ps1
 ```
 
 Feature architecture report:
@@ -76,7 +86,8 @@ powershell -ExecutionPolicy Bypass -File tools\feature_architecture_report.ps1
 Use this when iterating quickly:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File tools\quality_check.ps1 -SkipFlutter
+powershell -ExecutionPolicy Bypass -File tools\ci_quality_check.ps1 -SkipFlutter
+powershell -ExecutionPolicy Bypass -File tools\release_gate_check.ps1
 flutter analyze
 flutter test
 flutter build apk --release
@@ -90,4 +101,5 @@ Do not ship production until:
 - Release signing is production-grade.
 - Firebase rules are tested.
 - The app no longer uses starter package ids.
+- Firebase Android/iOS config matches `com.fix.mobile`.
 - Crash/error reporting is verified from a release build.

@@ -1,4 +1,4 @@
-package com.example.rxpro_mobile
+package com.fix.mobile
 
 import android.app.NotificationChannel
 import android.app.NotificationManager

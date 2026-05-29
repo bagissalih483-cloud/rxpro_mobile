@@ -14,7 +14,14 @@ powershell -ExecutionPolicy Bypass -File tools\architecture_check.ps1
 
 if (-not $SkipFunctions) {
   Write-Host "Checking Cloud Functions syntax..."
-  node --check functions/index.js
+  $functionJsFiles = Get-ChildItem -Path functions -Recurse -Filter *.js -File |
+    Where-Object { $_.FullName -notmatch '\\node_modules\\' }
+  foreach ($file in $functionJsFiles) {
+    node --check $file.FullName
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cloud Functions syntax check failed: $($file.FullName)"
+    }
+  }
 }
 
 if (-not $SkipFlutter) {

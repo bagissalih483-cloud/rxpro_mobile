@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/features/finance/data/business_finance_repository.dart';
 import 'package:rxpro_mobile/features/businesses/presentation/models/business_finance_models.dart';
@@ -380,12 +381,11 @@ class _BusinessFinancePageState extends State<BusinessFinancePage> {
   }
 
   Future<void> _openAddExpense() async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => ExpenseFormPage(
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-        ),
+    final saved = await Navigator.of(context).pushNamed<bool>(
+      AppRoutes.businessExpenseForm,
+      arguments: BusinessExpenseFormRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
       ),
     );
 

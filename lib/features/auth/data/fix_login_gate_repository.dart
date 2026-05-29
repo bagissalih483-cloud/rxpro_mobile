@@ -14,6 +14,9 @@ class FixLoginGateRepository {
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection(FirestoreCollections.users);
 
+  CollectionReference<Map<String, dynamic>> get _publicProfiles =>
+      _firestore.collection(FirestoreCollections.publicProfiles);
+
   CollectionReference<Map<String, dynamic>> get _businesses =>
       _firestore.collection(FirestoreCollections.businesses);
 
@@ -25,8 +28,13 @@ class FixLoginGateRepository {
     String city = '',
     String district = '',
     required bool phoneVerified,
+    bool recordLegalAcceptance = false,
   }) async {
-    await _users.doc(user.uid).set(<String, dynamic>{
+    final batch = _firestore.batch();
+    final userRef = _users.doc(user.uid);
+    final publicProfileRef = _publicProfiles.doc(user.uid);
+
+    batch.set(userRef, <String, dynamic>{
       FirestoreFields.uid: user.uid,
       FirestoreFields.email: email,
       FixLoginGateFieldNames.phone: phone,
@@ -56,7 +64,19 @@ class FixLoginGateRepository {
           FixLoginGateFieldNames.sourceModule53uIndividual,
       FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
       FirestoreFields.createdAt: FieldValue.serverTimestamp(),
+      if (recordLegalAcceptance) ...FixLoginGateLegalAcceptanceFields.accepted(),
     }, SetOptions(merge: true));
+
+    batch.set(publicProfileRef, <String, dynamic>{
+      FirestoreFields.uid: user.uid,
+      FirestoreFields.displayName: displayName,
+      FirestoreFields.city: city.trim(),
+      FirestoreFields.district: district.trim(),
+      FirestoreFields.accountKind: FixLoginGateRoleValues.individual,
+      FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
   }
 
   Future<void> ensureCorporateBusinessDocument({
@@ -91,6 +111,7 @@ class FixLoginGateRepository {
     String city = '',
     String district = '',
     required bool phoneVerified,
+    bool recordLegalAcceptance = false,
   }) async {
     final safeBusinessName = businessName.trim().isEmpty
         ? 'Kurumsal Kullanıcı'
@@ -100,7 +121,11 @@ class FixLoginGateRepository {
         ? 'Kurumsal Yetkili'
         : ownerName.trim();
 
-    await _users.doc(user.uid).set(<String, dynamic>{
+    final batch = _firestore.batch();
+    final userRef = _users.doc(user.uid);
+    final publicProfileRef = _publicProfiles.doc(user.uid);
+
+    batch.set(userRef, <String, dynamic>{
       FirestoreFields.uid: user.uid,
       FirestoreFields.email: email,
       FixLoginGateFieldNames.phone: phone,
@@ -130,7 +155,21 @@ class FixLoginGateRepository {
           FixLoginGateFieldNames.sourceModule53uCorporate,
       FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
       FirestoreFields.createdAt: FieldValue.serverTimestamp(),
+      if (recordLegalAcceptance) ...FixLoginGateLegalAcceptanceFields.accepted(),
     }, SetOptions(merge: true));
+
+    batch.set(publicProfileRef, <String, dynamic>{
+      FirestoreFields.uid: user.uid,
+      FirestoreFields.displayName: safeOwnerName,
+      FirestoreFields.city: city.trim(),
+      FirestoreFields.district: district.trim(),
+      FirestoreFields.accountKind: FixLoginGateRoleValues.corporate,
+      FirestoreFields.businessId: businessId,
+      FirestoreFields.businessName: safeBusinessName,
+      FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await batch.commit();
   }
 
   Future<FixLoginGateBusinessContext> resolveCorporateBusinessContext({
@@ -266,4 +305,23 @@ class FixLoginGateFieldNames {
       'fix_login_gate_repository_53U_individual';
   static const sourceModule53uCorporate =
       'fix_login_gate_repository_53U_corporate';
+}
+
+class FixLoginGateLegalAcceptanceFields {
+  const FixLoginGateLegalAcceptanceFields._();
+
+  static const legalVersion = '2026-05-29-draft-v1';
+
+  static Map<String, dynamic> accepted() {
+    return <String, dynamic>{
+      'legalAccepted': true,
+      'legalAcceptedAt': FieldValue.serverTimestamp(),
+      'legalVersion': legalVersion,
+      'kvkkNoticeAccepted': true,
+      'termsAccepted': true,
+      'privacyPolicyAccepted': true,
+      'explicitConsentAccepted': true,
+      'legalAcceptanceSource': 'fix_login_gate',
+    };
+  }
 }

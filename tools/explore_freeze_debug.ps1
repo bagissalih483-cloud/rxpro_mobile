@@ -3,8 +3,8 @@ $ErrorActionPreference = "Stop"
 param(
   [string]$ProjectRoot = "C:\Users\Casper\Desktop\rxpro_mobile",
   [string]$OutRoot = "C:\Users\Casper\Desktop\RxPro_Audit_Packages",
-  [string]$PackageName = "com.example.rxpro_mobile",
-  [string]$ActivityName = "com.example.rxpro_mobile/.MainActivity",
+  [string]$PackageName = "com.fix.mobile",
+  [string]$ActivityName = "com.fix.mobile/.MainActivity",
   [int]$CaptureSeconds = 40
 )
 

@@ -2,10 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/core/realtime/rx_notification_service.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
+import 'package:rxpro_mobile/features/appointments/data/appointment_slot_lock_release.dart';
+import 'package:rxpro_mobile/features/appointments/domain/appointment_state_transition_policy.dart';
 
 class BusinessAppointmentManagementRepository {
   BusinessAppointmentManagementRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  static const int _conflictPageSize = 100;
+  static const int _conflictPageCap = 1000;
 
   final FirebaseFirestore _firestore;
 
@@ -28,12 +34,9 @@ class BusinessAppointmentManagementRepository {
     required String visibleDate,
     required String time,
   }) async {
-    final snap = await _appointments
-        .where(FirestoreFields.businessId, isEqualTo: businessId)
-        .limit(500)
-        .get();
+    final docs = await _loadConflictCandidateDocs(businessId);
 
-    for (final doc in snap.docs) {
+    for (final doc in docs) {
       if (doc.id == currentAppointmentId) continue;
       final data = doc.data();
       if (!_blocksSlot(data)) continue;
@@ -45,6 +48,34 @@ class BusinessAppointmentManagementRepository {
     return false;
   }
 
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _loadConflictCandidateDocs(String businessId) async {
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
+
+    while (docs.length < _conflictPageCap) {
+      Query<Map<String, dynamic>> query = _appointments
+          .where(FirestoreFields.businessId, isEqualTo: businessId)
+          .orderBy(FieldPath.documentId)
+          .limit(_conflictPageSize);
+
+      if (lastDoc != null) {
+        query = query.startAfterDocument(lastDoc);
+      }
+
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+
+      final remaining = _conflictPageCap - docs.length;
+      docs.addAll(snapshot.docs.take(remaining));
+      lastDoc = snapshot.docs.last;
+
+      if (snapshot.docs.length < _conflictPageSize) break;
+    }
+
+    return docs;
+  }
+
   Future<void> cancelAppointment({
     required String appointmentId,
     required Map<String, dynamic> appointment,
@@ -52,20 +83,32 @@ class BusinessAppointmentManagementRepository {
     required String businessName,
     required String reason,
   }) async {
-    await _appointments.doc(appointmentId).set({
-      'status': 'cancelled',
-      'appointmentStatus': 'cancelled',
-      'state': 'cancelled',
-      'isActive': false,
-      'isCancelled': true,
-      'cancelledBy': 'business',
-      'cancellationReason': reason,
+    if (!AppointmentStateTransitionPolicy.canCancelByBusiness(
+      appointment[FirestoreFields.status] ??
+          appointment[FirestoreFields.appointmentStatus],
+    )) {
+      return;
+    }
+
+    final ref = _appointments.doc(appointmentId);
+    final batch = _firestore.batch();
+    batch.set(ref, {
+      ...AppointmentStateTransitionPolicy.businessCancellationFields(
+        reason: reason,
+      ),
       'customerNoticeTitle': 'Randevunuz iptal edildi',
       'customerNoticeBody': reason,
       'cancelledAt': FieldValue.serverTimestamp(),
       'cancelledAtLocalIso': DateTime.now().toIso8601String(),
       FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    for (final slotRef in AppointmentSlotLockRelease.refsForAppointment(
+      firestore: _firestore,
+      appointment: appointment,
+    )) {
+      batch.delete(slotRef);
+    }
+    await batch.commit();
 
     await notifyCustomer(
       appointment: appointment,
@@ -75,6 +118,15 @@ class BusinessAppointmentManagementRepository {
       type: 'appointment_cancelled',
       title: 'Randevunuz iptal edildi',
       body: '$businessName randevunuzu iptal etti. Gerekce: $reason',
+    );
+
+    await AppObservabilityService.instance.logEvent(
+      AppAnalyticsEvents.appointmentCancelled,
+      parameters: <String, Object?>{
+        'appointment_id': appointmentId,
+        'actor_role': 'business',
+        'reason': reason,
+      },
     );
   }
 

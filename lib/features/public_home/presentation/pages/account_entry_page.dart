@@ -161,16 +161,31 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
     });
   }
 
-  Future<void> _requireLogin(
+  Future<void> _openRoute(
+    BuildContext context,
+    String routeName, {
+    Object? arguments,
+  }) async {
+    await Navigator.of(context).pushNamed(routeName, arguments: arguments);
+    if (!mounted) return;
+    setState(() {
+      _contextFuture = null;
+      _loadedUid = null;
+      _refreshContextIfNeeded();
+    });
+  }
+
+  Future<void> _requireLoginRoute(
     BuildContext context,
     User? user,
-    Widget page,
-  ) async {
+    String routeName, {
+    Object? arguments,
+  }) async {
     if (user == null) {
       await _openLogin(context);
       return;
     }
-    await _openPage(context, page);
+    await _openRoute(context, routeName, arguments: arguments);
   }
 
   void _businessMissing(BuildContext context) {
@@ -389,7 +404,8 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
               openSections: _open,
               onToggle: _toggle,
               onOpenPage: _openPage,
-              onRequireLogin: _requireLogin,
+              onOpenRoute: _openRoute,
+              onRequireLoginRoute: _requireLoginRoute,
               onOpenBusinessModule: _openBusinessModule,
               onInfo: _info,
               onSignOut: _signOut,

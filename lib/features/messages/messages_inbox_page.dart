@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/theme/rx_ui.dart';
 import 'package:rxpro_mobile/features/messages/domain/message_ui_policy.dart';
 import 'package:rxpro_mobile/features/messages/presentation/widgets/messages_ui_widgets.dart';
@@ -117,11 +118,9 @@ class _InboxBody extends StatelessWidget {
                 onNewMessage: isBusinessOwner
                     ? null
                     : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const NewCustomerMessagePage(),
-                          ),
-                        );
+                        Navigator.of(
+                          context,
+                        ).pushNamed(AppRoutes.messagesNewCustomer);
                       },
               ),
               const SizedBox(height: 16),
@@ -137,14 +136,13 @@ class _InboxBody extends StatelessWidget {
                     thread: thread,
                     isBusinessOwner: isBusinessOwner,
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MessageThreadPage(
-                            threadId: thread.id,
-                            isBusinessOwner: isBusinessOwner,
-                            currentUid: currentUid,
-                            currentName: currentName,
-                          ),
+                      Navigator.of(context).pushNamed(
+                        AppRoutes.messageThread,
+                        arguments: MessageThreadRouteArgs(
+                          threadId: thread.id,
+                          isBusinessOwner: isBusinessOwner,
+                          currentUid: currentUid,
+                          currentName: currentName,
                         ),
                       );
                     },
@@ -218,14 +216,13 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => MessageThreadPage(
-            threadId: result.threadId,
-            isBusinessOwner: false,
-            currentUid: result.currentUid,
-            currentName: result.currentName,
-          ),
+      Navigator.of(context).pushReplacementNamed(
+        AppRoutes.messageThread,
+        arguments: MessageThreadRouteArgs(
+          threadId: result.threadId,
+          isBusinessOwner: false,
+          currentUid: result.currentUid,
+          currentName: result.currentName,
         ),
       );
     } catch (e) {

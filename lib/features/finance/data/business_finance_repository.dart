@@ -11,6 +11,8 @@ class BusinessFinanceRepository {
   BusinessFinanceRepository({FirebaseFirestore? firestore})
     : _db = firestore ?? FirebaseFirestore.instance;
 
+  static const int _financeSnapshotWindow = 180;
+
   final FirebaseFirestore _db;
 
   CollectionReference<Map<String, dynamic>> get _financeRecords =>
@@ -31,7 +33,7 @@ class BusinessFinanceRepository {
   /// - write behavior is unchanged.
   Future<QuerySnapshot<Map<String, dynamic>>> fetchBusinessExpensesSnapshot({
     required String businessId,
-    int limit = 500,
+    int limit = _financeSnapshotWindow,
   }) {
     Query<Map<String, dynamic>> query = _businessExpenses;
 
@@ -56,7 +58,7 @@ class BusinessFinanceRepository {
   Future<QuerySnapshot<Map<String, dynamic>>>
   fetchIncomeFinanceRecordsSnapshot({
     required String businessId,
-    int limit = 500,
+    int limit = _financeSnapshotWindow,
   }) {
     Query<Map<String, dynamic>> query = _financeRecords.where(
       FirestoreFields.recordType,
@@ -81,7 +83,7 @@ class BusinessFinanceRepository {
   Future<QuerySnapshot<Map<String, dynamic>>>
   fetchBusinessAppointmentsSnapshot({
     required String businessId,
-    int limit = 500,
+    int limit = _financeSnapshotWindow,
   }) {
     Query<Map<String, dynamic>> query = _appointments;
 

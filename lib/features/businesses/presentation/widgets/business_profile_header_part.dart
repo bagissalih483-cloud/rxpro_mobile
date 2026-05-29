@@ -269,15 +269,12 @@ class _BusinessHeroCard extends StatelessWidget {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => NewCustomerMessagePage(
-                                      initialBusinessId: businessId,
-                                      initialBusinessName:
-                                          resolvedBusinessName,
-                                      initialBusinessCategory:
-                                          resolvedCategory,
-                                    ),
+                                Navigator.of(context).pushNamed(
+                                  AppRoutes.messagesNewCustomer,
+                                  arguments: NewCustomerMessageRouteArgs(
+                                    initialBusinessId: businessId,
+                                    initialBusinessName: resolvedBusinessName,
+                                    initialBusinessCategory: resolvedCategory,
                                   ),
                                 );
                               },

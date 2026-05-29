@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/appointments/services/customer_appointment_action_service.dart';
-import 'package:rxpro_mobile/features/businesses/business_profile_page.dart';
 import 'package:rxpro_mobile/features/appointments/data/customer_appointment_repository.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/widgets/customer_appointment_widgets.dart';
 
@@ -268,15 +268,14 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePage(
-          businessId: bid,
-          businessName: item.businessName.isEmpty
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessProfile,
+      arguments: BusinessProfileRouteArgs(
+        businessId: bid,
+        businessName: item.businessName.isEmpty
               ? 'Kurumsal Kullanıcı'
               : item.businessName,
-          category: item.serviceName.isEmpty ? 'Genel' : item.serviceName,
-        ),
+        category: item.serviceName.isEmpty ? 'Genel' : item.serviceName,
       ),
     );
   }

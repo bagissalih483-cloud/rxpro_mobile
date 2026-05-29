@@ -25,10 +25,7 @@ class HomeExploreSearchBox extends StatelessWidget {
         prefixIcon: const Icon(Icons.search),
         suffixIcon: controller.text.trim().isEmpty
             ? null
-            : IconButton(
-                onPressed: onClear,
-                icon: const Icon(Icons.close),
-              ),
+            : IconButton(onPressed: onClear, icon: const Icon(Icons.close)),
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -81,9 +78,7 @@ class HomeExploreCategoryRow extends StatelessWidget {
               foregroundColor: selected
                   ? style.accent
                   : const Color(0xFF60727A),
-              side: BorderSide(
-                color: selected ? style.accent : style.border,
-              ),
+              side: BorderSide(color: selected ? style.accent : style.border),
               padding: const EdgeInsets.symmetric(horizontal: 13),
               minimumSize: const Size(0, 38),
             ),
@@ -264,21 +259,13 @@ class HomeExploreControlPanel<T> extends StatelessWidget {
                         }
                         onSortSelected(primarySortMode as T);
                       },
-                child: Text(
-                  loadingLocation
-                      ? 'Konum alınıyor'
-                      : primarySortLabel ??
-                          (hasPosition
-                              ? 'Konuma göre sırala'
-                              : 'Konum al ve sırala'),
-                ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: primarySortMode == selectedSortMode &&
-                          hasPosition
+                  backgroundColor:
+                      primarySortMode == selectedSortMode && hasPosition
                       ? const Color(0xFF216A6D)
                       : const Color(0xFFE9FFF4),
-                  foregroundColor: primarySortMode == selectedSortMode &&
-                          hasPosition
+                  foregroundColor:
+                      primarySortMode == selectedSortMode && hasPosition
                       ? Colors.white
                       : const Color(0xFF216A6D),
                   padding: const EdgeInsets.symmetric(
@@ -288,6 +275,14 @@ class HomeExploreControlPanel<T> extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
+                ),
+                child: Text(
+                  loadingLocation
+                      ? 'Konum alınıyor'
+                      : primarySortLabel ??
+                            (hasPosition
+                                ? 'Konuma göre sırala'
+                                : 'Konum al ve sırala'),
                 ),
               ),
             ),

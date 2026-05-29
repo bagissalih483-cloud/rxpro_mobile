@@ -24,6 +24,20 @@ class AccountEntryContext {
 
   bool get canOpenOwnerManagement => accountMode.isCorporateOwner;
 
+  bool get isPlatformAdmin {
+    final values = <Object?>[
+      userData[FirestoreFields.role],
+      userData[FirestoreFields.activeRole],
+      userData[FirestoreFields.accountKind],
+      userData['userType'],
+      userData['accountType'],
+    ].map((value) => value?.toString().trim().toLowerCase() ?? '');
+
+    return values.contains('admin') ||
+        userData['isAdmin'] == true ||
+        userData['platformAdmin'] == true;
+  }
+
   bool get shouldShowStaffTasks {
     return accountMode.isCorporateOwner || accountMode.isLinkedStaff;
   }

@@ -20,6 +20,16 @@ class BusinessProfilePostCreateService {
     }
   }
 
+  String requireCurrentUid() {
+    final uid = _auth.currentUser?.uid.trim() ?? '';
+    if (uid.isEmpty) {
+      throw const BusinessProfilePostCreateException(
+        'Paylaşım yapmak için giriş yapın.',
+      );
+    }
+    return uid;
+  }
+
   Future<void> createPost(BusinessProfilePostCreateInput input) {
     final user = _auth.currentUser;
     if (user == null) {
@@ -30,6 +40,7 @@ class BusinessProfilePostCreateService {
 
     final text = input.text.trim();
     final imageUrl = input.imageUrl.trim();
+    final thumbnailUrl = input.thumbnailUrl.trim();
     if (text.isEmpty && imageUrl.isEmpty) {
       throw const BusinessProfilePostCreateException(
         'Yazı veya fotoğraf ekleyin.',
@@ -42,6 +53,7 @@ class BusinessProfilePostCreateService {
       ownerUid: user.uid,
       text: text,
       imageUrl: imageUrl,
+      thumbnailUrl: thumbnailUrl,
     );
   }
 }
@@ -52,12 +64,14 @@ class BusinessProfilePostCreateInput {
     required this.businessName,
     required this.text,
     required this.imageUrl,
+    this.thumbnailUrl = '',
   });
 
   final String businessId;
   final String businessName;
   final String text;
   final String imageUrl;
+  final String thumbnailUrl;
 }
 
 class BusinessProfilePostCreateException implements Exception {

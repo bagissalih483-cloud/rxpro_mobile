@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import '../../core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
@@ -35,14 +36,12 @@ class _BusinessProductsPageState extends State<BusinessProductsPage> {
     required BusinessProductContext contextData,
     QueryDocumentSnapshot<Map<String, dynamic>>? doc,
   }) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => _ProductFormPage(
-          businessId: contextData.businessId,
-          businessName: contextData.businessName,
-          doc: doc,
-          productsService: _productsService,
-        ),
+    final saved = await Navigator.of(context).pushNamed<bool>(
+      AppRoutes.businessProductForm,
+      arguments: BusinessProductFormRouteArgs(
+        businessId: contextData.businessId,
+        businessName: contextData.businessName,
+        doc: doc,
       ),
     );
 
@@ -244,24 +243,25 @@ class _BusinessProductsPageState extends State<BusinessProductsPage> {
   }
 }
 
-class _ProductFormPage extends StatefulWidget {
-  const _ProductFormPage({
+class BusinessProductFormPage extends StatefulWidget {
+  const BusinessProductFormPage({
+    super.key,
     required this.businessId,
     required this.businessName,
-    required this.productsService,
     this.doc,
   });
 
   final String businessId;
   final String businessName;
-  final BusinessProductsService productsService;
   final QueryDocumentSnapshot<Map<String, dynamic>>? doc;
 
   @override
-  State<_ProductFormPage> createState() => _ProductFormPageState();
+  State<BusinessProductFormPage> createState() =>
+      _BusinessProductFormPageState();
 }
 
-class _ProductFormPageState extends State<_ProductFormPage> {
+class _BusinessProductFormPageState extends State<BusinessProductFormPage> {
+  final BusinessProductsService _productsService = BusinessProductsService();
   final _name = TextEditingController();
   final _barcode = TextEditingController();
   final _purchasePrice = TextEditingController();
@@ -327,7 +327,7 @@ class _ProductFormPageState extends State<_ProductFormPage> {
     setState(() => _saving = true);
 
     try {
-      await widget.productsService.saveProduct(
+      await _productsService.saveProduct(
         productRef: widget.doc?.reference,
         input: BusinessProductSaveInput(
           businessId: widget.businessId,

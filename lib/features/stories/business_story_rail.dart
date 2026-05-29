@@ -1,23 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_route_catalog.dart';
 
 import 'business_story_model.dart';
 import 'business_story_service.dart';
-import 'business_story_viewer_page.dart';
 
-class BusinessStoryRail extends StatelessWidget {
+class BusinessStoryRail extends StatefulWidget {
   const BusinessStoryRail({super.key, this.compact = false});
 
   final bool compact;
 
   @override
+  State<BusinessStoryRail> createState() => _BusinessStoryRailState();
+}
+
+class _BusinessStoryRailState extends State<BusinessStoryRail>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     return StreamBuilder<List<BusinessStoryModel>>(
       stream: BusinessStoryService.watchActiveStories(),
       builder: (context, snapshot) {
         final rawStories = snapshot.data ?? const <BusinessStoryModel>[];
 
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _StoryRailSkeleton(compact: compact);
+          return _StoryRailSkeleton(compact: widget.compact);
         }
 
         if (rawStories.isEmpty) {
@@ -40,7 +51,7 @@ class BusinessStoryRail extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'Hikâyeler',
+                          'Hikayeler',
                           style: TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.w700,
@@ -49,7 +60,7 @@ class BusinessStoryRail extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Takip ve yakın çevre',
+                        'Takip ve yakin cevre',
                         style: TextStyle(
                           fontSize: 11.2,
                           color: Color(0xFF77858D),
@@ -60,7 +71,7 @@ class BusinessStoryRail extends StatelessWidget {
                   ),
                 ),
                 SizedBox(
-                  height: compact ? 82 : 94,
+                  height: widget.compact ? 82 : 94,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
@@ -71,14 +82,13 @@ class BusinessStoryRail extends StatelessWidget {
 
                       return _StoryBubble(
                         story: story,
-                        compact: compact,
+                        compact: widget.compact,
                         onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => BusinessStoryViewerPage(
-                                stories: stories,
-                                initialIndex: index,
-                              ),
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.storyViewer,
+                            arguments: BusinessStoryViewerRouteArgs(
+                              stories: stories,
+                              initialIndex: index,
                             ),
                           );
                         },
@@ -167,6 +177,11 @@ class _StoryBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = compact ? 23.0 : 27.0;
+    final previewUrl = _firstNonEmpty([
+      story.thumbnailUrl,
+      story.businessLogoUrl,
+      story.mediaUrl,
+    ]);
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -193,10 +208,10 @@ class _StoryBubble extends StatelessWidget {
               child: CircleAvatar(
                 radius: radius,
                 backgroundColor: Colors.white,
-                backgroundImage: story.businessLogoUrl.trim().isEmpty
+                backgroundImage: previewUrl.isEmpty
                     ? null
-                    : NetworkImage(story.businessLogoUrl),
-                child: story.businessLogoUrl.trim().isEmpty
+                    : NetworkImage(previewUrl),
+                child: previewUrl.isEmpty
                     ? Text(
                         _initials(story.businessName),
                         style: const TextStyle(
@@ -241,5 +256,14 @@ class _StoryBubble extends StatelessWidget {
     }
 
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  String _firstNonEmpty(Iterable<String> values) {
+    for (final value in values) {
+      final clean = value.trim();
+      if (clean.isNotEmpty) return clean;
+    }
+
+    return '';
   }
 }

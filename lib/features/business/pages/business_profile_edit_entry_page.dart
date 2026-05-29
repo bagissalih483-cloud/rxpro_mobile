@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
-import '../../businesses/registered_businesses_page.dart';
 import 'business_profile_edit_page.dart';
 import '../data/business_profile_edit_entry_resolver_repository.dart';
 
@@ -113,11 +113,9 @@ class _BusinessProfileEditEntryPageState
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) => const RegisteredBusinessesPage(),
-                        ),
-                      );
+                      Navigator.of(
+                        context,
+                      ).pushReplacementNamed(AppRoutes.registeredBusinesses);
                     },
                     icon: const Icon(Icons.list_alt_rounded),
                     label: const Text('Kayıtlı Kurumsal Kullanıcılara Git'),

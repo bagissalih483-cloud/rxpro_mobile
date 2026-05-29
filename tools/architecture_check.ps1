@@ -1,5 +1,5 @@
 param(
-  [int]$MaxDirectSurface = 8,
+  [int]$MaxDirectSurface = 5,
   [switch]$WarnOnly
 )
 
@@ -54,10 +54,7 @@ $allowedDirect = @(
   "lib\core\app_state\follow_cache_warmup_service.dart",
   "lib\core\businesses\business_directory_cache_service.dart",
   "lib\core\realtime\rx_notification_service.dart",
-  "lib\core\realtime\rx_push_notification_service.dart",
-  "lib\core\session\app_session_controller.dart",
-  "lib\features\staff_invites\staff_invite_service.dart",
-  "lib\features\stories\business_story_service.dart"
+  "lib\core\session\app_session_controller.dart"
 )
 
 $unexpected = @(
@@ -82,6 +79,43 @@ if ($unexpected.Count -gt 0) {
 
   if (-not $WarnOnly) {
     throw "Unexpected direct Firebase access outside approved infrastructure surfaces."
+  }
+}
+
+$approvedRouteHelpers = @(
+  "lib\app\app_route_catalog.dart",
+  "lib\app\fix_bootstrap_app.dart",
+  "lib\features\public_home\presentation\pages\account_entry_page.dart"
+)
+
+if ($rg) {
+  $routeFiles = @(
+    & rg -l "MaterialPageRoute" lib --glob "*.dart"
+  )
+} else {
+  $routeFiles = @(
+    Get-ChildItem -Path lib -Recurse -Filter *.dart -File |
+      Where-Object {
+        Select-String -LiteralPath $_.FullName -Pattern "MaterialPageRoute" -Quiet
+      } |
+      ForEach-Object { Convert-ToRelativeRepoPath $_.FullName }
+  )
+}
+
+$unexpectedRouteFiles = @(
+  $routeFiles |
+    ForEach-Object { ($_ -replace '/', '\') } |
+    Where-Object { $approvedRouteHelpers -notcontains $_ }
+)
+
+Write-Host "Direct MaterialPageRoute outside route catalog/approved helpers: $($unexpectedRouteFiles.Count)"
+
+if ($unexpectedRouteFiles.Count -gt 0) {
+  Write-Host "Unexpected direct route construction files:"
+  $unexpectedRouteFiles | Sort-Object | ForEach-Object { Write-Host " - $_" }
+
+  if (-not $WarnOnly) {
+    throw "Direct MaterialPageRoute usage must go through AppRouteCatalog or an approved generic helper."
   }
 }
 

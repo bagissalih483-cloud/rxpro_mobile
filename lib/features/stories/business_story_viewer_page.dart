@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../businesses/business_profile_page.dart';
+import '../../app/app_routes.dart';
 import 'business_story_model.dart';
 import 'business_story_service.dart';
 
@@ -43,13 +43,12 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
   }
 
   void _openBusiness(BusinessStoryModel story) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePage(
-          businessId: story.businessId,
-          businessName: story.businessName,
-          category: story.category,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessProfile,
+      arguments: BusinessProfileRouteArgs(
+        businessId: story.businessId,
+        businessName: story.businessName,
+        category: story.category,
       ),
     );
   }
@@ -61,7 +60,7 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
         backgroundColor: Colors.black,
         body: Center(
           child: Text(
-            'Hikâye bulunamadı',
+            'Hikaye bulunamadi',
             style: TextStyle(color: Colors.white),
           ),
         ),
@@ -80,6 +79,9 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
           },
           itemBuilder: (context, i) {
             final story = widget.stories[i];
+            final previewUrl = story.thumbnailUrl.trim().isNotEmpty
+                ? story.thumbnailUrl.trim()
+                : story.mediaUrl.trim();
 
             return Stack(
               children: [
@@ -88,6 +90,31 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
                     child: Image.network(
                       story.mediaUrl,
                       fit: BoxFit.contain,
+                      frameBuilder:
+                          (context, child, frame, wasSynchronouslyLoaded) {
+                            if (wasSynchronouslyLoaded || frame != null) {
+                              return child;
+                            }
+
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                if (previewUrl.isNotEmpty)
+                                  Image.network(
+                                    previewUrl,
+                                    fit: BoxFit.contain,
+                                    cacheWidth: 720,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                       errorBuilder: (_, _, _) {
                         return const Center(
                           child: Icon(
@@ -178,7 +205,7 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
                   child: FilledButton.icon(
                     onPressed: () => _openBusiness(story),
                     icon: const Icon(Icons.storefront_rounded),
-                    label: const Text('Kurumsal Profili Gör'),
+                    label: const Text('Kurumsal Profili Gor'),
                   ),
                 ),
               ],

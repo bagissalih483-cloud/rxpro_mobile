@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/realtime/rx_notification_service.dart';
+import '../../core/services/app_observability_service.dart';
 import 'campaign_models.dart';
 import 'campaign_repository.dart';
 import 'domain/campaign_ai_response_decoder.dart';
@@ -92,6 +93,13 @@ class CampaignService {
 
   Future<void> markCampaignPassive(CampaignRecord campaign) {
     return _repository.markCampaignPassive(campaign);
+  }
+
+  Future<void> reportCampaign({
+    required CampaignRecord campaign,
+    required String reason,
+  }) {
+    return _repository.reportCampaign(campaign: campaign, reason: reason);
   }
 
   Future<DocumentReference<Map<String, dynamic>>> createBulkMessageDraft(
@@ -205,6 +213,12 @@ class CampaignService {
         'category': input.category,
         'tone': input.tone,
       },
+    );
+
+    await AppObservabilityService.instance.logCampaignCreated(
+      campaignId: doc.id,
+      businessId: context.businessId,
+      category: input.category,
     );
 
     return CampaignPublishResult.created(

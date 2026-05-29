@@ -77,15 +77,19 @@ class _BusinessProfilePostCreatePageState
 
     try {
       String imageUrl = '';
+      String thumbnailUrl = '';
 
       if (selectedImage != null) {
         final fileName = DateTime.now().millisecondsSinceEpoch.toString();
 
-        imageUrl = await AppImageUploadService.uploadBusinessIntroImage(
+        final upload = await AppImageUploadService.uploadBusinessIntroImageSet(
           businessId: widget.businessId,
+          ownerUid: _postCreateService.requireCurrentUid(),
           file: selectedImage!,
           fileName: fileName,
         );
+        imageUrl = upload.url;
+        thumbnailUrl = upload.thumbnailUrl ?? '';
       }
 
       await _postCreateService.createPost(
@@ -94,6 +98,7 @@ class _BusinessProfilePostCreatePageState
           businessName: widget.businessName,
           text: text,
           imageUrl: imageUrl,
+          thumbnailUrl: thumbnailUrl,
         ),
       );
 

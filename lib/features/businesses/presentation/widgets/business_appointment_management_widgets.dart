@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:rxpro_mobile/features/businesses/presentation/pages/business_customer_direct_message_page.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 
 Future<void> showBusinessCustomerQuickProfile({
   required BuildContext context,
@@ -90,16 +90,15 @@ Future<void> showBusinessCustomerQuickProfile({
                       return;
                     }
 
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => BusinessCustomerDirectMessagePage(
-                          businessId: businessId,
-                          businessName: businessName,
-                          customerUid: uid,
-                          customerName: customerName,
-                          customerEmail: email,
-                          customerPhone: phone,
-                        ),
+                    Navigator.of(context).pushNamed(
+                      AppRoutes.businessCustomerDirectMessage,
+                      arguments: BusinessCustomerDirectMessageRouteArgs(
+                        businessId: businessId,
+                        businessName: businessName,
+                        customerUid: uid,
+                        customerName: customerName,
+                        customerEmail: email,
+                        customerPhone: phone,
                       ),
                     );
                   },

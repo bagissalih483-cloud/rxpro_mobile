@@ -1,6 +1,7 @@
 param(
   [switch]$SkipFlutter,
   [switch]$SkipFunctions,
+  [switch]$SkipRules,
   [switch]$SkipBuild,
   [switch]$EnforceFormat
 )
@@ -11,35 +12,63 @@ Set-Location $root
 
 Write-Host "== RxPro CI quality gate =="
 
+function Invoke-CheckedCommand {
+  param(
+    [Parameter(Mandatory = $true)][string]$Command,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+  )
+
+  & $Command @Arguments
+  $exitCode = $LASTEXITCODE
+  if ($exitCode -ne 0) {
+    throw "Command failed with exit code ${exitCode}: $Command $($Arguments -join ' ')"
+  }
+}
+
 Write-Host "Checking architecture boundaries..."
-powershell -ExecutionPolicy Bypass -File tools\architecture_check.ps1
+Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\architecture_check.ps1
+
+Write-Host "Checking user-visible text quality..."
+Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\text_quality_check.ps1
+
+Write-Host "Running secret scan..."
+Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\secret_scan.ps1
 
 if (-not $SkipFunctions) {
   Write-Host "Checking Cloud Functions syntax..."
-  node --check functions/index.js
+  $functionJsFiles = Get-ChildItem -Path functions -Recurse -Filter *.js -File |
+    Where-Object { $_.FullName -notmatch '\\node_modules\\' }
+  foreach ($file in $functionJsFiles) {
+    Invoke-CheckedCommand node --check $file.FullName
+  }
+}
+
+if (-not $SkipRules) {
+  Write-Host "Running Firebase rules tests..."
+  Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\run_rules_tests.ps1
 }
 
 if (-not $SkipFlutter) {
   Write-Host "Resolving Flutter dependencies..."
-  flutter pub get
+  Invoke-CheckedCommand flutter pub get
 
   if ($EnforceFormat) {
     Write-Host "Checking Dart format..."
-    dart format --output=none --set-exit-if-changed lib test
+    Invoke-CheckedCommand dart format --output=none --set-exit-if-changed lib test
   } else {
     Write-Host "Normalizing Dart format..."
-    dart format lib test
+    Invoke-CheckedCommand dart format lib test
   }
 
   Write-Host "Analyzing Flutter project..."
-  flutter analyze
+  Invoke-CheckedCommand flutter analyze
 
   Write-Host "Running tests..."
-  flutter test
+  Invoke-CheckedCommand flutter test
 
   if (-not $SkipBuild) {
     Write-Host "Building debug APK..."
-    flutter build apk --debug
+    Invoke-CheckedCommand flutter build apk --debug
   }
 }
 

@@ -126,6 +126,34 @@ class _ReviewsTabState extends State<_ReviewsTab> {
     }
   }
 
+  Future<void> _reportReview(_ReviewItem review) async {
+    final user = _authService.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Yorumu raporlamak icin giris yapin.')),
+      );
+      return;
+    }
+
+    final created = await _reviewsRepository.reportReview(
+      reviewId: review.id,
+      businessId: widget.businessId,
+      uid: user.uid,
+      reason: 'review_report',
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          created
+              ? 'Yorum inceleme icin raporlandi.'
+              : 'Bu yorum daha once raporlanmis.',
+        ),
+      ),
+    );
+  }
+
   static int _toInt(dynamic value) {
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '') ?? 0;
@@ -209,6 +237,11 @@ class _ReviewsTabState extends State<_ReviewsTab> {
                 return Card(
                   child: ListTile(
                     dense: true,
+                    trailing: IconButton(
+                      tooltip: 'Yorumu raporla',
+                      onPressed: () => _reportReview(review),
+                      icon: const Icon(Icons.flag_outlined),
+                    ),
                     leading: const CircleAvatar(
                       child: Icon(Icons.person_outline),
                     ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/features/appointments/domain/appointment_state_transition_policy.dart';
 
 class CustomerAppointmentRepository {
   CustomerAppointmentRepository({FirebaseFirestore? firestore})
@@ -133,8 +134,9 @@ class CustomerAppointmentRepository {
     await setAppointmentMerge(
       appointmentId: appointmentId,
       data: <String, dynamic>{
-        CustomerAppointmentFields.status: 'cancelled',
-        CustomerAppointmentFields.cancelReason: reason,
+        ...AppointmentStateTransitionPolicy.customerCancellationFields(
+          reason: reason,
+        ),
         CustomerAppointmentFields.cancelledByUid: cancelledByUid,
         CustomerAppointmentFields.cancelledAt: DateTime.now().toIso8601String(),
         CustomerAppointmentFields.updatedAt: DateTime.now().toIso8601String(),
@@ -161,9 +163,10 @@ class CustomerAppointmentRepository {
     await setAppointmentMerge(
       appointmentId: appointmentId,
       data: <String, dynamic>{
-        CustomerAppointmentFields.status: 'cancelled',
+        ...AppointmentStateTransitionPolicy.customerCancellationFields(
+          reason: reason,
+        ),
         CustomerAppointmentFields.postponeStatus: 'rejected',
-        CustomerAppointmentFields.cancelReason: reason,
         CustomerAppointmentFields.cancelledByUid: cancelledByUid,
         CustomerAppointmentFields.cancelledAt: DateTime.now().toIso8601String(),
         CustomerAppointmentFields.updatedAt: DateTime.now().toIso8601String(),

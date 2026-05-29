@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../campaigns/bulk_message_create_page.dart';
+import '../../app/app_routes.dart';
 import 'data/business_customer_repository.dart';
 import 'domain/business_customer_action_policy.dart';
-import 'presentation/pages/business_customer_direct_message_page.dart';
 import 'presentation/widgets/business_customer_header_panel.dart';
 import 'presentation/widgets/business_customer_widgets.dart';
 
@@ -71,10 +70,8 @@ class _BusinessCustomersPageState extends State<BusinessCustomersPage> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ClassificationSheet(
-        record: record,
-        repository: _repository,
-      ),
+      builder: (_) =>
+          _ClassificationSheet(record: record, repository: _repository),
     );
   }
 
@@ -101,21 +98,20 @@ class _BusinessCustomersPageState extends State<BusinessCustomersPage> {
         )
         .length;
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BulkMessageCreatePage(
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-          initialAudience: audience,
-          initialEstimatedTargetCount: visibleRecords.length,
-          audienceMetadata: <String, dynamic>{
-            'source': 'business_customers_page',
-            'segmentId': _selectedSegmentId,
-            'segmentLabel': segment.label,
-            'filteredCount': visibleRecords.length,
-            'linkedCustomerCount': linkedCustomerCount,
-          },
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.bulkMessageCreate,
+      arguments: BusinessCampaignToolRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
+        initialAudience: audience,
+        initialEstimatedTargetCount: visibleRecords.length,
+        audienceMetadata: <String, dynamic>{
+          'source': 'business_customers_page',
+          'segmentId': _selectedSegmentId,
+          'segmentLabel': segment.label,
+          'filteredCount': visibleRecords.length,
+          'linkedCustomerCount': linkedCustomerCount,
+        },
       ),
     );
   }
@@ -133,16 +129,15 @@ class _BusinessCustomersPageState extends State<BusinessCustomersPage> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BusinessCustomerDirectMessagePage(
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-          customerUid: record.customerUid,
-          customerName: record.displayName,
-          customerEmail: record.email,
-          customerPhone: record.phone,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessCustomerDirectMessage,
+      arguments: BusinessCustomerDirectMessageRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
+        customerUid: record.customerUid,
+        customerName: record.displayName,
+        customerEmail: record.email,
+        customerPhone: record.phone,
       ),
     );
   }
@@ -174,7 +169,8 @@ class _BusinessCustomersPageState extends State<BusinessCustomersPage> {
           : StreamBuilder<List<BusinessCustomerRecord>>(
               stream: _customerStream,
               builder: (context, snapshot) {
-                final records = snapshot.data ?? const <BusinessCustomerRecord>[];
+                final records =
+                    snapshot.data ?? const <BusinessCustomerRecord>[];
                 final visibleRecords = _visibleRecords(records);
                 final stats = BusinessCustomerStats.fromRecords(records);
 
@@ -580,10 +576,7 @@ class _ManualCustomerSheetState extends State<_ManualCustomerSheet> {
 }
 
 class _ClassificationSheet extends StatefulWidget {
-  const _ClassificationSheet({
-    required this.record,
-    required this.repository,
-  });
+  const _ClassificationSheet({required this.record, required this.repository});
 
   final BusinessCustomerRecord record;
   final BusinessCustomerRepository repository;
@@ -595,8 +588,9 @@ class _ClassificationSheet extends StatefulWidget {
 class _ClassificationSheetState extends State<_ClassificationSheet> {
   late String _segmentId = widget.record.segmentId;
   late bool _campaignConsent = widget.record.campaignConsent;
-  late final TextEditingController _noteController =
-      TextEditingController(text: widget.record.note);
+  late final TextEditingController _noteController = TextEditingController(
+    text: widget.record.note,
+  );
   bool _saving = false;
 
   @override
@@ -679,10 +673,7 @@ class _ClassificationSheetState extends State<_ClassificationSheet> {
 }
 
 class _SegmentDropdown extends StatelessWidget {
-  const _SegmentDropdown({
-    required this.value,
-    required this.onChanged,
-  });
+  const _SegmentDropdown({required this.value, required this.onChanged});
 
   final String value;
   final ValueChanged<String> onChanged;
@@ -690,19 +681,19 @@ class _SegmentDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: BusinessCustomerSegments.byId(value).id,
+      initialValue: BusinessCustomerSegments.byId(value).id,
       decoration: const InputDecoration(
         labelText: 'Müşteri sınıfı',
         border: OutlineInputBorder(),
       ),
       items: BusinessCustomerSegments.editableValues
-        .map(
-          (segment) => DropdownMenuItem<String>(
-            value: segment.id,
-            child: Text(segment.label),
-          ),
-        )
-        .toList(),
+          .map(
+            (segment) => DropdownMenuItem<String>(
+              value: segment.id,
+              child: Text(segment.label),
+            ),
+          )
+          .toList(),
       onChanged: (value) {
         if (value != null) onChanged(value);
       },
@@ -738,10 +729,7 @@ class _SheetTextField extends StatelessWidget {
 }
 
 class _SheetFrame extends StatelessWidget {
-  const _SheetFrame({
-    required this.title,
-    required this.child,
-  });
+  const _SheetFrame({required this.title, required this.child});
 
   final String title;
   final Widget child;

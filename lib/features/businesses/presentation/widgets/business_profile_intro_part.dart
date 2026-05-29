@@ -13,12 +13,11 @@ class _IntroTab extends StatelessWidget {
   static final AuthService _authService = AuthService();
 
   Future<void> _openCreatePost(BuildContext context) async {
-    final updated = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePostCreatePage(
-          businessId: businessId,
-          businessName: businessName,
-        ),
+    final updated = await Navigator.of(context).pushNamed<bool>(
+      AppRoutes.businessProfilePostCreate,
+      arguments: BusinessProfilePostCreateRouteArgs(
+        businessId: businessId,
+        businessName: businessName,
       ),
     );
 
@@ -38,6 +37,7 @@ class _IntroTab extends StatelessWidget {
               id: data[FirestoreFields.id]?.toString() ?? '',
               text: data[FirestoreFields.text]?.toString() ?? '',
               imageUrl:
+                  data[FirestoreFields.thumbnailUrl]?.toString() ??
                   data[FirestoreFields.imageUrl]?.toString() ??
                   data[FirestoreFields.mediaUrl]?.toString() ??
                   '',

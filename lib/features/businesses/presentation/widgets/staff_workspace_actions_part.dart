@@ -236,6 +236,10 @@ extension _StaffWorkspacePageStateActions on _StaffWorkspacePageState {
         emptyText =
             'İş kuyruğunda sonuçlanmamış randevu yok. Yeni veya devam eden işler burada görünecek.';
         break;
+      case _StaffTaskTab.inProgress:
+        emptyText =
+            'Başlayan iş kaydı yok. İşleme alınan randevular burada takip edilecek.';
+        break;
       case _StaffTaskTab.completed:
         emptyText =
             'Tamamlanan iş kaydı yok. Personel işi bitirdiğinde kayıt burada listelenecek.';
@@ -266,7 +270,9 @@ extension _StaffWorkspacePageStateActions on _StaffWorkspacePageState {
             status: _statusValue(data),
             statusLabel: _statusLabel(data),
             isOverdue: overdue,
-            readOnly: tab != _StaffTaskTab.queue,
+            readOnly:
+                tab == _StaffTaskTab.completed ||
+                tab == _StaffTaskTab.cancelled,
             onStart: () => _markAppointment(doc, complete: false),
             onComplete: () => _markAppointment(doc, complete: true),
             onCreateReminder: overdue

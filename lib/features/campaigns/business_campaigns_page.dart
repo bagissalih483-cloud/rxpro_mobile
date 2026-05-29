@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 
-import 'bulk_message_create_page.dart';
-import 'campaign_ai_create_safe_page.dart';
+import '../../app/app_routes.dart';
 import 'campaign_service.dart';
 import 'domain/business_campaign_item_view_model.dart';
 
@@ -128,24 +127,22 @@ class _BusinessCampaignsPageState extends State<BusinessCampaignsPage> {
   }
 
   Future<void> _openAiCampaign() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CampaignAiCreateSafePage(
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-        ),
+    await Navigator.of(context).pushNamed(
+      AppRoutes.campaignAiCreate,
+      arguments: BusinessCampaignToolRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
       ),
     );
     if (mounted) await _refresh();
   }
 
   Future<void> _openBulkMessage() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BulkMessageCreatePage(
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-        ),
+    await Navigator.of(context).pushNamed(
+      AppRoutes.bulkMessageCreate,
+      arguments: BusinessCampaignToolRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
       ),
     );
     if (mounted) await _refresh();

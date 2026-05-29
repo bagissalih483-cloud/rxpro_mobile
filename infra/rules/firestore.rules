@@ -11,6 +11,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isPlatformAdmin() {
+      return userDocExists()
+        && (
+          userData().role == "admin"
+          || userData().activeRole == "admin"
+          || userData().accountKind == "admin"
+          || userData().isAdmin == true
+          || userData().platformAdmin == true
+        );
+    }
+
     function userDocExists() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid));
@@ -142,6 +153,7 @@ service cloud.firestore {
       return collection in [
         "appointments",
         "businessActivityLogs",
+        "appointmentSlots",
         "businessExpenses",
         "businessFinanceRecords",
         "financeRecords",
@@ -219,9 +231,112 @@ service cloud.firestore {
       return notificationBelongsToUser(data) || notificationBelongsToBusiness(data);
     }
 
+    function validNotificationPreferences(uid) {
+      return request.resource.data.keys().hasOnly([
+          "uid",
+          "pushEnabled",
+          "appointmentReminders",
+          "messages",
+          "campaigns",
+          "system",
+          "updatedAt",
+          "updatedAtIso"
+        ])
+        && request.resource.data.keys().hasAll([
+          "uid",
+          "pushEnabled",
+          "appointmentReminders",
+          "messages",
+          "campaigns",
+          "system"
+        ])
+        && request.resource.data.uid == uid
+        && request.resource.data.pushEnabled is bool
+        && request.resource.data.appointmentReminders is bool
+        && request.resource.data.messages is bool
+        && request.resource.data.campaigns is bool
+        && request.resource.data.system is bool;
+    }
+
+    function publicDocumentForbiddenFields() {
+      return [
+        "ownerEmail",
+        "customerEmail",
+        "ownerPhone",
+        "customerPhone",
+        "privatePhone",
+        "personalPhone",
+        "customerUid",
+        "customerUids",
+        "customerIds",
+        "customers",
+        "customerList",
+        "clientUid",
+        "clientUids",
+        "balance",
+        "walletBalance",
+        "revenue",
+        "totalRevenue",
+        "expense",
+        "expenses",
+        "profit",
+        "iban",
+        "taxNumber",
+        "identityNumber",
+        "tcKimlikNo",
+        "notes",
+        "internalNotes",
+        "privateNotes"
+      ];
+    }
+
+    function protectedUserFields() {
+      return [
+        "role",
+        "roles",
+        "activeRole",
+        "accountKind",
+        "isAdmin",
+        "platformAdmin",
+        "admin",
+        "permissions",
+        "claims"
+      ];
+    }
+
+    function protectedBusinessOwnershipFields() {
+      return [
+        "ownerUid",
+        "ownerId",
+        "businessOwnerUid",
+        "userId",
+        "uid",
+        "createdBy",
+        "createdByUid",
+        "adminUid",
+        "managerUid",
+        "ownerUids",
+        "adminUids",
+        "managerUids",
+        "authorizedUids"
+      ];
+    }
+
+    function hasNoPublicPrivateFields(data) {
+      return !data.keys().hasAny(publicDocumentForbiddenFields());
+    }
+
+    function keepsFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
     match /users/{uid} {
-      allow read: if signedIn();
-      allow create, update: if isSelf(uid);
+      allow read, create: if isSelf(uid);
+      allow update: if (
+          isSelf(uid)
+          && keepsFieldsUnchanged(protectedUserFields())
+        )
+        || isPlatformAdmin();
       allow delete: if false;
 
       match /fcmTokens/{tokenId} {
@@ -234,10 +349,28 @@ service cloud.firestore {
       }
     }
 
+    match /users_private/{uid} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if false;
+    }
+
+    match /publicProfiles/{uid} {
+      allow read: if true;
+      allow create: if isSelf(uid)
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isSelf(uid)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(["uid"]);
+      allow delete: if false;
+    }
+
     match /businesses/{businessId} {
       allow read: if true;
-      allow create: if createsOwnBusiness(request.resource.data);
-      allow update: if isBusinessMember(businessId);
+      allow create: if createsOwnBusiness(request.resource.data)
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
       allow delete: if false;
 
       match /{document=**} {
@@ -247,19 +380,36 @@ service cloud.firestore {
 
     match /businessProfiles/{businessId} {
       allow read: if true;
-      allow create: if createsOwnBusiness(request.resource.data) || isBusinessMember(businessId);
-      allow update: if isBusinessMember(businessId);
+      allow create: if (
+          createsOwnBusiness(request.resource.data)
+          || isBusinessMember(businessId)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
       allow delete: if false;
     }
 
     match /registeredBusinesses/{businessId} {
       allow read: if true;
-      allow create: if createsOwnBusiness(request.resource.data) || isBusinessMember(businessId);
-      allow update: if isBusinessMember(businessId);
+      allow create: if (
+          createsOwnBusiness(request.resource.data)
+          || isBusinessMember(businessId)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
       allow delete: if false;
     }
 
     match /businessPlaceIndex/{placeId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /directory_pois_google_cache/{placeId} {
       allow read: if true;
       allow create, update, delete: if false;
     }
@@ -275,11 +425,141 @@ service cloud.firestore {
         && request.resource.data.placeId is string
         && request.resource.data.placeId.size() > 0
         && request.resource.data.status == "pending";
-      allow read: if dataBelongsToCurrentUser(resource.data);
-      allow update: if dataBelongsToCurrentUser(resource.data)
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && resource.data.status == "pending"
+          && request.resource.data.status == "pending"
+        );
+      allow delete: if false;
+    }
+
+    match /accountDeletionRequests/{uid} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if false;
+    }
+
+    match /functionRateLimits/{docId} {
+      allow read, write: if false;
+    }
+
+    match /functionAbuseLogs/{docId} {
+      allow read: if isPlatformAdmin();
+      allow write: if false;
+    }
+
+    match /adminAuditLogs/{logId} {
+      allow read, create: if isPlatformAdmin();
+      allow update, delete: if false;
+    }
+
+    match /moderationBlocks/{blockId} {
+      allow read, create, update: if isPlatformAdmin();
+      allow delete: if false;
+    }
+
+    match /businessProfilePostReports/{reportId} {
+      allow create: if signedIn()
         && dataBelongsToCurrentUser(request.resource.data)
-        && resource.data.status == "pending"
-        && request.resource.data.status == "pending";
+        && request.resource.data.postId is string
+        && request.resource.data.postId.size() > 0
+        && request.resource.data.reason is string
+        && request.resource.data.status == "open";
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.postId == resource.data.postId;
+      allow delete: if false;
+    }
+
+    match /businessReviewReports/{reportId} {
+      allow create: if signedIn()
+        && dataBelongsToCurrentUser(request.resource.data)
+        && request.resource.data.reviewId is string
+        && request.resource.data.reviewId.size() > 0
+        && request.resource.data.businessId is string
+        && request.resource.data.businessId.size() > 0
+        && request.resource.data.reason is string
+        && request.resource.data.status == "open";
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.reviewId == resource.data.reviewId;
+      allow delete: if false;
+    }
+
+    match /campaignReports/{reportId} {
+      allow create: if signedIn()
+        && dataBelongsToCurrentUser(request.resource.data)
+        && request.resource.data.campaignId is string
+        && request.resource.data.campaignId.size() > 0
+        && request.resource.data.sourceCollection in ["businessCampaigns", "campaigns"]
+        && request.resource.data.businessId is string
+        && request.resource.data.reason is string
+        && request.resource.data.status == "open";
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.campaignId == resource.data.campaignId
+        && request.resource.data.sourceCollection == resource.data.sourceCollection;
+      allow delete: if false;
+    }
+
+    match /businessCampaigns/{campaignId} {
+      allow read: if true;
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isPlatformAdmin()
+        || (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        );
+      allow delete: if false;
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isPlatformAdmin()
+        || (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        );
+      allow delete: if false;
+    }
+
+    match /businessReviews/{reviewId} {
+      allow read: if true;
+      allow create: if dataBelongsToCurrentUser(request.resource.data)
+        || canWriteBusinessScoped(request.resource.data);
+      allow update: if isPlatformAdmin()
+        || canWriteBusinessScoped(resource.data)
+        || dataBelongsToCurrentUser(resource.data);
       allow delete: if false;
     }
 
@@ -288,7 +568,6 @@ service cloud.firestore {
         && (
           canReadBusinessScoped(resource.data)
           || dataBelongsToCurrentUser(resource.data)
-          || resource.data.inviteCode is string
         );
       allow create: if canWriteBusinessScoped(request.resource.data);
       allow update: if canReadBusinessScoped(resource.data)
@@ -321,6 +600,13 @@ service cloud.firestore {
           || canWriteBusinessScoped(request.resource.data)
         );
       allow update: if canAccessNotification(resource.data);
+      allow delete: if false;
+    }
+
+    match /notificationPreferences/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && validNotificationPreferences(uid);
       allow delete: if false;
     }
 

@@ -95,6 +95,7 @@ class BusinessLocationParser {
       ]),
       googleMapsUri: _firstNonEmpty(<dynamic>[
         data['googleMapsUri'],
+        data['google_maps_uri'],
         data['googleMapsUrl'],
         data['mapsUrl'],
         data['mapUrl'],
@@ -103,6 +104,7 @@ class BusinessLocationParser {
       ]),
       placeId: _firstNonEmpty(<dynamic>[
         data['googlePlaceId'],
+        data['source_place_id'],
         data['placeId'],
         data['place_id'],
       ]),

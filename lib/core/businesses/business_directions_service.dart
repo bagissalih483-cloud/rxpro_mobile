@@ -30,4 +30,31 @@ class BusinessDirectionsService {
 
     return launchUrl(uri);
   }
+
+  Future<bool> openNearbySearch({
+    required Position origin,
+    String categoryLabel = '',
+    String district = '',
+  }) async {
+    final cleanCategory = categoryLabel.trim();
+    final cleanDistrict = district.trim();
+    final queryText = [
+      if (cleanCategory.isNotEmpty) cleanCategory,
+      if (cleanDistrict.isNotEmpty) cleanDistrict,
+      'isletme',
+    ].join(' ');
+
+    final uri = Uri.https('www.google.com', '/maps/search/', <String, String>{
+      'api': '1',
+      'query': queryText,
+      'center':
+          '${origin.latitude.toStringAsFixed(7)},${origin.longitude.toStringAsFixed(7)}',
+    });
+
+    if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      return true;
+    }
+
+    return launchUrl(uri);
+  }
 }

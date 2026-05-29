@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
 
 import '../models/accounting_models.dart';
 import 'accounting_firestore_paths.dart';
@@ -185,18 +186,33 @@ class CallableAccountingRepository implements AccountingRepository {
   }
 
   @override
-  Future<void> createManualSale(AccountingSale sale) {
-    return _client.createManualSale(sale);
+  Future<void> createManualSale(AccountingSale sale) async {
+    await _client.createManualSale(sale);
+    await AppObservabilityService.instance.logFinanceActionCompleted(
+      actionType: 'manual_sale_created',
+      businessId: sale.businessId,
+      amountKurus: sale.totalAmountKurus,
+    );
   }
 
   @override
-  Future<void> collectPayment(AccountingPayment payment) {
-    return _client.collectPayment(payment);
+  Future<void> collectPayment(AccountingPayment payment) async {
+    await _client.collectPayment(payment);
+    await AppObservabilityService.instance.logFinanceActionCompleted(
+      actionType: 'payment_collected',
+      businessId: payment.businessId,
+      amountKurus: payment.amountKurus,
+    );
   }
 
   @override
-  Future<void> createExpense(AccountingExpense expense) {
-    return _client.createExpense(expense);
+  Future<void> createExpense(AccountingExpense expense) async {
+    await _client.createExpense(expense);
+    await AppObservabilityService.instance.logFinanceActionCompleted(
+      actionType: 'expense_created',
+      businessId: expense.businessId,
+      amountKurus: expense.amountKurus,
+    );
   }
 
   AccountingSummary _buildSummary({

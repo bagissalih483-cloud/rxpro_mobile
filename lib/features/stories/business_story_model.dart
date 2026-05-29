@@ -9,6 +9,7 @@ class BusinessStoryModel {
     required this.businessLogoUrl,
     required this.category,
     required this.mediaUrl,
+    required this.thumbnailUrl,
     required this.mediaType,
     required this.caption,
     required this.storyType,
@@ -26,6 +27,7 @@ class BusinessStoryModel {
   final String businessLogoUrl;
   final String category;
   final String mediaUrl;
+  final String thumbnailUrl;
   final String mediaType;
   final String caption;
   final String storyType;
@@ -77,6 +79,7 @@ class BusinessStoryModel {
         'Genel',
       ], 'Genel'),
       mediaUrl: _first([data['mediaUrl'], data['imageUrl'], data['photoUrl']]),
+      thumbnailUrl: _first([data['thumbnailUrl'], data['thumbUrl']]),
       mediaType: _first([data['mediaType'], 'image'], 'image'),
       caption: _first([data['caption'], data['text'], data['description']]),
       storyType: _first([data['storyType'], 'normal'], 'normal'),

@@ -1,6 +1,12 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/realtime/rx_notification_service.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
+import 'package:rxpro_mobile/features/appointments/data/appointment_slot_lock_release.dart';
+import 'package:rxpro_mobile/features/appointments/domain/appointment_state_transition_policy.dart';
 
 class CustomerAppointmentActionService {
   CustomerAppointmentActionService({
@@ -13,35 +19,53 @@ class CustomerAppointmentActionService {
   final FirebaseAuth _auth;
 
   CollectionReference<Map<String, dynamic>> get _appointments =>
-      _firestore.collection('appointments');
+      _firestore.collection(FirestoreCollections.appointments);
 
   Future<void> cancelByCustomer({
     required CustomerAppointmentActionTarget target,
     required String reason,
   }) async {
     final ref = _appointments.doc(target.id);
+    final current = await ref.get();
+    final currentData = current.data() ?? const <String, dynamic>{};
 
-    await ref.set({
-      'status': 'cancelled',
-      'appointmentStatus': 'cancelled',
-      'state': 'cancelled',
-      'isActive': false,
-      'isCancelled': true,
-      'cancelledBy': 'customer',
-      'cancellationReason': reason,
-      'businessNoticeTitle': 'Bireysel kullanıcı randevuyu iptal etti',
+    if (!AppointmentStateTransitionPolicy.canCancelByCustomer(
+      currentData['status'] ?? currentData['appointmentStatus'],
+    )) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    batch.set(ref, {
+      ...AppointmentStateTransitionPolicy.customerCancellationFields(
+        reason: reason,
+      ),
+      'businessNoticeTitle': 'Bireysel kullanici randevuyu iptal etti',
       'businessNoticeBody': reason,
       'cancelledAt': FieldValue.serverTimestamp(),
       'cancelledAtLocalIso': DateTime.now().toIso8601String(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    for (final slotRef in AppointmentSlotLockRelease.refsForAppointment(
+      firestore: _firestore,
+      appointment: currentData,
+    )) {
+      batch.delete(slotRef);
+    }
+    await batch.commit();
 
     await notifyBusiness(
       target: target,
       type: 'appointment_cancelled_by_customer',
-      title: 'Bireysel kullanıcı randevuyu iptal etti',
+      title: 'Bireysel kullanici randevuyu iptal etti',
       body:
-          '${target.businessName} randevusu bireysel kullanıcı tarafından iptal edildi. Gerekçe: $reason',
+          '${target.businessName} randevusu bireysel kullanici tarafindan iptal edildi. Gerekce: $reason',
+    );
+
+    _logCancellation(
+      appointmentId: target.id,
+      actorRole: 'customer',
+      reason: reason,
     );
   }
 
@@ -78,7 +102,7 @@ class CustomerAppointmentActionService {
       type: 'appointment_postpone_accepted',
       title: 'Erteleme talebi kabul edildi',
       body:
-          'Bireysel kullanıcı ${target.postponeDateText} ${target.postponeTimeText} erteleme talebini kabul etti.',
+          'Bireysel kullanici ${target.postponeDateText} ${target.postponeTimeText} erteleme talebini kabul etti.',
     );
   }
 
@@ -87,17 +111,22 @@ class CustomerAppointmentActionService {
     required String reason,
   }) async {
     final ref = _appointments.doc(target.id);
+    final current = await ref.get();
+    final currentData = current.data() ?? const <String, dynamic>{};
 
-    await ref.set({
-      'status': 'cancelled',
-      'appointmentStatus': 'cancelled',
-      'state': 'cancelled',
-      'isActive': false,
-      'isCancelled': true,
-      'cancelledBy': 'customer',
+    if (!AppointmentStateTransitionPolicy.canCancelByCustomer(
+      currentData['status'] ?? currentData['appointmentStatus'],
+    )) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    batch.set(ref, {
+      ...AppointmentStateTransitionPolicy.customerCancellationFields(
+        reason: reason,
+      ),
       'postponeRequestStatus': 'rejected',
       'customerApprovalStatus': 'rejected',
-      'cancellationReason': reason,
       'postponeRejectedReason': reason,
       'postponeRejectedAt': FieldValue.serverTimestamp(),
       'postponeRejectedAtLocalIso': DateTime.now().toIso8601String(),
@@ -105,13 +134,26 @@ class CustomerAppointmentActionService {
       'cancelledAtLocalIso': DateTime.now().toIso8601String(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    for (final slotRef in AppointmentSlotLockRelease.refsForAppointment(
+      firestore: _firestore,
+      appointment: currentData,
+    )) {
+      batch.delete(slotRef);
+    }
+    await batch.commit();
 
     await notifyBusiness(
       target: target,
       type: 'appointment_postpone_rejected_cancelled',
       title: 'Erteleme reddedildi ve randevu iptal edildi',
       body:
-          'Bireysel kullanıcı erteleme talebini reddetti ve randevuyu iptal etti. Gerekçe: $reason',
+          'Bireysel kullanici erteleme talebini reddetti ve randevuyu iptal etti. Gerekce: $reason',
+    );
+
+    _logCancellation(
+      appointmentId: target.id,
+      actorRole: 'customer',
+      reason: 'postpone_rejected',
     );
   }
 
@@ -157,7 +199,7 @@ class CustomerAppointmentActionService {
     await RxNotificationService.createBusinessNotification(
       businessId: resolvedBusinessId,
       businessName: resolvedBusinessName.isEmpty
-          ? 'Kurumsal Kullanıcı'
+          ? 'Kurumsal Kullanici'
           : resolvedBusinessName,
       recipientUid: resolvedOwnerUid,
       actorUid: actorUid,
@@ -172,6 +214,23 @@ class CustomerAppointmentActionService {
         'dateText': target.dateText,
         'timeText': target.timeText,
       },
+    );
+  }
+
+  void _logCancellation({
+    required String appointmentId,
+    required String actorRole,
+    required String reason,
+  }) {
+    unawaited(
+      AppObservabilityService.instance.logEvent(
+        AppAnalyticsEvents.appointmentCancelled,
+        parameters: <String, Object?>{
+          'appointment_id': appointmentId,
+          'actor_role': actorRole,
+          'reason': reason,
+        },
+      ),
     );
   }
 

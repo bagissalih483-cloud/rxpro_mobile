@@ -7,8 +7,16 @@ abstract final class FirestoreCollections {
   FirestoreCollections._();
 
   static const users = 'users';
+  static const usersPrivate = 'users_private';
+  static const publicProfiles = 'publicProfiles';
+  static const accountDeletionRequests = 'accountDeletionRequests';
+  static const functionAbuseLogs = 'functionAbuseLogs';
+  static const functionRateLimits = 'functionRateLimits';
+  static const adminAuditLogs = 'adminAuditLogs';
+  static const moderationBlocks = 'moderationBlocks';
   static const businesses = 'businesses';
   static const businessPlaceIndex = 'businessPlaceIndex';
+  static const directoryPoisGoogleCache = 'directory_pois_google_cache';
   static const placeQueryBuckets = 'placeQueryBuckets';
   static const businessClaimRequests = 'businessClaimRequests';
   static const registeredBusinesses = 'registeredBusinesses';
@@ -17,14 +25,19 @@ abstract final class FirestoreCollections {
   static const businessActivityLogs = 'businessActivityLogs';
   static const businessExpenses = 'businessExpenses';
   static const appointments = 'appointments';
+  static const appointmentSlots = 'appointmentSlots';
   static const notifications = 'notifications';
+  static const notificationPreferences = 'notificationPreferences';
   static const services = 'services';
   static const businessServices = 'businessServices';
   static const businessReviews = 'businessReviews';
+  static const businessReviewReports = 'businessReviewReports';
   static const businessRatings = 'businessRatings';
   static const favorites = 'favorites';
   static const follows = 'follows';
   static const campaigns = 'campaigns';
+  static const businessCampaigns = 'businessCampaigns';
+  static const campaignReports = 'campaignReports';
   static const messages = 'messages';
   static const messageThreads = 'messageThreads';
   static const chats = 'chats';

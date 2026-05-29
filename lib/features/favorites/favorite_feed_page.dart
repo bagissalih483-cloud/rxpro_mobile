@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/favorites/data/favorite_feed_repository.dart';
 
 import '../business/widgets/business_profile_post_interactive_card.dart';
-import '../businesses/business_profile_page.dart';
 
 /// 50C-J2: Favorite feed behavior is unchanged.
 class FavoriteFeedPage extends StatefulWidget {
@@ -94,6 +94,7 @@ class _FavoriteFeedPageState extends State<FavoriteFeedPage>
       ], 'Genel'),
       text: _clean(data[FirestoreFields.text]),
       imageUrl: _firstNonEmpty([
+        data[FirestoreFields.thumbnailUrl],
         data[FirestoreFields.imageUrl],
         data[FirestoreFields.mediaUrl],
       ]),
@@ -168,25 +169,23 @@ class _FavoriteFeedPageState extends State<FavoriteFeedPage>
   }
 
   void _openBusinessPost(_FavoritePostItem post) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePage(
-          businessId: post.businessId,
-          businessName: post.businessName,
-          category: post.businessCategory,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessProfile,
+      arguments: BusinessProfileRouteArgs(
+        businessId: post.businessId,
+        businessName: post.businessName,
+        category: post.businessCategory,
       ),
     );
   }
 
   void _openBusinessFollow(_FavoriteFollowItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePage(
-          businessId: item.businessId,
-          businessName: item.businessName,
-          category: item.category,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessProfile,
+      arguments: BusinessProfileRouteArgs(
+        businessId: item.businessId,
+        businessName: item.businessName,
+        category: item.category,
       ),
     );
   }

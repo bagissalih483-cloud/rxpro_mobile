@@ -75,7 +75,12 @@ class BusinessProfileRepository {
         .collection(FirestoreCollections.businessReviews)
         .where(FirestoreFields.businessId, isEqualTo: businessId)
         .snapshots()
-        .map(_withDocumentIds);
+        .map((snapshot) {
+          return _withDocumentIds(snapshot).where((data) {
+            final status = _clean(data['moderationStatus']).toLowerCase();
+            return status != 'hidden' && status != 'removed';
+          }).toList(growable: false);
+        });
   }
 
   Future<List<Map<String, dynamic>>> fetchBusinessServices({
@@ -180,6 +185,7 @@ class BusinessProfileRepository {
       FirestoreFields.customerName: customerName,
       FirestoreFields.rating: rating,
       FirestoreFields.comment: comment,
+      'moderationStatus': 'active',
       FirestoreFields.createdAt: DateTime.now().toIso8601String(),
     });
 
@@ -193,6 +199,38 @@ class BusinessProfileRepository {
           FirestoreFields.rating: rating,
           FirestoreFields.updatedAt: DateTime.now().toIso8601String(),
         }, SetOptions(merge: true));
+  }
+
+  Future<bool> reportReview({
+    required String reviewId,
+    required String businessId,
+    required String uid,
+    String reason = 'user_report',
+  }) async {
+    if (reviewId.trim().isEmpty || uid.trim().isEmpty) return false;
+
+    final reportId = 'review_${reviewId.trim()}_$uid';
+    final reportRef = _firestore
+        .collection(FirestoreCollections.businessReviewReports)
+        .doc(reportId);
+
+    var created = false;
+    await _firestore.runTransaction((transaction) async {
+      final current = await transaction.get(reportRef);
+      if (current.exists) return;
+
+      transaction.set(reportRef, {
+        'reviewId': reviewId.trim(),
+        FirestoreFields.businessId: businessId,
+        FirestoreFields.uid: uid,
+        'reason': reason,
+        'status': 'open',
+        FirestoreFields.createdAt: DateTime.now().toIso8601String(),
+      });
+      created = true;
+    });
+
+    return created;
   }
 
   Future<bool> isFollowingBusiness({
@@ -280,4 +318,6 @@ class BusinessProfileRepository {
         .doc(cleanUid)
         .snapshots();
   }
+
+  static String _clean(Object? value) => value?.toString().trim() ?? '';
 }

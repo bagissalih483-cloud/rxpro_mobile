@@ -5,6 +5,7 @@ class CampaignCollections {
 
   static const String campaigns = 'campaigns';
   static const String businessCampaigns = 'businessCampaigns';
+  static const String campaignReports = 'campaignReports';
   static const String bulkMessageDrafts = 'bulkMessageDrafts';
 
   static const List<String> businessReadableCampaignCollections = <String>[
@@ -115,7 +116,19 @@ class CampaignRecord {
         normalized == 'unpublished';
   }
 
-  bool get visible => !isPassive;
+  bool get visible {
+    final moderationStatus = CampaignFieldReaders.firstString(
+      raw,
+      const <String>['moderationStatus', 'reviewStatus'],
+    ).toLowerCase();
+    final hidden = raw['hidden'] == true ||
+        raw['isHidden'] == true ||
+        moderationStatus == 'hidden' ||
+        moderationStatus == 'blocked' ||
+        moderationStatus == 'removed';
+
+    return !isPassive && !hidden;
+  }
 
   DateTime get sortDate {
     return updatedAt ??

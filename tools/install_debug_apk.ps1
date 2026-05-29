@@ -1,6 +1,6 @@
 param(
   [string]$ProjectRoot = "C:\Users\Casper\Desktop\rxpro_mobile",
-  [string]$PackageName = "com.example.rxpro_mobile"
+  [string]$PackageName = "com.fix.mobile"
 )
 
 $ErrorActionPreference = "Stop"

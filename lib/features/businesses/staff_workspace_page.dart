@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
@@ -6,25 +7,27 @@ import 'package:rxpro_mobile/core/appointments/appointment_status.dart';
 import 'package:rxpro_mobile/core/appointments/appointment_status_mapper.dart';
 import 'package:rxpro_mobile/core/tasks/task_status_filter.dart';
 
-import 'package:rxpro_mobile/features/businesses/registered_businesses_page.dart';
-import 'package:rxpro_mobile/features/businesses/business_customers_page.dart';
 import 'package:rxpro_mobile/features/businesses/data/staff_workspace_repository.dart';
-import 'package:rxpro_mobile/features/businesses/presentation/pages/business_finance_page.dart';
-import 'package:rxpro_mobile/features/campaigns/business_campaigns_page.dart';
 import 'package:rxpro_mobile/features/finance/services/finance_record_service.dart';
-import 'package:rxpro_mobile/features/stories/business_story_create_page.dart';
 
 part 'presentation/widgets/staff_workspace_permissions_part.dart';
 part 'presentation/widgets/staff_workspace_actions_part.dart';
 part 'presentation/widgets/staff_workspace_widgets_part.dart';
 
-enum _StaffTaskTab { queue, completed, cancelled }
+enum _StaffTaskTab { queue, inProgress, completed, cancelled }
 
 /// Staff workspace keeps appointment and expense writes behind a repository.
 class StaffWorkspacePage extends StatefulWidget {
-  const StaffWorkspacePage({super.key, required this.memberData});
+  const StaffWorkspacePage({
+    super.key,
+    required this.memberData,
+    this.title = 'Görevlerim',
+    this.tasksOnly = false,
+  });
 
   final Map<String, dynamic> memberData;
+  final String title;
+  final bool tasksOnly;
 
   @override
   State<StaffWorkspacePage> createState() => _StaffWorkspacePageState();
@@ -73,6 +76,86 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
     });
   }
 
+  Widget _buildAssignedTasksFlow() {
+    return DefaultTabController(
+      length: 4,
+      child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+        stream: _assignedAppointmentsStream(),
+        builder: (context, snapshot) {
+          final docs = snapshot.data ?? [];
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (!_can('viewAppointments')) {
+            return const _InfoBox(
+              text:
+                  'Randevuları görüntüleme yetkin yok. Kurumsal yetkiliden rol/yetki isteyebilirsin.',
+            );
+          }
+
+          final queueDocs = _taskDocsForTab(docs, _StaffTaskTab.queue);
+          final inProgressDocs = _taskDocsForTab(
+            docs,
+            _StaffTaskTab.inProgress,
+          );
+          final completedDocs = _taskDocsForTab(docs, _StaffTaskTab.completed);
+          final cancelledDocs = _taskDocsForTab(docs, _StaffTaskTab.cancelled);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: TabBar(
+                  isScrollable: true,
+                  labelColor: const Color(0xFF0F172A),
+                  unselectedLabelColor: const Color(0xFF64748B),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  tabs: [
+                    Tab(text: 'Bekleyen (${queueDocs.length})'),
+                    Tab(text: 'Başlayan (${inProgressDocs.length})'),
+                    Tab(text: 'Biten (${completedDocs.length})'),
+                    Tab(text: 'İptal (${cancelledDocs.length})'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 460,
+                child: TabBarView(
+                  children: [
+                    _buildTaskList(docs: queueDocs, tab: _StaffTaskTab.queue),
+                    _buildTaskList(
+                      docs: inProgressDocs,
+                      tab: _StaffTaskTab.inProgress,
+                    ),
+                    _buildTaskList(
+                      docs: completedDocs,
+                      tab: _StaffTaskTab.completed,
+                    ),
+                    _buildTaskList(
+                      docs: cancelledDocs,
+                      tab: _StaffTaskTab.cancelled,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final businessName =
@@ -107,111 +190,33 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Görevlerim'),
+        title: Text(widget.title),
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
         children: [
-          _StaffPanelHeader(
-            businessName: businessName,
-            staffName: staffName,
-            roleLabel: roleLabel,
-          ),
-          const SizedBox(height: 12),
-          _StaffAccordion(
-            title: 'Atanmış Randevular',
-            subtitle: 'Yetkili olduğun işlemleri buradan tamamla',
-            icon: Icons.event_available_outlined,
-            expanded: _expanded.contains(0),
-            onTap: () => _toggle(0),
-            child: DefaultTabController(
-              length: 3,
-              child:
-                  StreamBuilder<
-                    List<QueryDocumentSnapshot<Map<String, dynamic>>>
-                  >(
-                    stream: _assignedAppointmentsStream(),
-                    builder: (context, snapshot) {
-                      final docs = snapshot.data ?? [];
-
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(child: CircularProgressIndicator()),
-                        );
-                      }
-
-                      if (!_can('viewAppointments')) {
-                        return const _InfoBox(
-                          text:
-                              'Randevuları görüntüleme yetkin yok. Kurumsal yetkiliden rol/yetki isteyebilirsin.',
-                        );
-                      }
-
-                      final queueDocs = _taskDocsForTab(
-                        docs,
-                        _StaffTaskTab.queue,
-                      );
-                      final completedDocs = _taskDocsForTab(
-                        docs,
-                        _StaffTaskTab.completed,
-                      );
-                      final cancelledDocs = _taskDocsForTab(
-                        docs,
-                        _StaffTaskTab.cancelled,
-                      );
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            child: TabBar(
-                              labelColor: const Color(0xFF0F172A),
-                              unselectedLabelColor: const Color(0xFF64748B),
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              tabs: [
-                                Tab(text: 'İş Kuyruğu (${queueDocs.length})'),
-                                Tab(text: 'Biten (${completedDocs.length})'),
-                                Tab(text: 'İptal (${cancelledDocs.length})'),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            height: 460,
-                            child: TabBarView(
-                              children: [
-                                _buildTaskList(
-                                  docs: queueDocs,
-                                  tab: _StaffTaskTab.queue,
-                                ),
-                                _buildTaskList(
-                                  docs: completedDocs,
-                                  tab: _StaffTaskTab.completed,
-                                ),
-                                _buildTaskList(
-                                  docs: cancelledDocs,
-                                  tab: _StaffTaskTab.cancelled,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+          if (!widget.tasksOnly) ...[
+            _StaffPanelHeader(
+              businessName: businessName,
+              staffName: staffName,
+              roleLabel: roleLabel,
             ),
-          ),
-          if (hasQuickActions)
+            const SizedBox(height: 12),
+          ],
+          if (widget.tasksOnly)
+            _buildAssignedTasksFlow()
+          else
+            _StaffAccordion(
+              title: 'Atanmış Randevular',
+              subtitle: 'Yetkili olduğun işlemleri buradan tamamla',
+              icon: Icons.event_available_outlined,
+              expanded: _expanded.contains(0),
+              onTap: () => _toggle(0),
+              child: _buildAssignedTasksFlow(),
+            ),
+          if (!widget.tasksOnly && hasQuickActions)
             _StaffAccordion(
               title: hasFinanceAccess
                   ? 'Mali İşler ve Yetkili Hızlı İşlemler'
@@ -248,19 +253,15 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                           return;
                         }
 
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => _can('manageCampaigns')
-                                ? BusinessCampaignsPage(
-                                    businessId: _businessId,
-                                    businessName: businessName,
-                                  )
-                                : BusinessStoryCreatePage(
-                                    businessId: _businessId,
-                                    businessName: businessName,
-                                    businessLogoUrl: businessLogoUrl,
-                                    category: businessCategory,
-                                  ),
+                        Navigator.of(context).pushNamed(
+                          _can('manageCampaigns')
+                              ? AppRoutes.businessCampaigns
+                              : AppRoutes.businessStoryCreate,
+                          arguments: BusinessPageRouteArgs(
+                            businessId: _businessId,
+                            businessName: businessName,
+                            businessLogoUrl: businessLogoUrl,
+                            category: businessCategory,
                           ),
                         );
                       },
@@ -282,12 +283,11 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                           return;
                         }
 
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => BusinessCustomersPage(
-                              businessId: _businessId,
-                              businessName: businessName,
-                            ),
+                        Navigator.of(context).pushNamed(
+                          AppRoutes.businessCustomers,
+                          arguments: BusinessPageRouteArgs(
+                            businessId: _businessId,
+                            businessName: businessName,
                           ),
                         );
                       },
@@ -308,12 +308,11 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                           return;
                         }
 
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => BusinessFinancePage(
-                              businessId: _businessId,
-                              businessName: businessName,
-                            ),
+                        Navigator.of(context).pushNamed(
+                          AppRoutes.businessFinance,
+                          arguments: BusinessPageRouteArgs(
+                            businessId: _businessId,
+                            businessName: businessName,
                           ),
                         );
                       },
@@ -321,40 +320,43 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                 ],
               ),
             ),
-          _StaffAccordion(
-            title: 'Yetkilerim',
-            subtitle: 'Bu hesapta açık olan işlem izinleri',
-            icon: Icons.admin_panel_settings_outlined,
-            expanded: _expanded.contains(2),
-            onTap: () => _toggle(2),
-            child: Column(
-              children: _permissions.entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 7),
-                  child: Row(
-                    children: [
-                      Icon(
-                        entry.value
-                            ? Icons.check_circle_rounded
-                            : Icons.cancel_outlined,
-                        color: entry.value
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFF94A3B8),
-                        size: 19,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _permissionLabels[entry.key] ?? entry.key,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+          if (!widget.tasksOnly)
+            _StaffAccordion(
+              title: 'Yetkilerim',
+              subtitle: 'Bu hesapta açık olan işlem izinleri',
+              icon: Icons.admin_panel_settings_outlined,
+              expanded: _expanded.contains(2),
+              onTap: () => _toggle(2),
+              child: Column(
+                children: _permissions.entries.map((entry) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 7),
+                    child: Row(
+                      children: [
+                        Icon(
+                          entry.value
+                              ? Icons.check_circle_rounded
+                              : Icons.cancel_outlined,
+                          color: entry.value
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF94A3B8),
+                          size: 19,
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _permissionLabels[entry.key] ?? entry.key,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
         ],
       ),
     );

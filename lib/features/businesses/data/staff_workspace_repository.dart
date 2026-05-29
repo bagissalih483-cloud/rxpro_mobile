@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
+import 'package:rxpro_mobile/features/appointments/data/appointment_slot_lock_release.dart';
+import 'package:rxpro_mobile/features/appointments/domain/appointment_state_transition_policy.dart';
 
 class StaffWorkspaceRepository {
   StaffWorkspaceRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
@@ -180,17 +183,23 @@ class StaffWorkspaceRepository {
     final uid = currentUid;
     if (uid.isEmpty || appointmentId.trim().isEmpty) return;
 
-    await _firestore
+    final appointmentRef = _firestore
         .collection(FirestoreCollections.appointments)
-        .doc(appointmentId)
-        .set({
-          FirestoreFields.status: 'noShow',
-          FirestoreFields.appointmentStatus: 'noShow',
-          FirestoreFields.state: 'noShow',
-          FirestoreFields.isCancelled: true,
-          FirestoreFields.isActive: false,
-          FirestoreFields.noShow: true,
-          'cancelReason': 'no_show_or_late_cancel_after_appointment_time',
+        .doc(appointmentId);
+    final appointmentSnap = await appointmentRef.get();
+    final appointmentData = appointmentSnap.data() ?? const <String, dynamic>{};
+    const reason = 'no_show_or_late_cancel_after_appointment_time';
+
+    if (!AppointmentStateTransitionPolicy.canMarkNoShow(
+      appointmentData[FirestoreFields.status] ??
+          appointmentData[FirestoreFields.appointmentStatus],
+    )) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    batch.set(appointmentRef, {
+          ...AppointmentStateTransitionPolicy.noShowFields(reason: reason),
           FirestoreFields.cancelledAt: FieldValue.serverTimestamp(),
           FirestoreFields.cancelledByUid: uid,
           FirestoreFields.cancelledByName: staffName,
@@ -200,6 +209,13 @@ class StaffWorkspaceRepository {
           FirestoreFields.lastStaffActionByName: staffName,
           FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+    for (final slotRef in AppointmentSlotLockRelease.refsForAppointment(
+      firestore: _firestore,
+      appointment: appointmentData,
+    )) {
+      batch.delete(slotRef);
+    }
+    await batch.commit();
 
     await _firestore.collection(FirestoreCollections.notifications).add({
       FirestoreFields.targetScope: 'business',
@@ -214,7 +230,7 @@ class StaffWorkspaceRepository {
       FirestoreFields.data: {
         FirestoreFields.appointmentId: appointmentId,
         FirestoreFields.status: 'noShow',
-        'reason': 'no_show_or_late_cancel_after_appointment_time',
+        'reason': reason,
         FirestoreFields.time: time,
       },
       FirestoreFields.isRead: false,
@@ -222,6 +238,15 @@ class StaffWorkspaceRepository {
       FirestoreFields.createdAtIso: DateTime.now().toIso8601String(),
       FirestoreFields.source: 'staff_workspace_tasks_rev2',
     });
+
+    await AppObservabilityService.instance.logEvent(
+      AppAnalyticsEvents.appointmentCancelled,
+      parameters: <String, Object?>{
+        'appointment_id': appointmentId,
+        'actor_role': 'staff',
+        'reason': reason,
+      },
+    );
   }
 
   Future<String> createExpense({
@@ -252,6 +277,12 @@ class StaffWorkspaceRepository {
           FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
           FirestoreFields.source: 'staff_workspace',
         });
+
+    await AppObservabilityService.instance.logFinanceActionCompleted(
+      actionType: 'staff_expense_created',
+      businessId: businessId,
+      amountKurus: (amount * 100).round(),
+    );
 
     return expenseRef.id;
   }

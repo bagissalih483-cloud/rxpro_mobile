@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../appointments/customer_appointments_page.dart';
+import '../../app/app_routes.dart';
 import 'data/notification_center_repository.dart';
+import 'domain/notification_center_view_policy.dart';
+import 'presentation/notification_center_controller.dart';
 
 class NotificationCenterPage extends StatefulWidget {
   const NotificationCenterPage({super.key, this.businessId, this.businessName});
@@ -18,49 +20,41 @@ class NotificationCenterPage extends StatefulWidget {
 /// 49D-E1: Bildirim merkezi rol/scope çözümü merkezi SessionRolePolicy'ye bağlandı.
 /// FCM/backend/token gönderim çekirdeğine dokunulmadı.
 class _NotificationCenterPageState extends State<NotificationCenterPage> {
-  final NotificationCenterRepository _repository =
-      NotificationCenterRepository();
-  Future<NotificationCenterScope>? _scopeFuture;
-  String? _loadedUid;
+  late final NotificationCenterController _controller;
 
   @override
   void initState() {
     super.initState();
-    _refreshScopeIfNeeded();
-  }
-
-  @override
-  void didUpdateWidget(covariant NotificationCenterPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.businessId != widget.businessId) {
-      _scopeFuture = null;
-      _refreshScopeIfNeeded();
-    }
-  }
-
-  void _refreshScopeIfNeeded() {
-    final uid = _repository.currentUid;
-    if (_scopeFuture == null || _loadedUid != uid) {
-      _loadedUid = uid;
-      _scopeFuture = _resolveScope();
-    }
-  }
-
-  Future<NotificationCenterScope> _resolveScope() {
-    return _repository.resolveScope(
+    _controller = NotificationCenterController(
       businessId: widget.businessId,
       businessName: widget.businessName,
     );
   }
 
+  @override
+  void didUpdateWidget(covariant NotificationCenterPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.businessId != widget.businessId ||
+        oldWidget.businessName != widget.businessName) {
+      _controller.updateTarget(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
+      );
+    }
+  }
+
+  void _refreshScopeIfNeeded() {
+    _controller.refreshScopeIfNeeded();
+  }
+
   Stream<List<NotificationCenterItem>> _notificationStream(
     NotificationCenterScope scope,
   ) {
-    return _repository.watchNotifications(scope);
+    return _controller.watchNotifications(scope);
   }
 
   Future<void> _markAllRead(List<NotificationCenterItem> items) async {
-    final count = await _repository.markAllRead(items);
+    final count = await _controller.markAllRead(items);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +77,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
         foregroundColor: const Color(0xFF0F172A),
       ),
       body: FutureBuilder<NotificationCenterScope>(
-        future: _scopeFuture,
+        future: _controller.scopeFuture,
         builder: (context, scopeSnapshot) {
           if (scopeSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -112,30 +106,28 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
               }
 
               final docs = snapshot.data ?? const <NotificationCenterItem>[];
-              final unreadCount = docs.where((d) => !d.isRead).length;
+              final summary = NotificationCenterViewPolicy.summary(
+                scope: scope,
+                items: docs,
+              );
 
               if (docs.isEmpty) {
+                final emptyCopy = NotificationCenterViewPolicy.emptyCopy(scope);
                 return _EmptyNotificationState(
                   icon: Icons.notifications_none_rounded,
-                  title: 'Bildirim yok',
-                  body: scope.businessId.trim().isNotEmpty
-                      ? 'Bu kurumsal kullanıcı için henüz bildirim oluşmadı.'
-                      : 'Hesabınız için henüz bildirim oluşmadı.',
+                  title: emptyCopy.title,
+                  body: emptyCopy.body,
                 );
               }
 
               return Column(
                 children: [
                   _NotificationSummaryCard(
-                    title: scope.businessId.trim().isNotEmpty
-                        ? 'Kurumsal Kullanıcı Bildirimleri'
-                        : 'Bireysel Kullanıcı Bildirimleri',
-                    subtitle: scope.businessId.trim().isNotEmpty
-                        ? scope.businessName
-                        : 'Randevu, kampanya ve sistem uyarıları',
-                    total: docs.length,
-                    unread: unreadCount,
-                    onMarkAllRead: unreadCount == 0
+                    title: summary.title,
+                    subtitle: summary.subtitle,
+                    total: summary.total,
+                    unread: summary.unread,
+                    onMarkAllRead: summary.unread == 0
                         ? null
                         : () => _markAllRead(docs),
                   ),
@@ -149,17 +141,15 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
                         return _NotificationTile(
                           item: item,
                           onTap: () async {
-                            await _repository.markRead(item.id);
+                            await _controller.markRead(item.id);
 
                             if (!context.mounted) return;
 
-                            if (item.opensCustomerAppointments) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const CustomerAppointmentsPage(),
-                                ),
-                              );
+                            if (NotificationCenterViewPolicy
+                                .opensCustomerAppointments(item)) {
+                              Navigator.of(
+                                context,
+                              ).pushNamed(AppRoutes.customerAppointments);
                             }
                           },
                         );

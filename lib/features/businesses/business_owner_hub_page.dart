@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 
 import 'business_activity_logs_page.dart';
 import 'business_duration_analytics_page.dart';
@@ -175,8 +176,15 @@ class _BusinessHubHomePage extends StatelessWidget {
   final String businessName;
   final Map<String, dynamic> data;
 
-  void _open(BuildContext context, Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  void _openSection(BuildContext context, String openSection) {
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessOwnerHub,
+      arguments: BusinessOwnerHubRouteArgs(
+        businessId: businessId,
+        initialData: data,
+        openSection: openSection,
+      ),
+    );
   }
 
   @override
@@ -219,13 +227,8 @@ class _BusinessHubHomePage extends StatelessWidget {
                     title: 'Randevular',
                     subtitle: 'Talepler ve takvim',
                     color: const Color(0xFF2563EB),
-                    onTap: () => _open(
-                      context,
-                      BusinessAppointmentManagementPage(
-                        businessId: businessId,
-                        businessName: businessName,
-                      ),
-                    ),
+                    onTap: () =>
+                        _openSection(context, 'appointmentManagement'),
                   ),
                   _HubGridAction(
                     width: width,
@@ -233,13 +236,7 @@ class _BusinessHubHomePage extends StatelessWidget {
                     title: 'Müşteriler',
                     subtitle: 'Geçmiş ve segment',
                     color: const Color(0xFF0F766E),
-                    onTap: () => _open(
-                      context,
-                      BusinessCustomersPage(
-                        businessId: businessId,
-                        businessName: businessName,
-                      ),
-                    ),
+                    onTap: () => _openSection(context, 'customers'),
                   ),
                   _HubGridAction(
                     width: width,
@@ -247,13 +244,7 @@ class _BusinessHubHomePage extends StatelessWidget {
                     title: 'Toplu mesaj',
                     subtitle: 'Filtreli gönderim',
                     color: const Color(0xFFEA580C),
-                    onTap: () => _open(
-                      context,
-                      BulkMessageCreatePage(
-                        businessId: businessId,
-                        businessName: businessName,
-                      ),
-                    ),
+                    onTap: () => _openSection(context, 'bulkMessage'),
                   ),
                   _HubGridAction(
                     width: width,
@@ -261,14 +252,7 @@ class _BusinessHubHomePage extends StatelessWidget {
                     title: 'Profil',
                     subtitle: 'Vitrin ön izleme',
                     color: const Color(0xFF7C3AED),
-                    onTap: () => _open(
-                      context,
-                      BusinessProfilePage(
-                        businessId: businessId,
-                        businessName: businessName,
-                        category: category.isEmpty ? 'Genel' : category,
-                      ),
-                    ),
+                    onTap: () => _openSection(context, 'preview'),
                   ),
                 ],
               );
@@ -284,52 +268,28 @@ class _BusinessHubHomePage extends StatelessWidget {
             title: 'Hizmetler ve Paketler',
             text: 'Fiyat, süre, paket ve seans ayarlarını düzenle.',
             color: const Color(0xFF2563EB),
-            onTap: () => _open(
-              context,
-              BusinessServicesManagePage(
-                businessId: businessId,
-                businessData: data,
-              ),
-            ),
+            onTap: () => _openSection(context, 'services'),
           ),
           _HubActionTile(
             icon: Icons.groups_outlined,
             title: 'Personel ve Yetkiler',
             text: 'Ekip, davet kodu, rol ve yetki düzenini yönet.',
             color: const Color(0xFF7C3AED),
-            onTap: () => _open(
-              context,
-              BusinessStaffManagePage(
-                businessId: businessId,
-                businessData: data,
-              ),
-            ),
+            onTap: () => _openSection(context, 'staff'),
           ),
           _HubActionTile(
             icon: Icons.monitor_heart_outlined,
             title: 'Canlı Akış',
             text: 'Bugünün işlemleri, personel durumu ve aktif işler.',
             color: const Color(0xFF16A34A),
-            onTap: () => _open(
-              context,
-              BusinessLiveFlowPage(
-                businessId: businessId,
-                businessName: businessName,
-              ),
-            ),
+            onTap: () => _openSection(context, 'live'),
           ),
           _HubActionTile(
             icon: Icons.account_balance_wallet_outlined,
             title: 'Finans ve Masraf',
             text: 'Gelir, gider, dönem özeti ve masraf takibi.',
             color: const Color(0xFF0F766E),
-            onTap: () => _open(
-              context,
-              BusinessFinancePage(
-                businessId: businessId,
-                businessName: businessName,
-              ),
-            ),
+            onTap: () => _openSection(context, 'finance'),
           ),
           const SizedBox(height: 10),
           const _HubSectionHeader(
@@ -341,43 +301,28 @@ class _BusinessHubHomePage extends StatelessWidget {
             title: 'Kampanyalar',
             text: 'Yayınlanan kampanyaları ve taslakları yönet.',
             color: const Color(0xFF9333EA),
-            onTap: () => _open(
-              context,
-              BusinessCampaignsPage(
-                businessId: businessId,
-                businessName: businessName,
-              ),
-            ),
+            onTap: () => _openSection(context, 'campaigns'),
           ),
           _HubActionTile(
             icon: Icons.auto_stories_outlined,
             title: 'Hikaye Paylaş',
             text: 'Keşfet üstündeki hikaye alanında 24 saat görünür.',
             color: const Color(0xFF0891B2),
-            onTap: () => _open(
-              context,
-              BusinessStoryCreatePage(
-                businessId: businessId,
-                businessName: businessName,
-                businessLogoUrl: (data['logoUrl'] ?? data['photoUrl'] ?? '')
-                    .toString(),
-                category: category.isEmpty ? 'Genel' : category,
-              ),
-            ),
+            onTap: () => _openSection(context, 'stories'),
           ),
           _HubActionTile(
             icon: Icons.receipt_long_rounded,
             title: 'Adisyon ve Satış',
             text: 'Açık adisyon, hızlı satış ve ödeme takibi.',
             color: const Color(0xFF2563EB),
-            onTap: () => _open(context, const BusinessPosPage()),
+            onTap: () => _openSection(context, 'pos'),
           ),
           _HubActionTile(
             icon: Icons.inventory_2_outlined,
             title: 'Stok ve Ürünler',
             text: 'Ürün kataloğu, stok hareketleri ve vitrin ürünleri.',
             color: const Color(0xFF059669),
-            onTap: () => _open(context, const BusinessProductsPage()),
+            onTap: () => _openSection(context, 'products'),
           ),
         ],
       ),

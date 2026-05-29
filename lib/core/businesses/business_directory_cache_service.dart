@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
@@ -7,7 +7,6 @@ import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'business_category.dart';
 import 'business_geo_index.dart';
 import 'business_location_data.dart';
-import 'google_places_directory_service.dart';
 
 /// 50C-K1: Business directory cache Firestore collection/field literals use
 /// FirestoreCollections/FirestoreFields constants. Cache/discovery behavior is unchanged.
@@ -20,12 +19,11 @@ class BusinessDirectoryCacheService {
   List<BusinessDirectoryItem>? _cache;
   DateTime? _lastLoadedAt;
   Future<List<BusinessDirectoryItem>>? _activeLoad;
-  final GooglePlacesDirectoryService _googlePlacesDirectoryService =
-      GooglePlacesDirectoryService();
 
   static const Duration cacheTtl = Duration(minutes: 5);
   static const Duration _firestoreTimeout = Duration(seconds: 5);
-  static const Duration _placesTimeout = Duration(seconds: 10);
+  static const int _businessPageSize = 100;
+  static const int _businessPageCap = 1000;
 
   bool get _isFresh {
     final last = _lastLoadedAt;
@@ -72,21 +70,23 @@ class BusinessDirectoryCacheService {
       position: position,
       radiusKm: radiusKm,
     ).catchError((_) => <BusinessDirectoryItem>[]);
-
-    final live = await _loadGooglePlacesNearbyBusinesses(
+    final fallback = await _loadNearbyFallbackBusinesses(
       position: position,
       radiusKm: radiusKm,
-      categoryLabel: categoryLabel,
       forceRefresh: forceRefresh,
     ).catchError((_) => <BusinessDirectoryItem>[]);
-
-    final merged = _mergeNearbyBusinesses(
+    final localWithFallback = _mergeNearbyBusinesses(
       local: local,
-      live: live,
+      live: fallback,
       position: position,
     );
 
-    return merged;
+    debugPrint(
+      'FIX_EXPLORE_DIRECTORY_LOCAL_ONLY local=${local.length} '
+      'fallback=${fallback.length} merged=${localWithFallback.length}',
+    );
+
+    return localWithFallback;
   }
 
   Future<List<BusinessDirectoryItem>> _loadStarterBusinesses({
@@ -117,13 +117,33 @@ class BusinessDirectoryCacheService {
 
   Future<List<BusinessDirectoryItem>> _loadBusinesses() async {
     try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection(FirestoreCollections.businesses)
-          .limit(500)
-          .get(const GetOptions(source: Source.serverAndCache))
-          .timeout(_firestoreTimeout);
+      final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
 
-      final list = snapshot.docs.map(BusinessDirectoryItem.fromDoc).toList();
+      while (docs.length < _businessPageCap) {
+        Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+            .collection(FirestoreCollections.businesses)
+            .orderBy(FieldPath.documentId)
+            .limit(_businessPageSize);
+
+        if (lastDoc != null) {
+          query = query.startAfterDocument(lastDoc);
+        }
+
+        final snapshot = await query
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(_firestoreTimeout);
+
+        if (snapshot.docs.isEmpty) break;
+
+        final remaining = _businessPageCap - docs.length;
+        docs.addAll(snapshot.docs.take(remaining));
+        lastDoc = snapshot.docs.last;
+
+        if (snapshot.docs.length < _businessPageSize) break;
+      }
+
+      final list = docs.map(BusinessDirectoryItem.fromDoc).toList();
 
       list.sort((a, b) => a.name.compareTo(b.name));
 
@@ -165,12 +185,35 @@ class BusinessDirectoryCacheService {
       }
     }
 
-    return byKey.values.toList()
-      ..sort(
-        (a, b) => a.distanceKmFrom(position).compareTo(
-          b.distanceKmFrom(position),
-        ),
-      );
+    return byKey.values.toList()..sort(
+      (a, b) =>
+          a.distanceKmFrom(position).compareTo(b.distanceKmFrom(position)),
+    );
+  }
+
+  Future<List<BusinessDirectoryItem>> _loadNearbyFallbackBusinesses({
+    required Position position,
+    required double radiusKm,
+    required bool forceRefresh,
+  }) async {
+    final items = await getBusinesses(forceRefresh: forceRefresh);
+    final list = <BusinessDirectoryItem>[];
+
+    for (final item in items) {
+      if (!item.visible || !item.hasCoordinate) continue;
+
+      final distance = item.distanceKmFrom(position);
+      if (distance.isFinite && distance <= radiusKm) {
+        list.add(item);
+      }
+    }
+
+    list.sort(
+      (a, b) =>
+          a.distanceKmFrom(position).compareTo(b.distanceKmFrom(position)),
+    );
+
+    return list;
   }
 
   Future<List<BusinessDirectoryItem>> _loadNearbyCollection({
@@ -204,37 +247,11 @@ class BusinessDirectoryCacheService {
 
     final list = byId.values.toList()
       ..sort(
-        (a, b) => a.distanceKmFrom(position).compareTo(
-          b.distanceKmFrom(position),
-        ),
+        (a, b) =>
+            a.distanceKmFrom(position).compareTo(b.distanceKmFrom(position)),
       );
 
     return list;
-  }
-
-  Future<List<BusinessDirectoryItem>> _loadGooglePlacesNearbyBusinesses({
-    required Position position,
-    required double radiusKm,
-    required String categoryLabel,
-    required bool forceRefresh,
-  }) async {
-    final rawItems = await _googlePlacesDirectoryService
-        .searchNearby(
-          position: position,
-          radiusKm: radiusKm,
-          categoryLabel: categoryLabel,
-          forceRefresh: forceRefresh,
-        )
-        .timeout(
-          _placesTimeout,
-          onTimeout: () => <Map<String, dynamic>>[],
-        );
-
-    return rawItems
-        .map(BusinessDirectoryItem.fromMap)
-        .where((item) => item.visible && item.hasCoordinate)
-        .where((item) => item.distanceKmFrom(position) <= radiusKm)
-        .toList(growable: false);
   }
 
   List<BusinessDirectoryItem> _mergeNearbyBusinesses({
@@ -268,16 +285,15 @@ class BusinessDirectoryCacheService {
       put(item);
     }
 
-    return byKey.values.toList()
-      ..sort(
-        (a, b) {
-          if (a.isMember != b.isMember) return a.isMember ? -1 : 1;
+    return byKey.values.toList()..sort((a, b) {
+      final distance = a
+          .distanceKmFrom(position)
+          .compareTo(b.distanceKmFrom(position));
+      if (distance != 0) return distance;
 
-          return a.distanceKmFrom(position).compareTo(
-            b.distanceKmFrom(position),
-          );
-        },
-      );
+      if (a.isMember != b.isMember) return a.isMember ? -1 : 1;
+      return a.name.compareTo(b.name);
+    });
   }
 }
 
@@ -375,6 +391,7 @@ class BusinessDirectoryItem {
   }) {
     final location = BusinessLocationParser.fromMap(data);
     final category = _firstNonEmpty([
+      _categoryFromDirectoryKey(data['category_key']),
       data[FirestoreFields.categoryLabel],
       data[FirestoreFields.category],
       data[FirestoreFields.businessCategory],
@@ -395,7 +412,9 @@ class BusinessDirectoryItem {
       id: _firstNonEmpty([
         data[FirestoreFields.id],
         data[FirestoreFields.businessId],
+        data['doc_id'],
         data['placeId'],
+        data['source_place_id'],
         fallbackId,
       ]),
       name: _firstNonEmpty([
@@ -416,6 +435,8 @@ class BusinessDirectoryItem {
       phone: _firstNonEmpty([
         data[FirestoreFields.phone],
         data[FirestoreFields.phoneNumber],
+        data['phone_national'],
+        data['phone_international'],
         data['formattedPhoneNumber'],
         data['formatted_phone_number'],
         data['internationalPhoneNumber'],
@@ -452,8 +473,13 @@ class BusinessDirectoryItem {
       lat: location.lat,
       lng: location.lng,
       visible: visible,
-      ratingAvg: _toDouble(data[FirestoreFields.ratingAvg]) ?? 0,
-      ratingCount: _toInt(data[FirestoreFields.ratingCount]),
+      ratingAvg:
+          _toDouble(data[FirestoreFields.ratingAvg]) ??
+          _toDouble(data[FirestoreFields.rating]) ??
+          0,
+      ratingCount: _toInt(
+        data[FirestoreFields.ratingCount] ?? data['user_rating_count'],
+      ),
       followerCount: _toInt(data[FirestoreFields.followerCount]),
     );
   }
@@ -560,11 +586,31 @@ class BusinessDirectoryItem {
       return 'Spor & Fitness';
     }
 
-    if (types.any((type) => type.contains('school') || type.contains('course'))) {
+    if (types.any(
+      (type) => type.contains('school') || type.contains('course'),
+    )) {
       return 'Eğitim';
     }
 
     return '';
+  }
+
+  static String _categoryFromDirectoryKey(dynamic value) {
+    final key = value?.toString().trim().toLowerCase() ?? '';
+    if (key.isEmpty) return '';
+
+    switch (key) {
+      case 'beauty_care':
+        return BusinessCategories.byId('beauty_care')?.label ?? '';
+      case 'clinic_health':
+      case 'health_clinic':
+        return BusinessCategories.byId('health_clinic')?.label ?? '';
+      case 'sport':
+      case 'sport_fitness':
+        return BusinessCategories.byId('sport_fitness')?.label ?? '';
+      default:
+        return '';
+    }
   }
 
   static String _firstNonEmpty(List<dynamic> values) {
@@ -594,4 +640,3 @@ class BusinessDirectoryItem {
         .replaceAll('â€¢', '•');
   }
 }
-

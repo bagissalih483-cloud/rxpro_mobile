@@ -11,10 +11,13 @@ import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 /// - check direct businesses/{id}
 /// - query businesses/businessProfiles/registeredBusinesses by uid/email fields
 /// - mirror non-canonical profile docs into businesses/{businessId}
-/// - fallback scan businesses.limit(500)
+/// - fallback scan businesses with cursor pages
 class BusinessProfileEditEntryResolverRepository {
   BusinessProfileEditEntryResolverRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  static const int _fallbackPageSize = 100;
+  static const int _fallbackPageCap = 1000;
 
   final FirebaseFirestore _firestore;
 
@@ -204,12 +207,9 @@ class BusinessProfileEditEntryResolverRepository {
     }
 
     try {
-      final all = await _firestore
-          .collection(FirestoreCollections.businesses)
-          .limit(500)
-          .get();
+      final docs = await _loadFallbackBusinessDocs();
 
-      for (final doc in all.docs) {
+      for (final doc in docs) {
         if (matchesUserData(doc.data(), uid: uid, email: normalizedEmail)) {
           return doc.id;
         }
@@ -219,5 +219,33 @@ class BusinessProfileEditEntryResolverRepository {
     }
 
     return null;
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _loadFallbackBusinessDocs() async {
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
+
+    while (docs.length < _fallbackPageCap) {
+      Query<Map<String, dynamic>> query = _firestore
+          .collection(FirestoreCollections.businesses)
+          .orderBy(FieldPath.documentId)
+          .limit(_fallbackPageSize);
+
+      if (lastDoc != null) {
+        query = query.startAfterDocument(lastDoc);
+      }
+
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+
+      final remaining = _fallbackPageCap - docs.length;
+      docs.addAll(snapshot.docs.take(remaining));
+      lastDoc = snapshot.docs.last;
+
+      if (snapshot.docs.length < _fallbackPageSize) break;
+    }
+
+    return docs;
   }
 }

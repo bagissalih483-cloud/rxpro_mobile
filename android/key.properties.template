@@ -1,0 +1,5 @@
+storeFile=C:/secure/rxpro-upload-keystore.jks
+storePassword=CHANGE_ME
+keyAlias=rxpro-upload
+keyPassword=CHANGE_ME
+

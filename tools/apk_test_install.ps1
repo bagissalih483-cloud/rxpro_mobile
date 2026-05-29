@@ -62,7 +62,7 @@ function Invoke-LoggedCommand {
 function Get-AndroidApplicationId {
   $gradlePath = Join-Path $ProjectRoot "android\app\build.gradle.kts"
   if (!(Test-Path $gradlePath)) {
-    return "com.example.rxpro_mobile"
+    return "com.fix.mobile"
   }
 
   $match = Select-String `
@@ -75,7 +75,7 @@ function Get-AndroidApplicationId {
     return $match.Matches[0].Groups[1].Value
   }
 
-  return "com.example.rxpro_mobile"
+  return "com.fix.mobile"
 }
 
 Write-Host "=== RXPRO TEST + APK BUILD + TELEFONA KURULUM ===" -ForegroundColor Cyan

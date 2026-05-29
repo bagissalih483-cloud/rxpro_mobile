@@ -405,9 +405,7 @@ Widget rxproManagementCenterQuickAction35K(BuildContext context) {
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const RegisteredBusinessesPage()),
-        );
+        Navigator.of(context).pushNamed(AppRoutes.registeredBusinesses);
       },
     ),
   );

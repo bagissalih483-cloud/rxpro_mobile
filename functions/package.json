@@ -9,7 +9,7 @@
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
     "backfill:business-geo-index": "node scripts/backfillBusinessGeoIndex.js",
-    "seed:places-directory": "node scripts/seedGooglePlacesDirectoryIndex.js"
+    "audit:media-thumbnails": "node scripts/auditMediaThumbnails.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

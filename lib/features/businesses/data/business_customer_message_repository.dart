@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
 
 class BusinessCustomerMessageRepository {
   BusinessCustomerMessageRepository({
@@ -252,6 +253,12 @@ class BusinessCustomerMessageRepository {
     if (reliableWriteCount == 0) {
       throw StateError('Message could not be written to any primary store.');
     }
+
+    await AppObservabilityService.instance.logMessageSent(
+      threadId: draft.threadId,
+      senderRole: 'business',
+      businessId: draft.businessId,
+    );
   }
 
   Future<bool> _safeWrite(Future<dynamic> future) async {

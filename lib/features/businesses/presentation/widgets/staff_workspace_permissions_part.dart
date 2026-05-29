@@ -349,6 +349,14 @@ extension _StaffWorkspacePageStatePermissions on _StaffWorkspacePageState {
   ) {
     return docs.where((doc) {
       final data = doc.data();
+      final status = AppointmentStatusMapper.fromAny(
+        data[FirestoreFields.status] ??
+            data[FirestoreFields.appointmentStatus] ??
+            data[FirestoreFields.state] ??
+            data['cancelStatus'] ??
+            data['cancellationStatus'] ??
+            data['cancelReasonStatus'],
+      );
       final bucket = TaskStatusFilter.bucketOf(
         data[FirestoreFields.status] ??
             data[FirestoreFields.appointmentStatus] ??
@@ -361,7 +369,10 @@ extension _StaffWorkspacePageStatePermissions on _StaffWorkspacePageState {
       switch (tab) {
         case _StaffTaskTab.queue:
           if (_isCancelledAppointment(data)) return false;
-          return bucket == TaskStatusBucket.queue;
+          return bucket == TaskStatusBucket.queue &&
+              status != AppointmentStatus.inProgress;
+        case _StaffTaskTab.inProgress:
+          return status == AppointmentStatus.inProgress;
         case _StaffTaskTab.completed:
           return bucket == TaskStatusBucket.done;
         case _StaffTaskTab.cancelled:

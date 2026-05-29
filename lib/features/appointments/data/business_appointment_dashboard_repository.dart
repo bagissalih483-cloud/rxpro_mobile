@@ -7,11 +7,13 @@ class BusinessAppointmentDashboardRepository {
   BusinessAppointmentDashboardRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static const int _appointmentDashboardWindow = 240;
+
   final FirebaseFirestore _firestore;
 
   Stream<List<Map<String, dynamic>>> watchAppointments({
     required String businessId,
-    int limit = 500,
+    int limit = _appointmentDashboardWindow,
     bool includeMetadataChanges = true,
   }) {
     if (businessId.trim().isEmpty) {

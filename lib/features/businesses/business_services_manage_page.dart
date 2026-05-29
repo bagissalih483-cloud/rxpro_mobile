@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
@@ -30,12 +31,11 @@ class BusinessServicesManagePage extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ServiceFormPage(
-                businessId: businessId,
-                businessData: businessData,
-              ),
+          Navigator.of(context).pushNamed(
+            AppRoutes.businessServiceForm,
+            arguments: BusinessServiceFormRouteArgs(
+              businessId: businessId,
+              businessData: businessData,
             ),
           );
         },
@@ -335,14 +335,13 @@ class _ServiceTile extends StatelessWidget {
         trailing: PopupMenuButton<String>(
           onSelected: (value) async {
             if (value == 'edit') {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => ServiceFormPage(
-                    businessId: businessId,
-                    businessData: businessData,
-                    serviceId: doc.id,
-                    initialData: data,
-                  ),
+              Navigator.of(context).pushNamed(
+                AppRoutes.businessServiceForm,
+                arguments: BusinessServiceFormRouteArgs(
+                  businessId: businessId,
+                  businessData: businessData,
+                  serviceId: doc.id,
+                  initialData: data,
                 ),
               );
               return;

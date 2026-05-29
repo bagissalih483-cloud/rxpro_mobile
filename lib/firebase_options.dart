@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '506651509967',
     projectId: 'rxpro-mobile-202605172210',
     storageBucket: 'rxpro-mobile-202605172210.firebasestorage.app',
-    iosBundleId: 'com.example.rxproMobile',
+    iosBundleId: 'com.fix.mobile',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '506651509967',
     projectId: 'rxpro-mobile-202605172210',
     storageBucket: 'rxpro-mobile-202605172210.firebasestorage.app',
-    iosBundleId: 'com.example.rxproMobile',
+    iosBundleId: 'com.fix.mobile',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/features/accounting/data/accounting_permission_bridge.dart';
-
-import 'business_owner_hub_page.dart';
-import 'staff_workspace_page.dart';
-import 'staff_tasks_entry_page.dart';
 
 import 'package:rxpro_mobile/features/businesses/data/registered_business_gateway_repository.dart';
 
@@ -75,9 +72,7 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
   }
 
   Future<void> _openTasksEntry() async {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const StaffTasksEntryPage()));
+    Navigator.of(context).pushNamed(AppRoutes.staffTasks);
   }
 
   Future<void> _openItem(_GatewayItem item) async {
@@ -88,10 +83,9 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
         await _syncStaffSessionCache(item);
 
         if (!mounted) return;
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => StaffWorkspacePage(memberData: item.data),
-          ),
+        Navigator.of(context).pushNamed(
+          AppRoutes.staffWorkspace,
+          arguments: StaffWorkspaceRouteArgs(memberData: item.data),
         );
       } catch (e) {
         if (!mounted) return;
@@ -108,9 +102,7 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
       return;
     }
 
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const BusinessOwnerHubPage()));
+    Navigator.of(context).pushNamed(AppRoutes.businessOwnerHub);
   }
 
   Future<void> _refresh() async {

@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:rxpro_mobile/core/businesses/business_category.dart';
 import 'package:rxpro_mobile/core/businesses/business_location_data.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/core/uploads/app_image_upload_service.dart';
 import 'package:rxpro_mobile/features/business/data/business_profile_edit_repository.dart';
 
@@ -21,6 +22,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
   final _formKey = GlobalKey<FormState>();
   final BusinessProfileEditRepository _editRepository =
       BusinessProfileEditRepository();
+  final AuthService _authService = AuthService();
 
   final _businessNameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -89,19 +91,19 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
         data[FirestoreFields.websiteUri],
         data['website'],
       ]);
-      _instagramController.text =
-          (data[FirestoreFields.instagramUrl] ?? '').toString();
-      _whatsappController.text =
-          (data[FirestoreFields.whatsappPhone] ?? '').toString();
-      _descriptionController.text =
-          (data[FirestoreFields.description] ?? '').toString();
+      _instagramController.text = (data[FirestoreFields.instagramUrl] ?? '')
+          .toString();
+      _whatsappController.text = (data[FirestoreFields.whatsappPhone] ?? '')
+          .toString();
+      _descriptionController.text = (data[FirestoreFields.description] ?? '')
+          .toString();
       _cityController.text = (data[FirestoreFields.city] ?? '').toString();
-      _districtController.text =
-          (data[FirestoreFields.district] ?? '').toString();
-      _addressController.text =
-          (data[FirestoreFields.address] ?? '').toString();
-      _workingHoursController.text =
-          (data[FirestoreFields.workingHours] ?? '').toString();
+      _districtController.text = (data[FirestoreFields.district] ?? '')
+          .toString();
+      _addressController.text = (data[FirestoreFields.address] ?? '')
+          .toString();
+      _workingHoursController.text = (data[FirestoreFields.workingHours] ?? '')
+          .toString();
 
       final location = BusinessLocationParser.fromMap(data);
       _businessLat = location.lat;
@@ -133,6 +135,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
 
       final url = await AppImageUploadService.uploadBusinessLogo(
         businessId: widget.businessId,
+        ownerUid: _requireCurrentUid(),
         file: file,
       );
 
@@ -167,6 +170,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
 
       final url = await AppImageUploadService.uploadBusinessCover(
         businessId: widget.businessId,
+        ownerUid: _requireCurrentUid(),
         file: file,
       );
 
@@ -249,7 +253,8 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
 
     try {
       final category =
-          BusinessCategories.byId(_categoryId) ?? BusinessCategories.values.last;
+          BusinessCategories.byId(_categoryId) ??
+          BusinessCategories.values.last;
 
       await _editRepository.updateBusinessProfileInfo(
         businessId: widget.businessId,
@@ -285,11 +290,16 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
 
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  String _requireCurrentUid() {
+    final uid = _authService.currentUser?.uid.trim() ?? '';
+    if (uid.isEmpty) {
+      throw StateError('Görsel yüklemek için oturum gerekir.');
+    }
+    return uid;
   }
 
   @override
@@ -351,7 +361,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                value: _categoryId,
+                initialValue: _categoryId,
                 items: BusinessCategories.values
                     .map(
                       (category) => DropdownMenuItem<String>(

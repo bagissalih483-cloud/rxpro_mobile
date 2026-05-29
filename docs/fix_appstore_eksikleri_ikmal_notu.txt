@@ -1,0 +1,156 @@
+fix App Store yayin eksikleri ve nasil tamamlanacaklari
+======================================================
+
+Durum:
+- Repo tarafinda iOS uygulama adi fix olarak ayarlandi.
+- Bundle ID com.fix.mobile olarak ayarlandi.
+- Privacy manifest, Podfile, push entitlement ve izin metinleri hazirlandi.
+- Asagidaki adimlar hesap/Firebase/Mac gerektirdigi icin disarida tamamlanacak.
+
+
+1. Firebase iOS dosyasi: GoogleService-Info.plist
+-------------------------------------------------
+
+Eksik:
+ios/Runner/GoogleService-Info.plist dosyasi yok.
+
+Nasil tamamlanir:
+1. Firebase Console'a gir.
+2. Proje olarak mevcut fix/RxPro Firebase projesini ac.
+3. iOS uygulamasi ekle veya mevcut iOS uygulamasini kontrol et.
+4. Bundle ID olarak sunu kullan:
+   com.fix.mobile
+5. Firebase'in verdigi GoogleService-Info.plist dosyasini indir.
+6. Dosyayi projede buraya koy:
+   C:\Users\Casper\Desktop\rxpro_mobile\ios\Runner\GoogleService-Info.plist
+7. Dosya adi birebir GoogleService-Info.plist olmali.
+
+
+2. Apple Developer Bundle ID
+----------------------------
+
+Eksik:
+Apple Developer tarafinda com.fix.mobile Bundle ID'nin acilmasi gerekiyor.
+
+Nasil tamamlanir:
+1. Apple Developer hesabina gir.
+2. Certificates, Identifiers & Profiles bolumunu ac.
+3. Identifiers > App IDs > yeni App ID olustur.
+4. Bundle ID:
+   com.fix.mobile
+5. Push Notifications ozelligini aktif et.
+6. Kaydet.
+
+
+3. Xcode Signing Team
+---------------------
+
+Eksik:
+Xcode'da Apple Team secilmeli. Bu islem Mac ve Apple hesabiyla yapilir.
+
+Nasil tamamlanir:
+1. Mac'te projeyi ac:
+   ios/Runner.xcworkspace
+2. Soldan Runner projesini sec.
+3. Runner target > Signing & Capabilities sekmesine gir.
+4. Team alanindan Apple Developer hesabini sec.
+5. Bundle Identifier com.fix.mobile olarak kalmali.
+6. Automatically manage signing acik olabilir.
+
+
+4. CocoaPods ve IPA alma
+------------------------
+
+Eksik:
+Windows ortaminda IPA alinmaz. Mac'te son build alinmali.
+
+Mac'te calistirilacak komutlar:
+
+flutter clean
+flutter pub get
+cd ios
+pod install
+cd ..
+flutter build ipa --release --build-name 1.0.0 --build-number 1
+
+Build basarili olursa:
+- Xcode Organizer ile yukle
+veya
+- Apple Transporter ile IPA yukle.
+
+
+5. App Store Connect bilgilerinin doldurulmasi
+----------------------------------------------
+
+Eksik:
+App Store Connect metadata ve inceleme bilgileri girilmeli.
+
+Doldurulacaklar:
+- App name: fix
+- Bundle ID: com.fix.mobile
+- Subtitle
+- Description
+- Keywords
+- Support URL
+- Privacy Policy URL
+- Category
+- Screenshots
+- App Privacy labels
+- Review notes
+- Demo hesap bilgileri
+
+Demo hesap onerisi:
+- Bireysel kullanici test hesabi
+- Isletme/kurumsal test hesabi
+- Gerekirse personel hesabi
+
+
+6. App Privacy labels
+---------------------
+
+Firebase, konum, hesap ve fotograf kullanimindan dolayi App Store Connect'te
+privacy labels dikkatli doldurulmali.
+
+Isaretlenmesi muhtemel veri turleri:
+- Contact Info: e-posta, telefon varsa
+- User ID / Identifiers
+- Location: konum kullanimi
+- User Content: fotograf, profil, paylasim
+- Diagnostics: crash/performans verileri
+- Usage Data: analytics kullaniliyorsa
+
+Bu alanlar uygulamanin gercek kullanimina gore App Store Connect'te secilmeli.
+
+
+7. Masaustundeki kontrol scripti
+--------------------------------
+
+Bu notla birlikte masaustune su script de kaydedildi:
+
+fix_appstore_missing_steps_check.ps1
+
+Calistirma:
+1. PowerShell ac.
+2. Sunu calistir:
+   C:\Users\Casper\Desktop\fix_appstore_missing_steps_check.ps1
+
+Script sunlari kontrol eder:
+- GoogleService-Info.plist var mi?
+- Privacy manifest var mi?
+- Runner.entitlements var mi?
+- Podfile var mi?
+- Bundle ID com.fix.mobile mi?
+- Firebase options iOS bundle id com.fix.mobile mi?
+- DEVELOPMENT_TEAM secilmis mi?
+
+
+Kisa ozet
+---------
+
+Kod/proje tarafi hazirlandi.
+Yayina cikmak icin disarida tamamlanacak ana eksikler:
+1. Firebase iOS GoogleService-Info.plist
+2. Apple Developer com.fix.mobile Bundle ID
+3. Xcode Team/signing
+4. Mac'te pod install ve flutter build ipa
+5. App Store Connect metadata, privacy labels, screenshot ve demo hesaplar

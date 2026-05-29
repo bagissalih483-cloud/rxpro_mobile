@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
 
 class MessagesRepository {
   MessagesRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
@@ -374,6 +375,12 @@ class MessagesRepository {
         '${FirestoreFields.readByUid}.${currentUid.trim()}': true,
       FirestoreFields.updatedAt: now,
     }, SetOptions(merge: true));
+
+    await AppObservabilityService.instance.logMessageSent(
+      threadId: threadId,
+      senderRole: senderRole,
+      businessId: businessId,
+    );
   }
 
   Future<void> recallMessage({

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/app_state/fix_session_gate.dart';
 import 'package:rxpro_mobile/core/businesses/business_category.dart';
 import 'package:rxpro_mobile/core/models/app_user_model.dart';
@@ -9,8 +12,8 @@ import 'package:rxpro_mobile/core/models/auth_status_model.dart';
 import 'package:rxpro_mobile/core/models/business_account_model.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/core/services/firestore_service.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
 import 'package:rxpro_mobile/features/auth/data/fix_login_gate_repository.dart';
-import 'package:rxpro_mobile/features/auth/presentation/pages/phone_password_reset_flow_page.dart';
 import 'package:rxpro_mobile/features/auth/presentation/widgets/fix_login_form_widgets.dart';
 import 'package:rxpro_mobile/features/auth/presentation/widgets/fix_login_gate_actions.dart';
 import 'package:rxpro_mobile/features/auth/presentation/widgets/fix_login_brand.dart';
@@ -63,6 +66,7 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
   bool obscure = true;
   bool loading = false;
   bool rememberMe = false;
+  bool legalAccepted = false;
 
   bool get isCorporate => mode == _FixAuthMode.corporate;
   bool get isRegister => action == _FixAuthAction.register;
@@ -230,6 +234,13 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
       return;
     }
 
+    if (isRegister && !legalAccepted) {
+      _showMessage(
+        'Devam etmek için yasal metinleri ve veri işleme bilgilendirmesini onaylamalısınız.',
+      );
+      return;
+    }
+
     if (isRegister && !isCorporate && fullNameController.text.trim().isEmpty) {
       _showMessage('Bireysel kayıt için ad soyad zorunludur.');
       return;
@@ -334,7 +345,16 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
       city: cityController.text,
       district: districtController.text,
       phoneVerified: phone.isNotEmpty,
+      recordLegalAcceptance: isRegister,
     );
+
+    if (isRegister) {
+      unawaited(
+        AppObservabilityService.instance.logRegistrationCompleted(
+          accountType: 'individual',
+        ),
+      );
+    }
   }
 
   Future<void> _completeCorporateAuth({
@@ -413,7 +433,16 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
       city: cityController.text,
       district: districtController.text,
       phoneVerified: phone.isNotEmpty,
+      recordLegalAcceptance: isRegister,
     );
+
+    if (isRegister) {
+      unawaited(
+        AppObservabilityService.instance.logRegistrationCompleted(
+          accountType: 'corporate',
+        ),
+      );
+    }
   }
 
   Future<Map<String, String>> _resolveCorporateBusinessContext(
@@ -435,9 +464,7 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
   }
 
   void _showForgotPassword() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PhonePasswordResetFlowPage()),
-    );
+    Navigator.of(context).pushNamed(AppRoutes.phonePasswordReset);
   }
 
   void _showMessage(String text) {
@@ -528,7 +555,12 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
               compact: true,
               onChanged: loading
                   ? null
-                  : (value) => setState(() => action = value),
+                  : (value) => setState(() {
+                      action = value;
+                      if (value == _FixAuthAction.login) {
+                        legalAccepted = false;
+                      }
+                    }),
               options: const [
                 FixSegmentedOption(
                   value: _FixAuthAction.login,
@@ -706,6 +738,18 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
               ? null
               : (value) => setState(() => rememberMe = value ?? false),
         ),
+        if (isRegister) ...[
+          const SizedBox(height: 10),
+          _LegalAcceptanceTile(
+            value: legalAccepted,
+            isCorporate: isCorporate,
+            onChanged: loading
+                ? null
+                : (value) => setState(() => legalAccepted = value ?? false),
+            onOpenLegal: () =>
+                Navigator.of(context).pushNamed(AppRoutes.legalDocuments),
+          ),
+        ],
         const SizedBox(height: 14),
         SizedBox(
           height: 52,
@@ -737,6 +781,73 @@ class _FixLoginGatePageState extends State<FixLoginGatePage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LegalAcceptanceTile extends StatelessWidget {
+  const _LegalAcceptanceTile({
+    required this.value,
+    required this.isCorporate,
+    required this.onChanged,
+    required this.onOpenLegal,
+  });
+
+  final bool value;
+  final bool isCorporate;
+  final ValueChanged<bool?>? onChanged;
+  final VoidCallback onOpenLegal;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = isCorporate
+        ? 'İşletme kullanım şartlarını, KVKK aydınlatmasını, gizlilik politikasını ve açık rıza bilgilendirmesini okudum.'
+        : 'Kullanıcı sözleşmesini, KVKK aydınlatmasını, gizlilik politikasını ve açık rıza bilgilendirmesini okudum.';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 10, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(value: value, onChanged: onChanged),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      scope,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.3,
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextButton(
+                      onPressed: onOpenLegal,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Yasal metinleri incele'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

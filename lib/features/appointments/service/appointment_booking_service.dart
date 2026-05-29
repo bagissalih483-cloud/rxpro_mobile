@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_schema_versions.dart';
 import 'package:rxpro_mobile/core/realtime/rx_notification_service.dart';
+import 'package:rxpro_mobile/core/services/app_observability_service.dart';
 import 'package:rxpro_mobile/core/session/app_role.dart';
 import 'package:rxpro_mobile/core/session/session_role_policy.dart';
 import 'package:rxpro_mobile/features/appointments/data/appointment_repository.dart';
@@ -31,7 +34,9 @@ class AppointmentBookingService {
     final user = _auth.currentUser;
 
     if (user == null) {
-      return AppointmentBookingResult.failure('Randevu almak için giriş yapın.');
+      return AppointmentBookingResult.failure(
+        'Randevu almak için giriş yapın.',
+      );
     }
 
     if (!request.hasRequiredSelection) {
@@ -73,6 +78,12 @@ class AppointmentBookingService {
       Duration(minutes: request.normalizedDurationMinutes),
     );
 
+    if (startAt == null || endAt == null) {
+      return AppointmentBookingResult.failure(
+        'Randevu tarihi veya saati geçersiz.',
+      );
+    }
+
     final conflict = await _repository.findActiveConflict(
       businessId: request.businessId,
       businessStaffId: request.businessStaffId,
@@ -95,7 +106,7 @@ class AppointmentBookingService {
         ? request.staffServiceIdsAtBooking
         : compatibility.staffServiceIds;
 
-    final appointmentRef = await _repository.createAppointment({
+    final payload = <String, dynamic>{
       FirestoreFields.businessId: request.businessId,
       FirestoreFields.businessName: request.businessName,
       FirestoreFields.category: request.category,
@@ -128,12 +139,10 @@ class AppointmentBookingService {
       FirestoreFields.appointmentDate: request.dateText,
       FirestoreFields.timeText: request.timeText,
       FirestoreFields.appointmentTime: request.timeText,
-      FirestoreFields.startAt: startAt == null
-          ? null
-          : Timestamp.fromDate(startAt),
-      FirestoreFields.startAtIso: startAt?.toIso8601String(),
-      FirestoreFields.endAt: endAt == null ? null : Timestamp.fromDate(endAt),
-      'endAtIso': endAt?.toIso8601String(),
+      FirestoreFields.startAt: Timestamp.fromDate(startAt),
+      FirestoreFields.startAtIso: startAt.toIso8601String(),
+      FirestoreFields.endAt: Timestamp.fromDate(endAt),
+      'endAtIso': endAt.toIso8601String(),
       FirestoreFields.durationMinutes: request.normalizedDurationMinutes,
       FirestoreFields.status: 'active',
       FirestoreFields.appointmentStatus: 'active',
@@ -143,7 +152,20 @@ class AppointmentBookingService {
       FirestoreFields.createdAt: DateTime.now().toIso8601String(),
       'createdAtTs': FieldValue.serverTimestamp(),
       FirestoreFields.updatedAt: DateTime.now().toIso8601String(),
-    });
+    };
+
+    final DocumentReference<Map<String, dynamic>> appointmentRef;
+    try {
+      appointmentRef = await _repository.createAppointmentWithSlotLock(
+        payload: payload,
+        startAt: startAt,
+        endAt: endAt,
+        businessId: request.businessId,
+        businessStaffId: request.businessStaffId,
+      );
+    } on AppointmentSlotConflictException {
+      return AppointmentBookingResult.failure('Bu saat için randevu alınmış.');
+    }
 
     await RxNotificationService.createBusinessNotification(
       businessId: request.businessId,
@@ -167,6 +189,15 @@ class AppointmentBookingService {
         FirestoreFields.dateText: request.dateText,
         FirestoreFields.timeText: request.timeText,
       },
+    );
+
+    unawaited(
+      AppObservabilityService.instance.logAppointmentBookingCompleted(
+        businessId: request.businessId,
+        serviceId: request.serviceId,
+        staffId: request.businessStaffId,
+        durationMinutes: request.normalizedDurationMinutes,
+      ),
     );
 
     return AppointmentBookingResult.success(
@@ -206,7 +237,12 @@ class AppointmentBookingService {
         continue;
       }
 
-      if (_rangesOverlap(requestedStart, requestedEnd, range.start, range.end)) {
+      if (_rangesOverlap(
+        requestedStart,
+        requestedEnd,
+        range.start,
+        range.end,
+      )) {
         return true;
       }
     }

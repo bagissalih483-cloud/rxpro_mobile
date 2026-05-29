@@ -289,6 +289,7 @@ abstract final class FirestoreFields {
   static const photoUrl = 'photoUrl';
   static const mediaUrl = 'mediaUrl';
   static const mediaType = 'mediaType';
+  static const thumbnailUrl = 'thumbnailUrl';
   static const likeCount = 'likeCount';
   static const saveCount = 'saveCount';
   static const reportCount = 'reportCount';

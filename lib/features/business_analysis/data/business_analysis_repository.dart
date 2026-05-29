@@ -7,6 +7,8 @@ class BusinessAnalysisRepository {
   BusinessAnalysisRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static const int _analysisLegacyWindow = 365;
+
   final FirebaseFirestore _firestore;
 
   Future<BusinessAnalysisSnapshot> fetchBusinessAnalysisSnapshot({
@@ -92,7 +94,7 @@ class BusinessAnalysisRepository {
     final snapshot = await _firestore
         .collection(FirestoreCollections.appointments)
         .where(FirestoreFields.businessId, isEqualTo: businessId)
-        .limit(1000)
+        .limit(_analysisLegacyWindow)
         .get();
 
     return _withDocumentIds(snapshot);
@@ -125,7 +127,7 @@ class BusinessAnalysisRepository {
       final snapshot = await _firestore
           .collection(collectionPath)
           .where(FirestoreFields.businessId, isEqualTo: businessId)
-          .limit(1000)
+          .limit(_analysisLegacyWindow)
           .get();
 
       return _withDocumentIds(snapshot);

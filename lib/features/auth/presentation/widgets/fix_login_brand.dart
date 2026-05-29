@@ -19,7 +19,8 @@ class FixLoginBrandArea extends StatelessWidget {
             height: bannerHeight,
             fit: BoxFit.cover,
             alignment: Alignment.center,
-            errorBuilder: (_, __, ___) => const _FallbackBrand(),
+            errorBuilder: (context, error, stackTrace) =>
+                const _FallbackBrand(),
           ),
         );
       },
@@ -73,11 +74,7 @@ class FixVerifiedWordmark extends StatelessWidget {
 }
 
 class FixAmblemMark extends StatelessWidget {
-  const FixAmblemMark({
-    super.key,
-    this.height = 38,
-    this.width,
-  });
+  const FixAmblemMark({super.key, this.height = 38, this.width});
 
   final double height;
   final double? width;
@@ -93,7 +90,8 @@ class FixAmblemMark extends StatelessWidget {
         fit: BoxFit.contain,
         alignment: Alignment.centerLeft,
         filterQuality: FilterQuality.medium,
-        errorBuilder: (_, __, ___) => FixWordmark(fontSize: height * 0.86),
+        errorBuilder: (context, error, stackTrace) =>
+            FixWordmark(fontSize: height * 0.86),
       ),
     );
   }

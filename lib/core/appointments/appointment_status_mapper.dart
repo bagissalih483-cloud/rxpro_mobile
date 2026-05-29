@@ -8,6 +8,7 @@ class AppointmentStatusMapper {
 
     switch (value) {
       case 'pending':
+      case 'active':
       case 'bekliyor':
       case 'wait':
       case 'waiting':
@@ -44,6 +45,9 @@ class AppointmentStatusMapper {
 
       case 'cancelledbyuser':
       case 'canceledbyuser':
+      case 'cancelled':
+      case 'canceled':
+      case 'iptal':
       case 'usercancelled':
       case 'usercanceled':
       case 'musteriiptal':

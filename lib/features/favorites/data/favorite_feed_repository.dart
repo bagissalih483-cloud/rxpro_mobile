@@ -7,6 +7,10 @@ class FavoriteFeedRepository {
   FavoriteFeedRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  static const int _followLookupWindow = 120;
+  static const int _legacyFallbackWindow = 240;
+  static const int _savedPostLookupWindow = 180;
+
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _businessFollowers =>
@@ -23,8 +27,8 @@ class FavoriteFeedRepository {
 
   Future<Set<String>> fetchFollowedBusinessIds({
     required String uid,
-    int limitPerField = 500,
-    int fallbackLimit = 1000,
+    int limitPerField = _followLookupWindow,
+    int fallbackLimit = _legacyFallbackWindow,
   }) async {
     if (uid.isEmpty) return <String>{};
 
@@ -287,7 +291,7 @@ class FavoriteFeedRepository {
 
   Future<List<FavoritePostDocument>> fetchSavedPosts({
     required String uid,
-    int limit = 500,
+    int limit = _savedPostLookupWindow,
   }) async {
     if (uid.isEmpty) return <FavoritePostDocument>[];
 
@@ -314,7 +318,9 @@ class FavoriteFeedRepository {
 
     if (saveDocs.isEmpty) {
       try {
-        final snapshot = await _businessProfilePostSaves.limit(1000).get();
+        final snapshot = await _businessProfilePostSaves
+            .limit(_legacyFallbackWindow)
+            .get();
 
         saveDocs.addAll(
           snapshot.docs.where((doc) {

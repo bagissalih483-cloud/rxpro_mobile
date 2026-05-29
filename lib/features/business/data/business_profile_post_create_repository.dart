@@ -15,9 +15,11 @@ class BusinessProfilePostCreateRepository {
     required String ownerUid,
     required String text,
     required String imageUrl,
+    String thumbnailUrl = '',
   }) {
     final now = DateTime.now().toIso8601String();
     final hasImage = imageUrl.isNotEmpty;
+    final cleanThumbnailUrl = thumbnailUrl.trim();
 
     return _firestore
         .collection(FirestoreCollections.businessProfilePosts)
@@ -29,6 +31,7 @@ class BusinessProfilePostCreateRepository {
           FirestoreFields.text: text,
           FirestoreFields.imageUrl: imageUrl,
           FirestoreFields.mediaUrl: imageUrl,
+          FirestoreFields.thumbnailUrl: cleanThumbnailUrl,
           FirestoreFields.mediaType: hasImage ? 'image' : 'text',
           FirestoreFields.isActive: true,
           FirestoreFields.likeCount: 0,

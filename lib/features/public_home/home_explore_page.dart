@@ -3,20 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../app/app_routes.dart';
 import '../../core/businesses/business_directory_cache_service.dart';
 import '../../core/businesses/business_directions_service.dart';
 import '../../core/businesses/business_category.dart';
 import '../../core/diagnostics/rx_runtime_diagnostics.dart';
+import '../../core/services/app_observability_service.dart';
 import '../../core/session/app_session_scope.dart';
-import '../../core/theme/rx_ui.dart';
-import '../businesses/business_profile_page.dart';
-import '../messages/messages_inbox_page.dart';
-import '../notifications/notification_center_page.dart';
-import '../stories/business_story_rail.dart';
 import '../guest/guest_required_sheet.dart';
 import 'domain/home_explore_category_counts.dart';
 import 'domain/home_explore_location_policy.dart';
-import 'presentation/widgets/home_explore_business_cards.dart';
+import 'presentation/widgets/home_explore_content_list.dart';
 import 'presentation/widgets/home_explore_filter_widgets.dart';
 import 'presentation/widgets/home_explore_shell_widgets.dart';
 import 'data/home_explore_badge_repository.dart';
@@ -24,6 +21,13 @@ import 'data/home_explore_claim_repository.dart';
 import 'data/home_explore_session_repository.dart';
 
 enum _ExploreSortMode { recommended, distance, rating, category, name }
+
+class _DetectedExploreArea {
+  const _DetectedExploreArea({required this.city, required this.district});
+
+  final String city;
+  final String district;
+}
 
 /// Public home/explore UI keeps Firebase badge and auth access behind
 /// repository boundaries.
@@ -53,6 +57,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   final BusinessDirectionsService _directionsService =
       const BusinessDirectionsService();
   final TextEditingController searchController = TextEditingController();
+  final ScrollController _exploreScrollController = ScrollController(
+    keepScrollOffset: false,
+  );
 
   StreamSubscription<String?>? _authSub;
   String? _lastUid;
@@ -65,6 +72,8 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
 
   Position? currentPosition;
   Position? _lastLocationQueryPosition;
+  String _detectedCity = '';
+  String _detectedDistrict = '';
   bool loadingLocation = false;
 
   String selectedCategory = BusinessCategories.allLabel;
@@ -88,6 +97,8 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         radiusKm = 10;
         sortMode = _ExploreSortMode.recommended;
         currentPosition = null;
+        _detectedCity = '';
+        _detectedDistrict = '';
       });
 
       _startInitialExploreLoadIfEnabled(reason: 'auth_change');
@@ -101,6 +112,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _exploreScrollController.dispose();
     searchController.dispose();
     super.dispose();
   }
@@ -161,9 +173,21 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
 
       if (!mounted || ticket != _businessLoadTicket) return false;
 
+      final area = _detectAreaFromNearestBusiness(
+        items: items,
+        position: targetPosition,
+      );
+
       setState(() {
         if (replaceWithEmpty || items.isNotEmpty || _businesses.isEmpty) {
           _businesses = items;
+        }
+        if (area != null) {
+          _detectedCity = area.city;
+          _detectedDistrict = area.district;
+        } else if (targetPosition == null) {
+          _detectedCity = '';
+          _detectedDistrict = '';
         }
         _hasCompletedInitialBusinessLoad = true;
       });
@@ -204,6 +228,11 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         onTimeout: () => false,
       );
       if (!enabled) {
+        unawaited(
+          AppObservabilityService.instance.logLocationPermissionResult(
+            status: 'service_disabled',
+          ),
+        );
         _snack('Telefon konum servisi kapalı. Lütfen konumu açın.');
         return;
       }
@@ -218,6 +247,11 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        unawaited(
+          AppObservabilityService.instance.logLocationPermissionResult(
+            status: permission.name,
+          ),
+        );
         _snack('Konum izni verilmedi.');
         return;
       }
@@ -229,16 +263,22 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       ).timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
+      unawaited(
+        AppObservabilityService.instance.logLocationPermissionResult(
+          status: 'granted',
+        ),
+      );
       setState(() {
         currentPosition = position;
         if (sortMode == _ExploreSortMode.distance) {
           sortMode = _ExploreSortMode.recommended;
         }
       });
-      if (!_shouldRunLocationQuery(position)) {
+      if (!_shouldRunLocationQuery(position) && _businesses.isNotEmpty) {
         _snack(
           'Konumun 1 km içinde değişmedi. Mevcut yakın işletme listesi gösteriliyor.',
         );
+        _scrollExploreToTop();
         return;
       }
 
@@ -247,8 +287,19 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         forceRefresh: true,
         replaceWithEmpty: true,
       ).then((applied) {
-        if (applied) _lastLocationQueryPosition = position;
+        if (applied) {
+          _lastLocationQueryPosition = position;
+          _scrollExploreToTop();
+        }
       });
+
+      if (!mounted) return;
+      final count = _filteredBusinesses(_businesses).length;
+      _snack(
+        count == 0
+            ? 'Bu kilometre aralığında işletme bulunamadı. Mesafeyi artırmayı deneyin.'
+            : '$count yakın işletme listelendi.',
+      );
     } catch (e) {
       _snack('Konum alınamadı: $e');
     } finally {
@@ -264,10 +315,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       return;
     }
 
-    await _reloadExploreBusinesses(
-      forceRefresh: true,
-      replaceWithEmpty: true,
-    );
+    await _reloadExploreBusinesses(forceRefresh: true, replaceWithEmpty: true);
   }
 
   bool _shouldRunLocationQuery(Position position) =>
@@ -285,7 +333,27 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _scrollExploreToTop() {
+    if (!_exploreScrollController.hasClients) return;
+
+    unawaited(
+      _exploreScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
   void _openBusiness(BusinessDirectoryItem item) {
+    unawaited(
+      AppObservabilityService.instance.logExploreBusinessOpen(
+        businessId: item.id,
+        category: item.category,
+        isMember: item.isMember,
+      ),
+    );
+
     if (!item.isMember) {
       _openDirections(item);
       return;
@@ -301,13 +369,12 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BusinessProfilePage(
-          businessId: item.id,
-          businessName: item.name,
-          category: item.category,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.businessProfile,
+      arguments: BusinessProfileRouteArgs(
+        businessId: item.id,
+        businessName: item.name,
+        category: item.category,
       ),
     );
   }
@@ -338,6 +405,12 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
 
     try {
       await _claimRepository.submitClaimRequest(item);
+      unawaited(
+        AppObservabilityService.instance.logBusinessClaimSubmitted(
+          placeId: item.placeId,
+          category: item.category,
+        ),
+      );
       _snack(
         'Sahiplenme talebin alındı. Doğrulama sonrası işletme tam profile çevrilecek.',
       );
@@ -363,9 +436,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       return;
     }
 
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const MessagesInboxPage()));
+    Navigator.of(context).pushNamed(AppRoutes.messagesInbox);
   }
 
   void _openNotifications() {
@@ -380,8 +451,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     }
 
     final session = AppSessionScope.maybeOf(context);
-    final sessionBusinessId =
-        session?.isCorporate == true ? session!.businessId.trim() : '';
+    final sessionBusinessId = session?.isCorporate == true
+        ? session!.businessId.trim()
+        : '';
     final widgetBusinessId = (widget.notificationBusinessId ?? '').trim();
     final bid = widgetBusinessId.isNotEmpty
         ? widgetBusinessId
@@ -391,12 +463,11 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         ? widgetBusinessName
         : session?.businessName;
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NotificationCenterPage(
-          businessId: bid.isEmpty ? null : bid,
-          businessName: businessName,
-        ),
+    Navigator.of(context).pushNamed(
+      AppRoutes.notificationCenter,
+      arguments: NotificationCenterRouteArgs(
+        businessId: bid.isEmpty ? null : bid,
+        businessName: businessName,
       ),
     );
   }
@@ -406,8 +477,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     if (uid == null) return Stream<int>.value(0);
 
     final session = AppSessionScope.maybeOf(context);
-    final sessionBusinessId =
-        session?.isCorporate == true ? session!.businessId.trim() : '';
+    final sessionBusinessId = session?.isCorporate == true
+        ? session!.businessId.trim()
+        : '';
     final widgetBusinessId = (widget.notificationBusinessId ?? '').trim();
     final businessId = widgetBusinessId.isNotEmpty
         ? widgetBusinessId
@@ -428,8 +500,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     if (uid == null) return Stream<int>.value(0);
 
     final session = AppSessionScope.maybeOf(context);
-    final sessionBusinessId =
-        session?.isCorporate == true ? session!.businessId.trim() : '';
+    final sessionBusinessId = session?.isCorporate == true
+        ? session!.businessId.trim()
+        : '';
     final widgetBusinessId = (widget.notificationBusinessId ?? '').trim();
     final businessId = widgetBusinessId.isNotEmpty
         ? widgetBusinessId
@@ -506,11 +579,34 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     return filtered;
   }
 
-  int _compareDistance(BusinessDirectoryItem a, BusinessDirectoryItem b) {
-    if (currentPosition != null && a.isMember != b.isMember) {
-      return a.isMember ? -1 : 1;
+  _DetectedExploreArea? _detectAreaFromNearestBusiness({
+    required List<BusinessDirectoryItem> items,
+    required Position? position,
+  }) {
+    if (position == null) return null;
+
+    BusinessDirectoryItem? nearest;
+    var nearestDistance = double.infinity;
+    for (final item in items) {
+      if (!item.visible || !item.hasCoordinate) continue;
+      if (item.district.trim().isEmpty && item.city.trim().isEmpty) continue;
+
+      final distance = item.distanceKmFrom(position);
+      if (!distance.isFinite || distance >= nearestDistance) continue;
+
+      nearest = item;
+      nearestDistance = distance;
     }
 
+    if (nearest == null) return null;
+
+    return _DetectedExploreArea(
+      city: nearest.city.trim(),
+      district: nearest.district.trim(),
+    );
+  }
+
+  int _compareDistance(BusinessDirectoryItem a, BusinessDirectoryItem b) {
     final distance = a
         .distanceKmFrom(currentPosition)
         .compareTo(b.distanceKmFrom(currentPosition));
@@ -576,20 +672,6 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                     currentPosition: currentPosition,
                     radiusKm: radiusKm,
                   );
-                  final sectionTitle = currentPosition == null
-                      ? 'Kayıtlı işletmeler'
-                      : 'Yakındaki işletmeler';
-                  final emptyTitle = _loadingBusinesses
-                      ? 'İşletmeler yükleniyor'
-                      : currentPosition == null
-                      ? 'Sonuç bulunamadı'
-                      : '${radiusKm.round()} km içinde sonuç yok';
-                  final emptyText =
-                      _loadingBusinesses || !_hasCompletedInitialBusinessLoad
-                      ? 'Kayıtlı işletmeler hazırlanıyor. Konum alınırsa seçili kilometreye göre yakın işletmeler öne taşınacak.'
-                      : currentPosition == null
-                      ? 'Aramayı temizleyin veya kategori filtresini değiştirerek kayıtlı işletmeleri listeleyin.'
-                      : 'Bu konum ve kilometre aralığında kategoriye uygun işletme bulunamadı. Kilometre aralığını büyütün veya konumu tekrar alın.';
                   final waitingForManualLoad =
                       RxRuntimeDiagnostics.disableExploreAutoLoad &&
                       !_hasCompletedInitialBusinessLoad &&
@@ -601,151 +683,67 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                       'filtered=${filtered.length} loading=$_loadingBusinesses '
                       'done=$_hasCompletedInitialBusinessLoad '
                       'manualWait=$waitingForManualLoad '
+                      'detectedCity=$_detectedCity '
+                      'detectedDistrict=$_detectedDistrict '
                       'error=${_businessLoadError != null} '
                       'screen=${MediaQuery.sizeOf(context)}',
                     );
                   }
 
-                  if (_businessLoadError != null && allItems.isEmpty) {
-                    return ExploreInfoState(
-                      icon: Icons.error_outline,
-                      title: 'Keşfet yüklenemedi',
-                      text: _businessLoadError.toString(),
-                      actionText: 'Tekrar dene',
-                      onAction: _refreshBusinesses,
-                    );
-                  }
-
-                  return RefreshIndicator(
+                  return HomeExploreContentList(
+                    loadingBusinesses: _loadingBusinesses,
+                    hasCompletedInitialBusinessLoad:
+                        _hasCompletedInitialBusinessLoad,
+                    businessLoadError: _businessLoadError,
+                    waitingForManualLoad: waitingForManualLoad,
+                    allItems: allItems,
+                    filteredItems: filtered,
+                    categories: categories,
+                    categoryCounts: categoryCounts,
+                    searchController: searchController,
+                    selectedCategory: selectedCategory,
+                    currentPosition: currentPosition,
+                    radiusKm: radiusKm,
+                    filterPanel: _buildFilterPanel(),
+                    scrollController: _exploreScrollController,
                     onRefresh: _refreshBusinesses,
-                    child: ListView(
-                      key: const PageStorageKey<String>(
-                        'fix_home_explore_list',
+                    onSearchChanged: () => setState(() {}),
+                    onSearchCleared: () {
+                      searchController.clear();
+                      setState(() {});
+                    },
+                    onCategorySelected: (category) {
+                      setState(() => selectedCategory = category);
+                      unawaited(
+                        _reloadExploreBusinesses(
+                          position: currentPosition,
+                          forceRefresh: true,
+                          replaceWithEmpty: true,
+                        ),
+                      );
+                    },
+                    onManualLoad: () => unawaited(
+                      _reloadExploreBusinesses(
+                        forceRefresh: true,
+                        replaceWithEmpty: true,
                       ),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-                      children: [
-                        if (_loadingBusinesses && allItems.isEmpty) ...[
-                          const LinearProgressIndicator(minHeight: 2),
-                          const SizedBox(height: 10),
-                        ],
-                        HomeExploreSearchBox(
-                          controller: searchController,
-                          onChanged: () => setState(() {}),
-                          onClear: () {
-                            searchController.clear();
-                            setState(() {});
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        const BusinessStoryRail(compact: true),
-                        const SizedBox(height: 10),
-                        HomeExploreCategoryRow(
-                          categories: categories,
-                          selectedCategory: selectedCategory,
-                          counts: categoryCounts,
-                          onSelected: (category) {
-                            setState(() => selectedCategory = category);
-                            unawaited(
-                              _reloadExploreBusinesses(
-                                position: currentPosition,
-                                forceRefresh: true,
-                                replaceWithEmpty: true,
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        _buildFilterPanel(),
-                        const SizedBox(height: 14),
-                        RxSectionHeader(
-                          title: sectionTitle,
-                          subtitle: currentPosition == null
-                              ? 'Konumdan bağımsız tüm kayıtlı işletmeler.'
-                              : '${radiusKm.round()} km içinde kayıtlı işletmeler önce gösterilir.',
-                          trailing: RxStatusChip(
-                            label: '${filtered.length} sonuç',
-                            color: RxColors.success,
-                            compact: true,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (waitingForManualLoad)
-                          ExploreInfoState(
-                            icon: Icons.pause_circle_outline_rounded,
-                            title: 'Keşfet beklemede',
-                            text:
-                                'Tanı modu otomatik işletme yüklemesini durdurdu. Bu ekran açık kalırsa sorun veri yükleme adımında değildir.',
-                            actionText: 'Keşfet verisini yükle',
-                            onAction: () => unawaited(
-                              _reloadExploreBusinesses(
-                                forceRefresh: true,
-                                replaceWithEmpty: true,
-                              ),
-                            ),
-                          )
-                        else if (_loadingBusinesses && allItems.isEmpty)
-                          ...List.generate(
-                            4,
-                            (index) => const Padding(
-                              padding: EdgeInsets.only(bottom: 10),
-                              child: RxSkeletonCard(height: 108),
-                            ),
-                          )
-                        else if (filtered.isEmpty)
-                          ExploreInfoState(
-                            icon: _loadingBusinesses
-                                ? Icons.explore_outlined
-                                : Icons.search_off,
-                            title: emptyTitle,
-                            text: emptyText,
-                            actionText: _loadingBusinesses
-                                ? null
-                                : 'Filtreleri temizle',
-                            onAction: _loadingBusinesses
-                                ? null
-                                : () {
-                                    setState(() {
-                                      searchController.clear();
-                                      selectedCategory =
-                                          BusinessCategories.allLabel;
-                                      radiusKm = 10;
-                                    });
-                                    unawaited(
-                                      _reloadExploreBusinesses(
-                                        forceRefresh: true,
-                                        replaceWithEmpty: true,
-                                      ),
-                                    );
-                                  },
-                          )
-                        else
-                          ...filtered
-                              .take(200)
-                              .toList(growable: false)
-                              .asMap()
-                              .entries
-                              .map(
-                                (entry) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: HomeExploreBusinessCard(
-                                    item: entry.value,
-                                    distanceKm: entry.value.distanceKmFrom(
-                                      currentPosition,
-                                    ),
-                                    origin: currentPosition,
-                                    showRouteDistance: entry.key < 2,
-                                    onTap: () => _openBusiness(entry.value),
-                                    onDirections: () =>
-                                        _openDirections(entry.value),
-                                    onClaim: entry.value.isMember
-                                        ? null
-                                        : () => _claimBusiness(entry.value),
-                                  ),
-                                ),
-                              ),
-                      ],
                     ),
+                    onResetFilters: () {
+                      setState(() {
+                        searchController.clear();
+                        selectedCategory = BusinessCategories.allLabel;
+                        radiusKm = 10;
+                      });
+                      unawaited(
+                        _reloadExploreBusinesses(
+                          forceRefresh: true,
+                          replaceWithEmpty: true,
+                        ),
+                      );
+                    },
+                    onOpenBusiness: _openBusiness,
+                    onOpenDirections: _openDirections,
+                    onClaimBusiness: _claimBusiness,
                   );
                 },
               ),
@@ -772,8 +770,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                 '')
             .toString()
             .trim();
-    final photoUrl =
-        businessPhotoUrl.isNotEmpty ? businessPhotoUrl : userPhotoUrl;
+    final photoUrl = businessPhotoUrl.isNotEmpty
+        ? businessPhotoUrl
+        : userPhotoUrl;
     final sessionBusinessName = session?.businessName.trim() ?? '';
     final displayName = widget.previewMode
         ? (sessionBusinessName.isNotEmpty ? sessionBusinessName : 'fix')
@@ -830,10 +829,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         }
 
         unawaited(
-          _reloadExploreBusinesses(
-            forceRefresh: true,
-            replaceWithEmpty: true,
-          ),
+          _reloadExploreBusinesses(forceRefresh: true, replaceWithEmpty: true),
         );
       },
       sortModes: const [

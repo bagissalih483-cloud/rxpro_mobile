@@ -116,8 +116,7 @@ abstract final class BusinessCustomerSegmentation {
       return BusinessCustomerSegments.manual.id;
     }
 
-    final daysSinceLast =
-        reference.difference(lastAppointmentAt).inHours ~/ 24;
+    final daysSinceLast = reference.difference(lastAppointmentAt).inHours ~/ 24;
 
     if (appointmentCount <= 1 && daysSinceLast <= 60) {
       return BusinessCustomerSegments.newCustomer.id;
@@ -342,8 +341,7 @@ class BusinessCustomerRecord {
       segmentId: segmentId.isEmpty
           ? BusinessCustomerSegments.manual.id
           : BusinessCustomerSegments.byId(segmentId).id,
-      source: _firstString(data, const [FirestoreFields.source, 'source']) ==
-              ''
+      source: _firstString(data, const [FirestoreFields.source, 'source']) == ''
           ? 'manual'
           : _firstString(data, const [FirestoreFields.source, 'source']),
       isManual: true,
@@ -547,16 +545,15 @@ class BusinessCustomerStats {
     for (final record in records) {
       counts[record.segmentId] = (counts[record.segmentId] ?? 0) + 1;
     }
-    return BusinessCustomerStats(
-      total: records.length,
-      segmentCounts: counts,
-    );
+    return BusinessCustomerStats(total: records.length, segmentCounts: counts);
   }
 }
 
 class BusinessCustomerRepository {
   BusinessCustomerRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  static const int _customerRealtimeWindowSize = 300;
 
   final FirebaseFirestore _firestore;
 
@@ -592,7 +589,7 @@ class BusinessCustomerRepository {
       onListen: () {
         manualSub = _businessCustomers
             .where(FirestoreFields.businessId, isEqualTo: id)
-            .limit(500)
+            .limit(_customerRealtimeWindowSize)
             .snapshots(includeMetadataChanges: true)
             .listen((snapshot) {
               manualRecords = snapshot.docs
@@ -603,7 +600,7 @@ class BusinessCustomerRepository {
 
         appointmentSub = _appointments
             .where(FirestoreFields.businessId, isEqualTo: id)
-            .limit(500)
+            .limit(_customerRealtimeWindowSize)
             .snapshots(includeMetadataChanges: true)
             .listen((snapshot) {
               appointmentRecords = BusinessCustomerRecord.fromAppointmentDocs(
