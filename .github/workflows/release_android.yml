@@ -108,7 +108,7 @@ jobs:
 
       - name: Release gate
         shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File tools/release_gate_check.ps1 -SkipIos
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tools/release_gate_check.ps1 -SkipIos
 
       - name: Build Android artifact
         shell: pwsh

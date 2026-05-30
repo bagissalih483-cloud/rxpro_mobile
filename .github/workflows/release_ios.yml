@@ -55,7 +55,7 @@ jobs:
 
       - name: iOS static release gate
         shell: pwsh
-        run: powershell -ExecutionPolicy Bypass -File tools/release_gate_check.ps1 -SkipAndroid -SkipIosSigning
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tools/release_gate_check.ps1 -SkipAndroid -SkipIosSigning
 
       - name: Build iOS release without codesign
         shell: pwsh
