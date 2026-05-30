@@ -58,6 +58,7 @@ $excludedFileNames = @(
   'google-places-api.txt',
   'google-palaces-api.txt',
   'key.properties',
+  'local.properties',
   'ui-debug.log'
 )
 
@@ -148,7 +149,7 @@ try {
       $forbiddenEntries += $entry.FullName
       continue
     }
-    if ($entry.Name -eq 'key.properties' -or $entry.Name -like '*.jks' -or $entry.Name -like '*.keystore' -or $entry.Name -like '*.p12' -or $entry.Name -like '*.pem') {
+    if ($entry.Name -eq 'key.properties' -or $entry.Name -eq 'local.properties' -or $entry.Name -like '*.jks' -or $entry.Name -like '*.keystore' -or $entry.Name -like '*.p12' -or $entry.Name -like '*.pem') {
       $forbiddenEntries += $entry.FullName
     }
   }

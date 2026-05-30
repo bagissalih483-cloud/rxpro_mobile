@@ -1,5 +1,6 @@
 param(
   [switch]$SkipTests,
+  [switch]$UseAppCheckDebugProvider,
   [string]$BuildName = "1.0.0",
   [string]$BuildNumber = "1"
 )
@@ -42,7 +43,23 @@ if (-not $SkipTests) {
 }
 
 Invoke-Checked powershell -ExecutionPolicy Bypass -File tools\release_gate_check.ps1 -SkipIos
-Invoke-Checked flutter build apk --release --build-name $BuildName --build-number $BuildNumber
+
+$buildArgs = @(
+  'build',
+  'apk',
+  '--release',
+  '--build-name',
+  $BuildName,
+  '--build-number',
+  $BuildNumber
+)
+
+if ($UseAppCheckDebugProvider) {
+  Write-Host "Using Firebase App Check debug provider for this local APK."
+  $buildArgs += '--dart-define=RXPRO_APP_CHECK_DEBUG=true'
+}
+
+Invoke-Checked flutter @buildArgs
 
 $apk = Join-Path $root 'build\app\outputs\flutter-apk\app-release.apk'
 if (-not (Test-Path $apk)) {

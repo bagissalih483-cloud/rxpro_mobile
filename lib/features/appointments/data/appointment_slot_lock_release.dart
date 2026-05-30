@@ -10,6 +10,18 @@ class AppointmentSlotLockRelease {
     required FirebaseFirestore firestore,
     required Map<String, dynamic> appointment,
   }) {
+    return slotIdsForAppointment(appointment: appointment)
+        .map(
+          (slotId) => firestore
+              .collection(FirestoreCollections.appointmentSlots)
+              .doc(slotId),
+        )
+        .toList();
+  }
+
+  static List<String> slotIdsForAppointment({
+    required Map<String, dynamic> appointment,
+  }) {
     final businessId = _firstNonEmpty([
       appointment[FirestoreFields.businessId],
       appointment['businessId'],
@@ -30,8 +42,11 @@ class AppointmentSlotLockRelease {
           ),
         );
 
-    if (businessId.isEmpty || staffId.isEmpty || startAt == null || endAt == null) {
-      return const <DocumentReference<Map<String, dynamic>>>[];
+    if (businessId.isEmpty ||
+        staffId.isEmpty ||
+        startAt == null ||
+        endAt == null) {
+      return const <String>[];
     }
 
     return AppointmentSlotLockPolicy.slotIdsForRange(
@@ -39,13 +54,7 @@ class AppointmentSlotLockRelease {
       businessStaffId: staffId,
       startAt: startAt,
       endAt: endAt,
-    )
-        .map(
-          (slotId) => firestore
-              .collection(FirestoreCollections.appointmentSlots)
-              .doc(slotId),
-        )
-        .toList();
+    );
   }
 
   static DateTime? _dateOf(Object? value) {

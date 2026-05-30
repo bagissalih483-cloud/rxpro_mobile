@@ -86,6 +86,42 @@ describe("RxPro Firestore rules", () => {
     }));
   });
 
+  it("keeps imported directory collections public-read and client-write denied", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+    const guest = testEnv.unauthenticatedContext().firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection("businessPlaceIndex").doc("place1").set({
+        name: "Karakopru Clinic",
+        city: "Sanliurfa",
+        district: "Karakopru",
+      });
+      await db.collection("directory_pois_google_cache").doc("place1").set({
+        name: "Legacy Cache",
+      });
+      await db.collection("placeQueryBuckets").doc("bucket1").set({
+        placeIds: ["place1"],
+      });
+    });
+
+    await assertSucceeds(guest.collection("businessPlaceIndex").doc("place1").get());
+    await assertSucceeds(
+      guest.collection("directory_pois_google_cache").doc("place1").get(),
+    );
+    await assertSucceeds(guest.collection("placeQueryBuckets").doc("bucket1").get());
+
+    await assertFails(alice.collection("businessPlaceIndex").doc("place2").set({
+      name: "Client Write",
+    }));
+    await assertFails(
+      alice.collection("directory_pois_google_cache").doc("place1").update({
+        name: "Client Update",
+      }),
+    );
+    await assertFails(alice.collection("placeQueryBuckets").doc("bucket1").delete());
+  });
+
   it("prevents self role escalation with affectedKeys field guards", async () => {
     const alice = testEnv.authenticatedContext("alice").firestore();
     const adminDb = testEnv.authenticatedContext("admin1").firestore();
@@ -122,6 +158,152 @@ describe("RxPro Firestore rules", () => {
     }));
     await assertFails(alice.collection("businesses").doc("business1").update({
       ownerUid: "bob",
+    }));
+  });
+
+  it("prevents appointment identity field changes while allowing status updates", async () => {
+    const alice = testEnv.authenticatedContext("alice").firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection("appointments").doc("appointment1").set({
+        businessId: "business1",
+        customerUid: "alice",
+        status: "active",
+        serviceName: "Consultation",
+      });
+    });
+
+    await assertSucceeds(alice.collection("appointments").doc("appointment1").update({
+      status: "cancelledByUser",
+      isCancelled: true,
+    }));
+    await assertFails(alice.collection("appointments").doc("appointment1").update({
+      businessId: "business2",
+    }));
+    await assertFails(alice.collection("appointments").doc("appointment1").update({
+      customerUid: "bob",
+    }));
+  });
+
+  it("prevents staff self role and permission escalation", async () => {
+    const owner = testEnv.authenticatedContext("owner1").firestore();
+    const staff = testEnv.authenticatedContext("staff1").firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection("businesses").doc("business1").set({
+        ownerUid: "owner1",
+        name: "Owner Clinic",
+      });
+      await db.collection("businessStaff").doc("staff1").set({
+        businessId: "business1",
+        uid: "staff1",
+        linkedUid: "staff1",
+        role: "staff",
+        permissions: ["appointmentsRead"],
+      });
+    });
+
+    await assertSucceeds(staff.collection("businessStaff").doc("staff1").update({
+      displayName: "Staff One",
+    }));
+    await assertFails(staff.collection("businessStaff").doc("staff1").update({
+      role: "owner",
+    }));
+    await assertFails(staff.collection("businessStaff").doc("staff1").update({
+      permissions: ["appointmentsRead", "financeWrite"],
+    }));
+    await assertSucceeds(owner.collection("businessStaff").doc("staff1").update({
+      permissions: ["appointmentsRead", "financeRead"],
+    }));
+  });
+
+  it("prevents finance records from moving between business scopes", async () => {
+    const owner = testEnv.authenticatedContext("owner1").firestore();
+    const staff = testEnv.authenticatedContext("staff1").firestore();
+    const financeStaff = testEnv.authenticatedContext("financeStaff").firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection("businesses").doc("business1").set({
+        ownerUid: "owner1",
+        name: "Owner Clinic",
+      });
+      await db.collection("users").doc("staff1").set({
+        uid: "staff1",
+        staffBusinessId: "business1",
+      });
+      await db.collection("users").doc("financeStaff").set({
+        uid: "financeStaff",
+        staffBusinessId: "business1",
+        permissions: ["financeWrite"],
+      });
+      await db.collection("businessFinanceRecords").doc("finance1").set({
+        businessId: "business1",
+        ownerUid: "owner1",
+        amount: 100,
+        type: "income",
+      });
+    });
+
+    await assertSucceeds(owner.collection("businessFinanceRecords").doc("finance1").get());
+    await assertSucceeds(owner.collection("businessFinanceRecords").doc("finance1").update({
+      amount: 120,
+    }));
+    await assertFails(owner.collection("businessFinanceRecords").doc("finance1").update({
+      businessId: "business2",
+    }));
+    await assertFails(staff.collection("businessFinanceRecords").doc("finance1").update({
+      amount: 150,
+    }));
+    await assertSucceeds(
+      financeStaff.collection("businessFinanceRecords").doc("finance1").update({
+        amount: 160,
+      }),
+    );
+  });
+
+  it("guards service pricing edits behind owner or explicit service permission", async () => {
+    const owner = testEnv.authenticatedContext("owner1").firestore();
+    const staff = testEnv.authenticatedContext("staff1").firestore();
+    const serviceStaff = testEnv.authenticatedContext("serviceStaff").firestore();
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection("businesses").doc("business1").set({
+        ownerUid: "owner1",
+        name: "Owner Clinic",
+      });
+      await db.collection("users").doc("staff1").set({
+        uid: "staff1",
+        staffBusinessId: "business1",
+      });
+      await db.collection("users").doc("serviceStaff").set({
+        uid: "serviceStaff",
+        staffBusinessId: "business1",
+        permissionKeys: ["serviceWrite"],
+      });
+      await db.collection("businessServices").doc("service1").set({
+        businessId: "business1",
+        ownerUid: "owner1",
+        name: "Dental Check",
+        price: 500,
+      });
+    });
+
+    await assertSucceeds(owner.collection("businessServices").doc("service1").update({
+      price: 550,
+    }));
+    await assertFails(staff.collection("businessServices").doc("service1").update({
+      price: 600,
+    }));
+    await assertSucceeds(
+      serviceStaff.collection("businessServices").doc("service1").update({
+        price: 650,
+      }),
+    );
+    await assertFails(owner.collection("businessServices").doc("service1").update({
+      businessId: "business2",
     }));
   });
 

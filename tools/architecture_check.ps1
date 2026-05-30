@@ -1,5 +1,5 @@
 param(
-  [int]$MaxDirectSurface = 5,
+  [int]$MaxDirectSurface = 0,
   [switch]$WarnOnly
 )
 
@@ -49,13 +49,7 @@ if ($rg) {
   )
 }
 
-$allowedDirect = @(
-  "lib\core\app_state\current_user_state_service.dart",
-  "lib\core\app_state\follow_cache_warmup_service.dart",
-  "lib\core\businesses\business_directory_cache_service.dart",
-  "lib\core\realtime\rx_notification_service.dart",
-  "lib\core\session\app_session_controller.dart"
-)
+$allowedDirect = @()
 
 $unexpected = @(
   $direct |

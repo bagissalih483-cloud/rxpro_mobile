@@ -1,40 +1,25 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 import '../app_cache/app_cache_service.dart';
+import 'data/follow_cache_warmup_repository.dart';
 
 class FollowCacheWarmupService {
   FollowCacheWarmupService({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
+    FollowCacheWarmupRepository? repository,
     AppCacheService? cache,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance,
+  }) : _repository = repository ?? FollowCacheWarmupRepository(),
        _cache = cache ?? AppCacheService();
 
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
+  final FollowCacheWarmupRepository _repository;
   final AppCacheService _cache;
 
   Future<void> syncCurrentUserFollows() async {
-    final user = _auth.currentUser;
+    final uid = _repository.currentUid;
 
-    if (user == null) {
+    if (uid == null) {
       await _cache.saveFollowedBusinessIds(const []);
       return;
     }
 
-    final snapshot = await _firestore
-        .collection('businessFollowers')
-        .where('customerUid', isEqualTo: user.uid)
-        .get();
-
-    final ids = snapshot.docs
-        .map((doc) => doc.data()['businessId']?.toString() ?? '')
-        .where((id) => id.trim().isNotEmpty)
-        .toSet()
-        .toList();
-
+    final ids = await _repository.loadFollowedBusinessIds(uid);
     await _cache.saveFollowedBusinessIds(ids);
   }
 }

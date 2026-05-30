@@ -1,10 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
-import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 
 import 'app_role.dart';
 import 'app_session.dart';
+import 'data/app_session_repository.dart';
 import 'session_role_policy.dart';
 
 /// 50C-Q1: App session Firestore collection/query literals use
@@ -14,27 +13,25 @@ class AppSessionController {
 
   static const Duration _sessionResolveTimeout = Duration(seconds: 8);
   static const Duration _businessLookupTimeout = Duration(seconds: 3);
+  static final AppSessionRepository _repository = AppSessionRepository();
 
   static Stream<AppSession> watchForUser(User user) {
-    return FirebaseFirestore.instance
-        .collection(FirestoreCollections.users)
-        .doc(user.uid)
-        .snapshots()
-        .asyncMap(
-          (snapshot) => resolveFromUserDoc(user: user, snapshot: snapshot)
-              .timeout(
-                _sessionResolveTimeout,
-                onTimeout: () =>
-                    _timeoutFallbackSession(user: user, snapshot: snapshot),
-              ),
-        );
+    return _repository.watchUserDocument(user.uid).asyncMap(
+      (snapshot) => resolveFromUserDoc(user: user, snapshot: snapshot).timeout(
+        _sessionResolveTimeout,
+        onTimeout: () => _timeoutFallbackSession(
+          user: user,
+          snapshot: snapshot,
+        ),
+      ),
+    );
   }
 
   static Future<AppSession> resolveFromUserDoc({
     required User user,
-    required DocumentSnapshot<Map<String, dynamic>> snapshot,
+    required AppSessionUserDocument snapshot,
   }) async {
-    final data = Map<String, dynamic>.from(snapshot.data() ?? {});
+    final data = snapshot.data;
 
     if (!snapshot.exists || data.isEmpty) {
       return AppSession.invalid(
@@ -129,40 +126,32 @@ class AppSessionController {
     String uid,
     Map<String, dynamic> data,
   ) async {
-    final db = FirebaseFirestore.instance;
-
     final candidateIds = _candidateBusinessIds(data);
 
     for (final id in candidateIds) {
-      final doc = await _safeGetBusinessDoc(db, id);
+      final doc = await _safeGetBusinessDoc(id);
       if (doc == null) continue;
-
-      final docData = Map<String, dynamic>.from(doc.data() ?? {});
-      if (doc.exists) {
-        return _ResolvedBusiness(
-          id: id,
-          name: _businessName(
-            docData,
-            fallback: data[FirestoreFields.businessName],
-          ),
-          data: docData,
-        );
-      }
-    }
-
-    final ownerQuery = await _safeGetOwnedBusinessQuery(db, uid);
-
-    if (ownerQuery != null && ownerQuery.docs.isNotEmpty) {
-      final doc = ownerQuery.docs.first;
-      final docData = Map<String, dynamic>.from(doc.data());
 
       return _ResolvedBusiness(
         id: doc.id,
         name: _businessName(
-          docData,
+          doc.data,
           fallback: data[FirestoreFields.businessName],
         ),
-        data: docData,
+        data: doc.data,
+      );
+    }
+
+    final ownedBusiness = await _safeGetOwnedBusiness(uid);
+
+    if (ownedBusiness != null) {
+      return _ResolvedBusiness(
+        id: ownedBusiness.id,
+        name: _businessName(
+          ownedBusiness.data,
+          fallback: data[FirestoreFields.businessName],
+        ),
+        data: ownedBusiness.data,
       );
     }
 
@@ -218,30 +207,27 @@ class AppSessionController {
     ].where((item) => item.trim().isNotEmpty).toSet().toList();
   }
 
-  static Future<DocumentSnapshot<Map<String, dynamic>>?> _safeGetBusinessDoc(
-    FirebaseFirestore db,
+  static Future<AppSessionBusinessDocument?> _safeGetBusinessDoc(
     String id,
   ) async {
     try {
-      return await db
-          .collection(FirestoreCollections.businesses)
-          .doc(id)
-          .get()
-          .timeout(_businessLookupTimeout);
+      return await _repository.loadBusinessById(
+        id,
+        timeout: _businessLookupTimeout,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  static Future<QuerySnapshot<Map<String, dynamic>>?>
-  _safeGetOwnedBusinessQuery(FirebaseFirestore db, String uid) async {
+  static Future<AppSessionBusinessDocument?> _safeGetOwnedBusiness(
+    String uid,
+  ) async {
     try {
-      return await db
-          .collection(FirestoreCollections.businesses)
-          .where(FirestoreFields.ownerUid, isEqualTo: uid)
-          .limit(1)
-          .get()
-          .timeout(_businessLookupTimeout);
+      return await _repository.loadFirstOwnedBusiness(
+        uid,
+        timeout: _businessLookupTimeout,
+      );
     } catch (_) {
       return null;
     }
@@ -249,9 +235,9 @@ class AppSessionController {
 
   static AppSession _timeoutFallbackSession({
     required User user,
-    required DocumentSnapshot<Map<String, dynamic>> snapshot,
+    required AppSessionUserDocument snapshot,
   }) {
-    final data = Map<String, dynamic>.from(snapshot.data() ?? {});
+    final data = snapshot.data;
 
     if (!snapshot.exists || data.isEmpty) {
       return AppSession.invalid(

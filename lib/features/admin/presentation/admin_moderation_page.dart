@@ -142,7 +142,7 @@ class _ModerationFilterBar extends StatelessWidget {
           ),
         );
         final status = DropdownButtonFormField<String>(
-          value: statusFilter,
+          initialValue: statusFilter,
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.tune_rounded),
             labelText: 'Durum',

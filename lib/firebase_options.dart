@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBtB_kRmAyeaUVIdDYKdDTg-6pSm6NIm7Y',
-    appId: '1:506651509967:android:f5b6a2743a57402a5063ba',
+    appId: '1:506651509967:android:86db8577f3a12fd05063ba',
     messagingSenderId: '506651509967',
     projectId: 'rxpro-mobile-202605172210',
     storageBucket: 'rxpro-mobile-202605172210.firebasestorage.app',
@@ -59,7 +59,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDykA_fDTjAhMyPbSzzV12l1n_HnTRr8CE',
-    appId: '1:506651509967:ios:7fc11d03ddcb9d2b5063ba',
+    appId: '1:506651509967:ios:d819434a49f068375063ba',
     messagingSenderId: '506651509967',
     projectId: 'rxpro-mobile-202605172210',
     storageBucket: 'rxpro-mobile-202605172210.firebasestorage.app',
@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyDykA_fDTjAhMyPbSzzV12l1n_HnTRr8CE',
-    appId: '1:506651509967:ios:7fc11d03ddcb9d2b5063ba',
+    appId: '1:506651509967:ios:d819434a49f068375063ba',
     messagingSenderId: '506651509967',
     projectId: 'rxpro-mobile-202605172210',
     storageBucket: 'rxpro-mobile-202605172210.firebasestorage.app',

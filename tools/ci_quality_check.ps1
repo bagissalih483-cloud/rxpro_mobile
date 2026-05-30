@@ -34,6 +34,9 @@ Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\text_qualit
 Write-Host "Running secret scan..."
 Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\secret_scan.ps1
 
+Write-Host "Checking public data matrix..."
+Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\public_data_matrix_check.ps1
+
 if (-not $SkipFunctions) {
   Write-Host "Checking Cloud Functions syntax..."
   $functionJsFiles = Get-ChildItem -Path functions -Recurse -Filter *.js -File |

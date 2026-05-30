@@ -228,6 +228,9 @@ class AppImageUploadService {
 
     final task = await ref
         .putFile(File(file.path), metadata)
+        .catchError((Object error) {
+          throw _mapUploadError(error, storagePath);
+        })
         .timeout(const Duration(seconds: 45));
 
     final url = await task.ref.getDownloadURL().timeout(
@@ -292,6 +295,9 @@ class AppImageUploadService {
 
       final task = await ref
           .putData(thumbnailBytes, metadata)
+          .catchError((Object error) {
+            throw _mapUploadError(error, _thumbnailPathFor(storagePath));
+          })
           .timeout(const Duration(seconds: 30));
 
       return task.ref.getDownloadURL().timeout(const Duration(seconds: 20));
@@ -347,6 +353,20 @@ class AppImageUploadService {
     }
 
     return '$root/$uid/$cleanBusinessId/$cleanFileName';
+  }
+
+  static Object _mapUploadError(Object error, String storagePath) {
+    if (error is FirebaseException &&
+        error.plugin == 'firebase_storage' &&
+        error.code == 'unauthorized') {
+      return StateError(
+        'Gorsel yukleme yetkisi reddedildi. Oturum, App Check debug tokeni, '
+        'Firebase Storage rules yayini veya sahiplik eslesmesi kontrol edilmeli. '
+        'Yol: $storagePath',
+      );
+    }
+
+    return error;
   }
 
   static String _safePathSegment(String value) {

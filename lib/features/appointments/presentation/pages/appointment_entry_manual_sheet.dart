@@ -42,15 +42,19 @@ class _BusinessManualAppointmentSheetState
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime(
-      widget.initialStartAt.year,
-      widget.initialStartAt.month,
-      widget.initialStartAt.day,
+    _selectedDate = BusinessManualAppointmentPolicy.dayOnly(
+      widget.initialStartAt,
     );
     _selectedTime = TimeOfDay.fromDateTime(widget.initialStartAt);
-    _selectedStaffId =
-        widget.initialStaff?.id ??
-        (_staffOptions.isEmpty ? '' : _staffOptions.first.id);
+    _selectedStaffId = BusinessManualAppointmentPolicy.initialStaffId(
+      initialStaff: widget.initialStaff == null
+          ? null
+          : BusinessManualAppointmentStaffOption(
+              id: widget.initialStaff!.id,
+              name: widget.initialStaff!.name,
+            ),
+      staffOptions: _staffOptions,
+    );
     _servicesFuture = widget.service.loadServices(widget.businessId);
     _servicesFuture.then((items) {
       if (!mounted || items.isEmpty || _serviceNameController.text.isNotEmpty) {
@@ -76,62 +80,48 @@ class _BusinessManualAppointmentSheetState
     super.dispose();
   }
 
-  List<AppointmentStaffLite> get _staffOptions {
-    final seen = <String>{};
-    final options = <AppointmentStaffLite>[];
-
-    for (final item in widget.staff) {
-      final id = item.id.trim().isEmpty ? item.name.trim() : item.id.trim();
-      final name = item.name.trim();
-      if (id.isEmpty && name.isEmpty) continue;
-      if (!seen.add(id.isEmpty ? name : id)) continue;
-      options.add(AppointmentStaffLite(id: id, name: name.isEmpty ? id : name));
-    }
-
-    return options;
+  List<BusinessManualAppointmentStaffOption> get _staffOptions {
+    return BusinessManualAppointmentPolicy.staffOptions(
+      widget.staff.map(
+        (item) => BusinessManualAppointmentStaffOption(
+          id: item.id,
+          name: item.name,
+        ),
+      ),
+    );
   }
 
-  AppointmentStaffLite get _selectedStaff {
-    final options = _staffOptions;
-    for (final item in options) {
-      if (item.id == _selectedStaffId) return item;
-    }
-    return options.isEmpty
-        ? const AppointmentStaffLite(id: 'default', name: 'Genel')
-        : options.first;
+  BusinessManualAppointmentStaffOption get _selectedStaff {
+    return BusinessManualAppointmentPolicy.selectedStaff(
+      staffOptions: _staffOptions,
+      selectedStaffId: _selectedStaffId,
+    );
   }
 
   int get _durationMinutes {
-    final parsed = int.tryParse(_durationController.text.trim());
-    return parsed == null ? 30 : parsed.clamp(5, 480).toInt();
+    return BusinessManualAppointmentPolicy.durationMinutes(
+      _durationController.text,
+    );
   }
 
   DateTime get _startAt {
-    return DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      _selectedTime.hour,
-      _selectedTime.minute,
+    return BusinessManualAppointmentPolicy.startAt(
+      date: _selectedDate,
+      hour: _selectedTime.hour,
+      minute: _selectedTime.minute,
     );
   }
 
   String _dateKey(DateTime value) {
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    return '${value.year}-$month-$day';
+    return BusinessManualAppointmentPolicy.dateKey(value);
   }
 
   String _dateText(DateTime value) {
-    final day = value.day.toString().padLeft(2, '0');
-    final month = value.month.toString().padLeft(2, '0');
-    return '$day.$month.${value.year}';
+    return BusinessManualAppointmentPolicy.dateText(value);
   }
 
   String _timeText(DateTime value) {
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    return BusinessManualAppointmentPolicy.timeText(value);
   }
 
   Future<void> _pickDate() async {
@@ -143,7 +133,7 @@ class _BusinessManualAppointmentSheetState
     );
     if (picked == null || !mounted) return;
     setState(() {
-      _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      _selectedDate = BusinessManualAppointmentPolicy.dayOnly(picked);
     });
   }
 
@@ -280,11 +270,8 @@ class _BusinessManualAppointmentSheetState
                       labelText: 'Müşteri adı',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.length < 2) return 'Müşteri adı gerekli.';
-                      return null;
-                    },
+                    validator:
+                        BusinessManualAppointmentPolicy.validateCustomerName,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -370,11 +357,8 @@ class _BusinessManualAppointmentSheetState
                       labelText: 'Hizmet / işlem adı',
                       prefixIcon: Icon(Icons.design_services_outlined),
                     ),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.isEmpty) return 'Hizmet adı gerekli.';
-                      return null;
-                    },
+                    validator:
+                        BusinessManualAppointmentPolicy.validateServiceName,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -436,13 +420,8 @@ class _BusinessManualAppointmentSheetState
                             labelText: 'Süre (dk)',
                             prefixIcon: Icon(Icons.timer_outlined),
                           ),
-                          validator: (value) {
-                            final parsed = int.tryParse(value?.trim() ?? '');
-                            if (parsed == null || parsed < 5) {
-                              return 'Geçerli süre girin.';
-                            }
-                            return null;
-                          },
+                          validator:
+                              BusinessManualAppointmentPolicy.validateDuration,
                         ),
                       ),
                     ],

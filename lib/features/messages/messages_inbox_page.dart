@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/theme/rx_ui.dart';
 import 'package:rxpro_mobile/features/messages/domain/message_ui_policy.dart';
+import 'package:rxpro_mobile/features/messages/presentation/message_compose_controller.dart';
+import 'package:rxpro_mobile/features/messages/presentation/message_thread_controller.dart';
 import 'package:rxpro_mobile/features/messages/presentation/widgets/messages_ui_widgets.dart';
 
 import 'data/messages_repository.dart';
@@ -174,19 +174,29 @@ class NewCustomerMessagePage extends StatefulWidget {
 
 class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
   final MessagesRepository _repository = MessagesRepository();
-  final messageController = TextEditingController(
-    text: 'Merhaba, bilgi almak istiyorum.',
-  );
-
-  String topic = 'request';
-  bool sending = false;
+  late final MessageComposeController _composeController;
 
   final topics = MessageUiPolicy.customerNewMessageTopics;
 
   @override
+  void initState() {
+    super.initState();
+    _composeController = MessageComposeController(
+      initialText: 'Merhaba, bilgi almak istiyorum.',
+      initialTopic: 'request',
+    );
+    _composeController.addListener(_handleComposeChanged);
+  }
+
+  @override
   void dispose() {
-    messageController.dispose();
+    _composeController.removeListener(_handleComposeChanged);
+    _composeController.dispose();
     super.dispose();
+  }
+
+  void _handleComposeChanged() {
+    if (mounted) setState(() {});
   }
 
   Stream<List<MessageBusinessItem>> _businessesStream() {
@@ -198,19 +208,19 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
   }
 
   Future<void> _sendFirstMessage(MessageBusinessItem business) async {
-    final text = messageController.text.trim();
+    final text = _composeController.trimmedText;
 
-    if (text.isEmpty) {
+    if (!_composeController.canSend) {
       _showMessage('Mesaj boş olamaz.');
       return;
     }
 
-    setState(() => sending = true);
+    _composeController.setSending(true);
 
     try {
       final result = await _repository.sendFirstMessage(
         business: business,
-        topic: topic,
+        topic: _composeController.topic,
         text: text,
       );
 
@@ -229,7 +239,7 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
       _showMessage('Mesaj gönderilemedi: $e');
     } finally {
       if (mounted) {
-        setState(() => sending = false);
+        _composeController.setSending(false);
       }
     }
   }
@@ -270,7 +280,7 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                initialValue: topic,
+                initialValue: _composeController.topic,
                 decoration: InputDecoration(
                   labelText: 'Mesaj konusu',
                   filled: true,
@@ -287,12 +297,12 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
                   );
                 }).toList(),
                 onChanged: (value) {
-                  if (value != null) setState(() => topic = value);
+                  if (value != null) _composeController.setTopic(value);
                 },
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: messageController,
+                controller: _composeController.textController,
                 maxLines: 4,
                 decoration: InputDecoration(
                   labelText: 'Mesajınız',
@@ -328,14 +338,16 @@ class _NewCustomerMessagePageState extends State<NewCustomerMessagePage> {
                       ),
                       title: Text(business.name),
                       subtitle: Text(business.category),
-                      trailing: sending
+                      trailing: _composeController.sending
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.send_outlined),
-                      onTap: sending ? null : () => _sendFirstMessage(business),
+                      onTap: _composeController.sending
+                          ? null
+                          : () => _sendFirstMessage(business),
                     ),
                   ),
                 ),
@@ -366,70 +378,54 @@ class MessageThreadPage extends StatefulWidget {
 }
 
 class _MessageThreadPageState extends State<MessageThreadPage> {
-  final MessagesRepository _repository = MessagesRepository();
-  final messageController = TextEditingController();
-
-  bool sending = false;
-  int _lastReadMessageCount = -1;
+  late final MessageThreadController _controller;
 
   @override
   void initState() {
     super.initState();
-    _markThreadAsRead();
+    _controller = MessageThreadController(
+      threadId: widget.threadId,
+      isBusinessOwner: widget.isBusinessOwner,
+      currentUid: widget.currentUid,
+      currentName: widget.currentName,
+    );
+    _controller.addListener(_handleThreadChanged);
+    _controller.markThreadAsRead();
   }
 
   @override
   void dispose() {
-    messageController.dispose();
+    _controller.removeListener(_handleThreadChanged);
+    _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _markThreadAsRead() async {
-    await _repository.markThreadAsRead(
-      threadId: widget.threadId,
-      isBusinessOwner: widget.isBusinessOwner,
-      currentUid: widget.currentUid,
-    );
+  void _handleThreadChanged() {
+    if (mounted) setState(() {});
   }
 
   Stream<MessageThreadDetails> _threadStream() {
-    return _repository.watchThread(widget.threadId);
+    return _controller.watchThread();
   }
 
   Stream<List<MessageItem>> _messagesStream() {
-    return _repository.watchMessages(widget.threadId);
+    return _controller.watchMessages();
   }
 
   Future<void> _sendMessage() async {
-    final text = messageController.text.trim();
-
-    if (text.isEmpty || sending) return;
-
-    setState(() => sending = true);
-
     try {
-      await _repository.sendMessage(
-        threadId: widget.threadId,
-        isBusinessOwner: widget.isBusinessOwner,
-        currentUid: widget.currentUid,
-        currentName: widget.currentName,
-        text: text,
-      );
-
-      messageController.clear();
+      await _controller.sendMessage();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Mesaj gönderilemedi: $e')));
       }
-    } finally {
-      if (mounted) setState(() => sending = false);
     }
   }
 
   Future<void> _confirmRecallMessage(MessageItem message) async {
-    if (message.senderUid != widget.currentUid || message.recalled) return;
+    if (!_controller.canRecall(message)) return;
 
     final result = await showDialog<bool>(
       context: context,
@@ -455,24 +451,15 @@ class _MessageThreadPageState extends State<MessageThreadPage> {
 
     if (result != true) return;
 
-    await _repository.recallMessage(
-      threadId: widget.threadId,
-      messageId: message.id,
-    );
+    await _controller.recallMessage(message);
   }
 
   Future<void> _closeThread() async {
-    await _repository.setThreadStatus(
-      threadId: widget.threadId,
-      status: 'closed',
-    );
+    await _controller.closeThread();
   }
 
   Future<void> _openThread() async {
-    await _repository.setThreadStatus(
-      threadId: widget.threadId,
-      status: 'open',
-    );
+    await _controller.openThread();
   }
 
   @override
@@ -515,10 +502,7 @@ class _MessageThreadPageState extends State<MessageThreadPage> {
                   stream: _messagesStream(),
                   builder: (context, snapshot) {
                     final messages = snapshot.data ?? [];
-                    if (messages.length != _lastReadMessageCount) {
-                      _lastReadMessageCount = messages.length;
-                      unawaited(_markThreadAsRead());
-                    }
+                    _controller.markReadForMessageList(messages);
 
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Padding(
@@ -559,9 +543,9 @@ class _MessageThreadPageState extends State<MessageThreadPage> {
                 MessageClosedNotice(isBusinessOwner: widget.isBusinessOwner)
               else
                 MessageInputBar(
-                  controller: messageController,
+                  controller: _controller.composeController.textController,
                   isBusinessOwner: widget.isBusinessOwner,
-                  sending: sending,
+                  sending: _controller.sending,
                   onSend: _sendMessage,
                 ),
             ],
@@ -585,9 +569,11 @@ class _ThreadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unread = isBusinessOwner
-        ? thread.unreadForBusiness
-        : thread.unreadForCustomer;
+    final unread = MessageUiPolicy.threadUnread(
+      isBusinessOwner: isBusinessOwner,
+      unreadForCustomer: thread.unreadForCustomer,
+      unreadForBusiness: thread.unreadForBusiness,
+    );
     final title = isBusinessOwner ? thread.customerName : thread.businessName;
     final statusColor = MessageUiPolicy.isClosed(thread.status)
         ? RxColors.muted

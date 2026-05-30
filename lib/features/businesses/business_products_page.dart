@@ -4,6 +4,7 @@ import '../../core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
 import 'data/business_products_repository.dart';
+import 'domain/business_product_policy.dart';
 import 'presentation/widgets/business_stock_ledger_list.dart';
 import 'services/business_products_service.dart';
 
@@ -163,36 +164,27 @@ class _BusinessProductsPageState extends State<BusinessProductsPage> {
                                 >[]),
                           ];
 
-                      docs.sort((a, b) {
-                        final an = _clean(a.data()['name']).toLowerCase();
-                        final bn = _clean(b.data()['name']).toLowerCase();
-                        return an.compareTo(bn);
-                      });
+                      docs.sort(
+                        (a, b) => BusinessProductPolicy.sortKey(
+                          a.data(),
+                        ).compareTo(BusinessProductPolicy.sortKey(b.data())),
+                      );
 
                       final active = docs
                           .where((d) {
-                            final data = d.data();
-                            return data[FirestoreFields.isActive] != false;
+                            return BusinessProductPolicy.isActive(d.data());
                           })
                           .toList(growable: false);
 
                       final lowStock = active
                           .where((d) {
-                            final data = d.data();
-                            final stock = _toDouble(
-                              data[FirestoreFields.stockQuantity],
-                            );
-                            final min = _toDouble(
-                              data[FirestoreFields.minStockQuantity],
-                            );
-                            return min > 0 && stock <= min;
+                            return BusinessProductPolicy.isLowStock(d.data());
                           })
                           .toList(growable: false);
 
                       final publicProducts = active
                           .where((d) {
-                            final data = d.data();
-                            return data[FirestoreFields.isPublic] == true;
+                            return BusinessProductPolicy.isPublic(d.data());
                           })
                           .toList(growable: false);
 
@@ -262,6 +254,7 @@ class BusinessProductFormPage extends StatefulWidget {
 
 class _BusinessProductFormPageState extends State<BusinessProductFormPage> {
   final BusinessProductsService _productsService = BusinessProductsService();
+  final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _barcode = TextEditingController();
   final _purchasePrice = TextEditingController();
@@ -274,34 +267,31 @@ class _BusinessProductFormPageState extends State<BusinessProductFormPage> {
   bool _isActive = true;
   bool _saving = false;
 
-  static const categories = [
-    'Genel',
-    'Şampuan',
-    'Saç Bakım',
-    'Cilt Bakım',
-    'Kozmetik',
-    'Manikür/Pedikür',
-    'Sarf Malzeme',
-    'Diğer',
-  ];
-
   @override
   void initState() {
     super.initState();
 
     final data = widget.doc?.data();
     if (data != null) {
-      _name.text = _clean(data[FirestoreFields.name]);
-      _barcode.text = _clean(data[FirestoreFields.barcode]);
-      _purchasePrice.text = _numberText(data[FirestoreFields.purchasePrice]);
-      _salePrice.text = _numberText(data[FirestoreFields.salePrice]);
-      _stock.text = _numberText(data[FirestoreFields.stockQuantity]);
-      _minStock.text = _numberText(data[FirestoreFields.minStockQuantity]);
-      _category = _clean(data[FirestoreFields.category]).isEmpty
-          ? 'Genel'
-          : _clean(data[FirestoreFields.category]);
-      _isPublic = data[FirestoreFields.isPublic] == true;
-      _isActive = data[FirestoreFields.isActive] != false;
+      _name.text = BusinessProductPolicy.clean(data[FirestoreFields.name]);
+      _barcode.text = BusinessProductPolicy.clean(
+        data[FirestoreFields.barcode],
+      );
+      _purchasePrice.text = BusinessProductPolicy.numberText(
+        data[FirestoreFields.purchasePrice],
+      );
+      _salePrice.text = BusinessProductPolicy.numberText(
+        data[FirestoreFields.salePrice],
+      );
+      _stock.text = BusinessProductPolicy.numberText(
+        data[FirestoreFields.stockQuantity],
+      );
+      _minStock.text = BusinessProductPolicy.numberText(
+        data[FirestoreFields.minStockQuantity],
+      );
+      _category = BusinessProductPolicy.categoryOf(data);
+      _isPublic = BusinessProductPolicy.isPublic(data);
+      _isActive = BusinessProductPolicy.isActive(data);
     }
   }
 
@@ -317,28 +307,36 @@ class _BusinessProductFormPageState extends State<BusinessProductFormPage> {
   }
 
   Future<void> _save() async {
-    final name = _name.text.trim();
-
-    if (name.isEmpty) {
-      _snack('Ürün adı boş olamaz.');
+    if (!_formKey.currentState!.validate()) {
+      _snack('Ürün bilgilerini kontrol edin.');
       return;
     }
 
     setState(() => _saving = true);
 
     try {
+      final draft = BusinessProductPolicy.buildSaveDraft(
+        name: _name.text,
+        category: _category,
+        barcode: _barcode.text,
+        purchasePrice: _purchasePrice.text,
+        salePrice: _salePrice.text,
+        stockQuantity: _stock.text,
+        minStockQuantity: _minStock.text,
+      );
+
       await _productsService.saveProduct(
         productRef: widget.doc?.reference,
         input: BusinessProductSaveInput(
           businessId: widget.businessId,
           businessName: widget.businessName,
-          name: name,
-          category: _category,
-          barcode: _barcode.text.trim(),
-          purchasePrice: _toDouble(_purchasePrice.text),
-          salePrice: _toDouble(_salePrice.text),
-          stockQuantity: _toDouble(_stock.text),
-          minStockQuantity: _toDouble(_minStock.text),
+          name: draft.name,
+          category: draft.category,
+          barcode: draft.barcode,
+          purchasePrice: draft.purchasePrice,
+          salePrice: draft.salePrice,
+          stockQuantity: draft.stockQuantity,
+          minStockQuantity: draft.minStockQuantity,
           isPublic: _isPublic,
           isActive: _isActive,
           source: 'business_products_page_38B',
@@ -373,116 +371,124 @@ class _BusinessProductFormPageState extends State<BusinessProductFormPage> {
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        children: [
-          TextField(
-            controller: _name,
-            decoration: const InputDecoration(
-              labelText: 'Ürün adı',
-              border: OutlineInputBorder(),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: [
+            TextFormField(
+              controller: _name,
+              decoration: const InputDecoration(
+                labelText: 'Ürün adı',
+                border: OutlineInputBorder(),
+              ),
+              validator: BusinessProductPolicy.validateName,
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: categories.contains(_category) ? _category : 'Genel',
-            decoration: const InputDecoration(
-              labelText: 'Kategori',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: BusinessProductPolicy.validCategory(_category),
+              decoration: const InputDecoration(
+                labelText: 'Kategori',
+                border: OutlineInputBorder(),
+              ),
+              items: BusinessProductPolicy.categories
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (v) => setState(() => _category = v ?? 'Genel'),
             ),
-            items: categories
-                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                .toList(),
-            onChanged: (v) => setState(() => _category = v ?? 'Genel'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _barcode,
-            decoration: const InputDecoration(
-              labelText: 'Barkod / Ürün kodu',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _barcode,
+              decoration: const InputDecoration(
+                labelText: 'Barkod / Ürün kodu',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _purchasePrice,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Alış fiyatı',
-                    border: OutlineInputBorder(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _purchasePrice,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Alış fiyatı',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: BusinessProductPolicy.validateOptionalNumber,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _salePrice,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Satış fiyatı',
-                    border: OutlineInputBorder(),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _salePrice,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Satış fiyatı',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: BusinessProductPolicy.validateOptionalNumber,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _stock,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Stok adedi',
-                    border: OutlineInputBorder(),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _stock,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Stok adedi',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: BusinessProductPolicy.validateOptionalNumber,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _minStock,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Minimum stok',
-                    border: OutlineInputBorder(),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _minStock,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Minimum stok',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: BusinessProductPolicy.validateOptionalNumber,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: _isPublic,
+              onChanged: (v) => setState(() => _isPublic = v),
+              title: const Text('Halka açık ürün'),
+              subtitle: const Text(
+                'Açık olursa bireysel kullanıcı kurumsal profilde görebilir.',
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            value: _isPublic,
-            onChanged: (v) => setState(() => _isPublic = v),
-            title: const Text('Halka açık ürün'),
-            subtitle: const Text(
-              'Açık olursa bireysel kullanıcı kurumsal profilde görebilir.',
             ),
-          ),
-          SwitchListTile(
-            value: _isActive,
-            onChanged: (v) => setState(() => _isActive = v),
-            title: const Text('Aktif ürün'),
-            subtitle: const Text(
-              'Pasif ürün satış ve adisyonda gizlenebilir.',
+            SwitchListTile(
+              value: _isActive,
+              onChanged: (v) => setState(() => _isActive = v),
+              title: const Text('Aktif ürün'),
+              subtitle: const Text(
+                'Pasif ürün satış ve adisyonda gizlenebilir.',
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: const Icon(Icons.save_outlined),
-            label: Text(_saving ? 'Kaydediliyor...' : 'Kaydet'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: Text(_saving ? 'Kaydediliyor...' : 'Kaydet'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -527,19 +533,20 @@ class _ProductsList extends StatelessWidget {
         final doc = docs[index];
         final data = doc.data();
 
-        final name = _clean(
-          data[FirestoreFields.name] ?? data[FirestoreFields.productName],
+        final name = BusinessProductPolicy.nameOf(data);
+        final category = BusinessProductPolicy.categoryOf(data);
+        final purchasePrice = BusinessProductPolicy.numberOf(
+          data[FirestoreFields.purchasePrice],
         );
-        final category = _clean(data[FirestoreFields.category]).isEmpty
-            ? 'Genel'
-            : _clean(data[FirestoreFields.category]);
-        final purchasePrice = _toDouble(data[FirestoreFields.purchasePrice]);
-        final salePrice = _toDouble(data[FirestoreFields.salePrice]);
-        final stock = _toDouble(data[FirestoreFields.stockQuantity]);
-        final minStock = _toDouble(data[FirestoreFields.minStockQuantity]);
-        final active = data[FirestoreFields.isActive] != false;
-        final isPublic = data[FirestoreFields.isPublic] == true;
-        final low = minStock > 0 && stock <= minStock;
+        final salePrice = BusinessProductPolicy.numberOf(
+          data[FirestoreFields.salePrice],
+        );
+        final stock = BusinessProductPolicy.numberOf(
+          data[FirestoreFields.stockQuantity],
+        );
+        final active = BusinessProductPolicy.isActive(data);
+        final isPublic = BusinessProductPolicy.isPublic(data);
+        final low = BusinessProductPolicy.isLowStock(data);
 
         return Card(
           elevation: 0,
@@ -574,7 +581,7 @@ class _ProductsList extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        name.isEmpty ? 'Ürün' : name,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -613,19 +620,22 @@ class _ProductsList extends StatelessWidget {
                     Expanded(
                       child: _AmountBox(
                         label: 'Alış',
-                        value: _money(purchasePrice),
+                        value: BusinessProductPolicy.money(purchasePrice),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: _AmountBox(
                         label: 'Satış',
-                        value: _money(salePrice),
+                        value: BusinessProductPolicy.money(salePrice),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: _AmountBox(label: 'Stok', value: _qty(stock)),
+                      child: _AmountBox(
+                        label: 'Stok',
+                        value: BusinessProductPolicy.quantity(stock),
+                      ),
                     ),
                   ],
                 ),
@@ -668,17 +678,9 @@ class _StockOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double totalCost = 0;
-    double totalSale = 0;
-    double totalStock = 0;
-
-    for (final doc in docs) {
-      final data = doc.data();
-      final stock = _toDouble(data[FirestoreFields.stockQuantity]);
-      totalStock += stock;
-      totalCost += stock * _toDouble(data[FirestoreFields.purchasePrice]);
-      totalSale += stock * _toDouble(data[FirestoreFields.salePrice]);
-    }
+    final summary = BusinessProductPolicy.stockSummary(
+      docs.map((doc) => doc.data()),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
@@ -686,10 +688,19 @@ class _StockOverview extends StatelessWidget {
         _SummaryCard(
           title: 'Stok Özeti',
           items: [
-            _SummaryItem('Ürün çeşidi', docs.length.toString()),
-            _SummaryItem('Toplam stok', _qty(totalStock)),
-            _SummaryItem('Stok maliyeti', _money(totalCost)),
-            _SummaryItem('Satış potansiyeli', _money(totalSale)),
+            _SummaryItem('Ürün çeşidi', summary.productCount.toString()),
+            _SummaryItem(
+              'Toplam stok',
+              BusinessProductPolicy.quantity(summary.totalStock),
+            ),
+            _SummaryItem(
+              'Stok maliyeti',
+              BusinessProductPolicy.money(summary.totalCost),
+            ),
+            _SummaryItem(
+              'Satış potansiyeli',
+              BusinessProductPolicy.money(summary.totalSale),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -853,29 +864,4 @@ class _InfoState extends StatelessWidget {
       ],
     );
   }
-}
-
-String _clean(dynamic value) => value?.toString().trim() ?? '';
-
-double _toDouble(dynamic value) {
-  if (value is num) return value.toDouble();
-
-  final text = value?.toString().replaceAll(',', '.').trim() ?? '';
-  return double.tryParse(text) ?? 0;
-}
-
-String _numberText(dynamic value) {
-  final n = _toDouble(value);
-  if (n == 0) return '';
-  if (n == n.roundToDouble()) return n.toInt().toString();
-  return n.toStringAsFixed(2);
-}
-
-String _money(double value) {
-  return '${value.toStringAsFixed(2).replaceAll('.', ',')} TL';
-}
-
-String _qty(double value) {
-  if (value == value.roundToDouble()) return value.toInt().toString();
-  return value.toStringAsFixed(2).replaceAll('.', ',');
 }

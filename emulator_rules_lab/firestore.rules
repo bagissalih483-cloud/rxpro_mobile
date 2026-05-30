@@ -1,11 +1,8 @@
-// FIX Firestore Rules Draft - 51A-I
-// DO NOT DEPLOY DIRECTLY.
-// This file is documentation/staging draft only.
-// This draft repairs the 51A-H static findings in docs only.
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function signedIn() {
       return request.auth != null;
     }
@@ -15,72 +12,345 @@ service cloud.firestore {
     }
 
     function isPlatformAdmin() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+      return userDocExists()
         && (
-          userDoc(request.auth.uid).data.role == "admin"
-          || userDoc(request.auth.uid).data.activeRole == "admin"
-          || userDoc(request.auth.uid).data.accountKind == "admin"
-          || userDoc(request.auth.uid).data.isAdmin == true
-          || userDoc(request.auth.uid).data.platformAdmin == true
+          userData().role == "admin"
+          || userData().activeRole == "admin"
+          || userData().accountKind == "admin"
+          || userData().isAdmin == true
+          || userData().platformAdmin == true
         );
     }
 
-    function hasBusinessId(data) {
-      return data.businessId is string && data.businessId.size() > 0;
+    function userDocExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
-    function userDoc(uid) {
-      return get(/databases/$(database)/documents/users/$(uid));
+    function userData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function businessDoc(businessId) {
-      return get(/databases/$(database)/documents/businesses/$(businessId));
+    function cleanBusinessId(businessId) {
+      return businessId is string && businessId.size() > 0;
     }
 
     function isBusinessOwnerByBusinessDoc(businessId) {
-      return signedIn() && exists(/databases/$(database)/documents/businesses/$(businessId)) && (
-        businessDoc(businessId).data.ownerUid == request.auth.uid ||
-        businessDoc(businessId).data.ownerId == request.auth.uid ||
-        businessDoc(businessId).data.businessOwnerUid == request.auth.uid ||
-        businessDoc(businessId).data.userId == request.auth.uid ||
-        businessDoc(businessId).data.uid == request.auth.uid ||
-        businessDoc(businessId).data.createdBy == request.auth.uid ||
-        businessDoc(businessId).data.adminUid == request.auth.uid ||
-        businessDoc(businessId).data.managerUid == request.auth.uid
-      );
+      return signedIn()
+        && cleanBusinessId(businessId)
+        && exists(/databases/$(database)/documents/businesses/$(businessId))
+        && (
+          get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.businessOwnerUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.userId == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.uid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.createdBy == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.createdByUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.adminUid == request.auth.uid
+          || get(/databases/$(database)/documents/businesses/$(businessId)).data.managerUid == request.auth.uid
+          || (
+            get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUids is list
+            && request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUids
+          )
+          || (
+            get(/databases/$(database)/documents/businesses/$(businessId)).data.adminUids is list
+            && request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.adminUids
+          )
+          || (
+            get(/databases/$(database)/documents/businesses/$(businessId)).data.managerUids is list
+            && request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.managerUids
+          )
+          || (
+            get(/databases/$(database)/documents/businesses/$(businessId)).data.authorizedUids is list
+            && request.auth.uid in get(/databases/$(database)/documents/businesses/$(businessId)).data.authorizedUids
+          )
+        );
     }
 
     function isBusinessOwnerByUserDoc(businessId) {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-        userDoc(request.auth.uid).data.businessId == businessId ||
-        userDoc(request.auth.uid).data.ownedBusinessId == businessId ||
-        userDoc(request.auth.uid).data.activeBusinessId == businessId ||
-        userDoc(request.auth.uid).data.selectedBusinessId == businessId
-      );
-    }
-
-    function isBusinessOwner(businessId) {
-      return isBusinessOwnerByBusinessDoc(businessId) || isBusinessOwnerByUserDoc(businessId);
-    }
-
-    function isBusinessMemberByUserDoc(businessId) {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-        userDoc(request.auth.uid).data.activeBusinessId == businessId ||
-        userDoc(request.auth.uid).data.staffBusinessId == businessId ||
-        userDoc(request.auth.uid).data.businessId == businessId
-      );
+      return signedIn()
+        && cleanBusinessId(businessId)
+        && userDocExists()
+        && (
+          userData().ownedBusinessId == businessId
+          || userData().businessId == businessId
+          || userData().activeBusinessId == businessId
+          || userData().selectedBusinessId == businessId
+          || userData().staffBusinessId == businessId
+          || userData().linkedBusinessId == businessId
+        );
     }
 
     function isBusinessMember(businessId) {
-      return isBusinessOwner(businessId) || isBusinessMemberByUserDoc(businessId);
+      return signedIn()
+        && cleanBusinessId(businessId)
+        && (
+          isBusinessOwnerByBusinessDoc(businessId)
+          || isBusinessOwnerByUserDoc(businessId)
+        );
     }
 
-    function notificationRecipient(data) {
-      return signedIn() && (
-        (data.targetScope == 'user' && data.recipientUid == request.auth.uid) ||
-        (data.targetScope == 'business' && data.businessId is string && isBusinessMember(data.businessId))
-      );
+    function isBusinessOwnerOnly(businessId) {
+      return signedIn()
+        && cleanBusinessId(businessId)
+        && (
+          isBusinessOwnerByBusinessDoc(businessId)
+          || (
+            userDocExists()
+            && (
+              userData().ownedBusinessId == businessId
+              || userData().ownerBusinessId == businessId
+              || userData().businessOwnerId == businessId
+            )
+          )
+        );
+    }
+
+    function hasUserPermission(permission) {
+      return userDocExists()
+        && (
+          userData().get(permission, false) == true
+          || (
+            userData().permissions is list
+            && permission in userData().permissions
+          )
+          || (
+            userData().permissionKeys is list
+            && permission in userData().permissionKeys
+          )
+          || (
+            userData().permissions is map
+            && userData().permissions.get(permission, false) == true
+          )
+        );
+    }
+
+    function userLinkedToBusinessScope(businessId) {
+      return userDocExists()
+        && (
+          userData().ownedBusinessId == businessId
+          || userData().ownerBusinessId == businessId
+          || userData().businessOwnerId == businessId
+          || userData().businessId == businessId
+          || userData().activeBusinessId == businessId
+          || userData().selectedBusinessId == businessId
+          || userData().staffBusinessId == businessId
+          || userData().linkedBusinessId == businessId
+        );
+    }
+
+    function canManageFinanceScoped(data) {
+      return hasBusinessScope(data)
+        && (
+          dataBelongsToCurrentUser(data)
+          || (
+            userLinkedToBusinessScope(data.businessId)
+            && (
+              hasUserPermission("financeWrite")
+              || hasUserPermission("canManageFinance")
+              || hasUserPermission("paymentCollect")
+            )
+          )
+        );
+    }
+
+    function canManageServicePricingScoped(data) {
+      return hasBusinessScope(data)
+        && (
+          dataBelongsToCurrentUser(data)
+          || (
+            userLinkedToBusinessScope(data.businessId)
+            && (
+              hasUserPermission("financeWrite")
+              || hasUserPermission("serviceWrite")
+              || hasUserPermission("canManageServices")
+            )
+          )
+        );
+    }
+
+    function createsOwnBusiness(data) {
+      return signedIn()
+        && (
+          data.ownerUid == request.auth.uid
+          || data.ownerId == request.auth.uid
+          || data.businessOwnerUid == request.auth.uid
+          || data.userId == request.auth.uid
+          || data.uid == request.auth.uid
+          || data.createdBy == request.auth.uid
+          || data.createdByUid == request.auth.uid
+        );
+    }
+
+    function dataBelongsToCurrentUser(data) {
+      return signedIn()
+        && (
+          data.uid == request.auth.uid
+          || data.userId == request.auth.uid
+          || data.customerUid == request.auth.uid
+          || data.customerId == request.auth.uid
+          || data.recipientUid == request.auth.uid
+          || data.targetUid == request.auth.uid
+          || data.receiverUid == request.auth.uid
+          || data.clientUid == request.auth.uid
+          || data.followerUid == request.auth.uid
+          || data.followerId == request.auth.uid
+          || data.ownerUid == request.auth.uid
+          || data.createdByUid == request.auth.uid
+        );
+    }
+
+    function hasBusinessScope(data) {
+      return data.businessId is string && data.businessId.size() > 0;
+    }
+
+    function canReadBusinessScoped(data) {
+      return hasBusinessScope(data) && isBusinessMember(data.businessId);
+    }
+
+    function canWriteBusinessScoped(data) {
+      return hasBusinessScope(data) && isBusinessMember(data.businessId);
+    }
+
+    function publicReadCollection(collection) {
+      return collection in [
+        "businesses",
+        "businessProfiles",
+        "registeredBusinesses",
+        "businessServices",
+        "businessProfilePosts",
+        "businessStories",
+        "businessCampaigns",
+        "campaigns",
+        "businessReviews",
+        "businessRatings"
+      ];
+    }
+
+    function guardedRootCollection(collection) {
+      return collection in [
+        "users",
+        "users_private",
+        "publicProfiles",
+        "businesses",
+        "businessProfiles",
+        "registeredBusinesses",
+        "businessServices",
+        "businessPlaceIndex",
+        "directory_pois_google_cache",
+        "placeQueryBuckets",
+        "businessClaimRequests",
+        "accountDeletionRequests",
+        "functionRateLimits",
+        "functionAbuseLogs",
+        "adminAuditLogs",
+        "moderationBlocks",
+        "businessProfilePostReports",
+        "businessReviewReports",
+        "campaignReports",
+        "businessCampaigns",
+        "campaigns",
+        "businessReviews",
+        "businessStaff",
+        "appointments",
+        "businessFinanceRecords",
+        "financeRecords",
+        "notifications",
+        "notificationPreferences",
+        "customerNotifications",
+        "messageThreads"
+      ];
+    }
+
+    function genericPublicReadCollection(collection) {
+      return publicReadCollection(collection) && !guardedRootCollection(collection);
+    }
+
+    function businessScopedCollection(collection) {
+      return collection in [
+        "appointments",
+        "businessActivityLogs",
+        "appointmentSlots",
+        "businessExpenses",
+        "businessFinanceRecords",
+        "financeRecords",
+        "businessServices",
+        "businessProfilePosts",
+        "businessStories",
+        "businessCampaigns",
+        "campaigns",
+        "businessReviews",
+        "businessRatings",
+        "businessProducts",
+        "businessProductSales",
+        "businessProductPurchases",
+        "businessFollowers",
+        "businessProfilePostLikes",
+        "businessProfilePostSaves",
+        "businessProfilePostReports",
+        "businessCustomers",
+        "bulkMessageDrafts"
+      ];
+    }
+
+    function genericBusinessScopedCollection(collection) {
+      return businessScopedCollection(collection) && !guardedRootCollection(collection);
+    }
+
+    function messageParticipant(data) {
+      return signedIn()
+        && (
+          data.customerUid == request.auth.uid
+          || data.senderUid == request.auth.uid
+          || data.receiverUid == request.auth.uid
+          || data.fromUid == request.auth.uid
+          || data.toUid == request.auth.uid
+          || data.senderId == request.auth.uid
+          || data.receiverId == request.auth.uid
+          || (
+            data.participantIds is list
+            && request.auth.uid in data.participantIds
+          )
+          || (
+            data.participantUids is list
+            && request.auth.uid in data.participantUids
+          )
+          || (
+            data.userIds is list
+            && request.auth.uid in data.userIds
+          )
+          || (
+            data.participantIdMap is map
+            && data.participantIdMap[request.auth.uid] == true
+          )
+        );
+    }
+
+    function canAccessMessage(data) {
+      return messageParticipant(data) || canReadBusinessScoped(data);
+    }
+
+    function notificationBelongsToUser(data) {
+      return signedIn()
+        && (
+          data.recipientUid == request.auth.uid
+          || data.targetUid == request.auth.uid
+          || data.userId == request.auth.uid
+          || data.customerUid == request.auth.uid
+          || data.receiverUid == request.auth.uid
+          || data.clientUid == request.auth.uid
+        );
+    }
+
+    function notificationBelongsToBusiness(data) {
+      return signedIn()
+        && data.targetScope == "business"
+        && isBusinessMember(data.businessId);
+    }
+
+    function canAccessNotification(data) {
+      return notificationBelongsToUser(data) || notificationBelongsToBusiness(data);
     }
 
     function validNotificationPreferences(uid) {
@@ -166,7 +436,47 @@ service cloud.firestore {
         "createdBy",
         "createdByUid",
         "adminUid",
-        "managerUid"
+        "managerUid",
+        "ownerUids",
+        "adminUids",
+        "managerUids",
+        "authorizedUids"
+      ];
+    }
+
+    function protectedBusinessScopedIdentityFields() {
+      return [
+        "businessId",
+        "uid",
+        "userId",
+        "customerUid",
+        "customerId",
+        "clientUid",
+        "ownerUid",
+        "createdBy",
+        "createdByUid"
+      ];
+    }
+
+    function protectedStaffSelfManagedFields() {
+      return [
+        "businessId",
+        "uid",
+        "linkedUid",
+        "ownerUid",
+        "createdBy",
+        "createdByUid",
+        "inviteCode",
+        "role",
+        "roles",
+        "permissions",
+        "permissionKeys",
+        "financeRead",
+        "financeWrite",
+        "appointmentsRead",
+        "appointmentsWrite",
+        "campaignRead",
+        "campaignWrite"
       ];
     }
 
@@ -176,33 +486,6 @@ service cloud.firestore {
 
     function keepsFieldsUnchanged(fields) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
-    }
-
-    function messageParticipant(data) {
-      return signedIn() && (
-        data.customerUid == request.auth.uid ||
-        data.senderUid == request.auth.uid ||
-        data.recipientUid == request.auth.uid ||
-        (data.businessId is string && isBusinessMember(data.businessId))
-      );
-    }
-
-    function threadParticipant(threadId) {
-      return signedIn() && exists(/databases/$(database)/documents/messageThreads/$(threadId)) &&
-        messageParticipant(get(/databases/$(database)/documents/messageThreads/$(threadId)).data);
-    }
-
-    function createsOwnBusiness(data) {
-      return signedIn() && (
-        data.ownerUid == request.auth.uid ||
-        data.ownerId == request.auth.uid ||
-        data.businessOwnerUid == request.auth.uid ||
-        data.userId == request.auth.uid ||
-        data.uid == request.auth.uid ||
-        data.createdBy == request.auth.uid ||
-        data.adminUid == request.auth.uid ||
-        data.managerUid == request.auth.uid
-      );
     }
 
     match /users/{uid} {
@@ -215,8 +498,18 @@ service cloud.firestore {
       allow delete: if false;
 
       match /fcmTokens/{tokenId} {
-        allow read, create, update, delete: if isSelf(uid);
+        allow read, create, update: if isSelf(uid);
+        allow delete: if false;
       }
+
+      match /{document}/{nested=**} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    match /users_private/{uid} {
+      allow read, create, update: if isSelf(uid);
+      allow delete: if false;
     }
 
     match /publicProfiles/{uid} {
@@ -229,8 +522,80 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /businesses/{businessId} {
+      allow read: if true;
+      allow create: if createsOwnBusiness(request.resource.data)
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
+      allow delete: if false;
+
+      match /{document}/{nested=**} {
+        allow read, write: if isBusinessMember(businessId);
+      }
+    }
+
+    match /businessProfiles/{businessId} {
+      allow read: if true;
+      allow create: if (
+          createsOwnBusiness(request.resource.data)
+          || isBusinessMember(businessId)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
+      allow delete: if false;
+    }
+
+    match /registeredBusinesses/{businessId} {
+      allow read: if true;
+      allow create: if (
+          createsOwnBusiness(request.resource.data)
+          || isBusinessMember(businessId)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isBusinessMember(businessId)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
+      allow delete: if false;
+    }
+
+    match /businessPlaceIndex/{placeId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /directory_pois_google_cache/{placeId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /placeQueryBuckets/{bucketId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /businessClaimRequests/{claimId} {
+      allow create: if signedIn()
+        && dataBelongsToCurrentUser(request.resource.data)
+        && request.resource.data.placeId is string
+        && request.resource.data.placeId.size() > 0
+        && request.resource.data.status == "pending";
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
+      allow update: if isPlatformAdmin()
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && resource.data.status == "pending"
+          && request.resource.data.status == "pending"
+        );
+      allow delete: if false;
+    }
+
     match /accountDeletionRequests/{uid} {
-      allow read, create, update: if isSelf(uid) && request.resource.data.uid == uid;
+      allow read, create, update: if isSelf(uid);
       allow delete: if false;
     }
 
@@ -255,12 +620,12 @@ service cloud.firestore {
 
     match /businessProfilePostReports/{reportId} {
       allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
+        && dataBelongsToCurrentUser(request.resource.data)
         && request.resource.data.postId is string
         && request.resource.data.postId.size() > 0
         && request.resource.data.reason is string
         && request.resource.data.status == "open";
-      allow read: if resource.data.uid == request.auth.uid || isPlatformAdmin();
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
       allow update: if isPlatformAdmin()
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.postId == resource.data.postId;
@@ -269,14 +634,14 @@ service cloud.firestore {
 
     match /businessReviewReports/{reportId} {
       allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
+        && dataBelongsToCurrentUser(request.resource.data)
         && request.resource.data.reviewId is string
         && request.resource.data.reviewId.size() > 0
         && request.resource.data.businessId is string
         && request.resource.data.businessId.size() > 0
         && request.resource.data.reason is string
         && request.resource.data.status == "open";
-      allow read: if resource.data.uid == request.auth.uid || isPlatformAdmin();
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
       allow update: if isPlatformAdmin()
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.reviewId == resource.data.reviewId;
@@ -285,14 +650,14 @@ service cloud.firestore {
 
     match /campaignReports/{reportId} {
       allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
+        && dataBelongsToCurrentUser(request.resource.data)
         && request.resource.data.campaignId is string
         && request.resource.data.campaignId.size() > 0
         && request.resource.data.sourceCollection in ["businessCampaigns", "campaigns"]
         && request.resource.data.businessId is string
         && request.resource.data.reason is string
         && request.resource.data.status == "open";
-      allow read: if resource.data.uid == request.auth.uid || isPlatformAdmin();
+      allow read: if dataBelongsToCurrentUser(resource.data) || isPlatformAdmin();
       allow update: if isPlatformAdmin()
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.campaignId == resource.data.campaignId
@@ -302,133 +667,146 @@ service cloud.firestore {
 
     match /businessCampaigns/{campaignId} {
       allow read: if true;
-      allow create: if signedIn()
-        && hasBusinessId(request.resource.data)
-        && hasNoPublicPrivateFields(request.resource.data)
-        && (
-          request.resource.data.uid == request.auth.uid ||
-          isBusinessMember(request.resource.data.businessId)
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isPlatformAdmin()
+        || (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
         );
-      allow update: if isPlatformAdmin() || (
-        signedIn() &&
-        hasBusinessId(resource.data) &&
-        hasBusinessId(request.resource.data) &&
-        isBusinessMember(resource.data.businessId) &&
-        isBusinessMember(request.resource.data.businessId) &&
-        hasNoPublicPrivateFields(request.resource.data) &&
-        keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
-      );
       allow delete: if false;
     }
 
     match /campaigns/{campaignId} {
       allow read: if true;
-      allow create: if signedIn()
-        && hasBusinessId(request.resource.data)
-        && hasNoPublicPrivateFields(request.resource.data)
-        && (
-          request.resource.data.uid == request.auth.uid ||
-          isBusinessMember(request.resource.data.businessId)
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if isPlatformAdmin()
+        || (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
         );
-      allow update: if isPlatformAdmin() || (
-        signedIn() &&
-        hasBusinessId(resource.data) &&
-        hasBusinessId(request.resource.data) &&
-        isBusinessMember(resource.data.businessId) &&
-        isBusinessMember(request.resource.data.businessId) &&
-        hasNoPublicPrivateFields(request.resource.data) &&
-        keepsFieldsUnchanged(["businessId", "uid", "ownerUid", "createdByUid"])
-      );
       allow delete: if false;
     }
 
     match /businessReviews/{reviewId} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if isPlatformAdmin();
-      allow delete: if false;
-    }
-
-    match /businesses/{businessId} {
-      allow read: if true;
-      allow create: if createsOwnBusiness(request.resource.data)
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
         && hasNoPublicPrivateFields(request.resource.data);
-      allow update: if isBusinessOwner(businessId)
+      allow update: if (
+          isPlatformAdmin()
+          || canWriteBusinessScoped(resource.data)
+          || dataBelongsToCurrentUser(resource.data)
+        )
         && hasNoPublicPrivateFields(request.resource.data)
-        && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
-      allow delete: if false;
-    }
-
-    match /directory_pois_google_cache/{placeId} {
-      allow read: if true;
-      allow create, update, delete: if false;
-    }
-
-    match /businessClaimRequests/{claimId} {
-      allow create: if signedIn()
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.placeId is string
-        && request.resource.data.placeId.size() > 0
-        && request.resource.data.status == "pending";
-      allow read: if resource.data.uid == request.auth.uid || isPlatformAdmin();
-      allow update: if isPlatformAdmin()
-        || (
-          resource.data.uid == request.auth.uid
-          && request.resource.data.uid == request.auth.uid
-          && resource.data.status == "pending"
-          && request.resource.data.status == "pending"
-        );
-      allow delete: if false;
-    }
-
-    match /businessStaff/{staffId} {
-      allow read: if signedIn() && (isBusinessOwner(resource.data.businessId) || resource.data.linkedUid == request.auth.uid || isBusinessMember(resource.data.businessId));
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessOwner(request.resource.data.businessId);
-      allow update: if signedIn() && hasBusinessId(resource.data) && (isBusinessOwner(resource.data.businessId) || resource.data.linkedUid == request.auth.uid);
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
     }
 
     match /businessServices/{serviceId} {
       allow read: if true;
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessOwner(request.resource.data.businessId);
-      allow update: if signedIn() && hasBusinessId(resource.data) && isBusinessOwner(resource.data.businessId);
-      allow delete: if false;
+      allow create: if canManageServicePricingScoped(request.resource.data)
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if canManageServicePricingScoped(resource.data)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
+      allow delete: if canManageServicePricingScoped(resource.data);
+    }
+
+    match /businessStaff/{staffId} {
+      allow read: if signedIn()
+        && (
+          canReadBusinessScoped(resource.data)
+          || dataBelongsToCurrentUser(resource.data)
+        );
+      allow create: if canWriteBusinessScoped(request.resource.data);
+      allow update: if (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && keepsFieldsUnchanged([
+            "businessId",
+            "uid",
+            "linkedUid",
+            "ownerUid",
+            "createdBy",
+            "createdByUid",
+            "inviteCode"
+          ])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && keepsFieldsUnchanged(protectedStaffSelfManagedFields())
+        );
+      allow delete: if canReadBusinessScoped(resource.data);
     }
 
     match /appointments/{appointmentId} {
-      allow read: if signedIn() && (resource.data.customerUid == request.auth.uid || isBusinessMember(resource.data.businessId));
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && (request.resource.data.customerUid == request.auth.uid || isBusinessMember(request.resource.data.businessId));
-      allow update: if signedIn() && hasBusinessId(resource.data) && (resource.data.customerUid == request.auth.uid || isBusinessMember(resource.data.businessId));
+      allow read: if dataBelongsToCurrentUser(resource.data)
+        || canReadBusinessScoped(resource.data);
+      allow create: if dataBelongsToCurrentUser(request.resource.data)
+        || canWriteBusinessScoped(request.resource.data);
+      allow update: if (
+          dataBelongsToCurrentUser(resource.data)
+          || canReadBusinessScoped(resource.data)
+        )
+        && (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
     }
 
-    match /appointmentSlots/{slotId} {
-      allow read: if signedIn() && (
-        resource.data.customerUid == request.auth.uid ||
-        isBusinessMember(resource.data.businessId)
-      );
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && (
-        request.resource.data.customerUid == request.auth.uid ||
-        isBusinessMember(request.resource.data.businessId)
-      );
-      allow update: if signedIn() && hasBusinessId(resource.data) && (
-        resource.data.customerUid == request.auth.uid ||
-        isBusinessMember(resource.data.businessId)
-      );
+    match /businessFinanceRecords/{recordId} {
+      allow read: if canReadBusinessScoped(resource.data);
+      allow create: if canManageFinanceScoped(request.resource.data);
+      allow update: if canManageFinanceScoped(resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
     }
 
-    match /businessCustomers/{customerId} {
-      allow read: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessMember(request.resource.data.businessId);
-      allow update: if signedIn() && hasBusinessId(resource.data) && hasBusinessId(request.resource.data) && isBusinessMember(resource.data.businessId) && isBusinessMember(request.resource.data.businessId);
+    match /financeRecords/{recordId} {
+      allow read: if canReadBusinessScoped(resource.data);
+      allow create: if canManageFinanceScoped(request.resource.data);
+      allow update: if canManageFinanceScoped(resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
     }
 
     match /notifications/{notificationId} {
-      allow read: if notificationRecipient(resource.data);
-      allow create: if notificationRecipient(request.resource.data);
-      allow update: if notificationRecipient(resource.data);
+      allow read: if canAccessNotification(resource.data);
+      allow create: if signedIn()
+        && (
+          canAccessNotification(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        );
+      allow update: if canAccessNotification(resource.data);
       allow delete: if false;
     }
 
@@ -439,35 +817,125 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    match /messageThreads/{threadId} {
-      allow read: if messageParticipant(resource.data);
-      allow create: if messageParticipant(request.resource.data);
-      allow update: if messageParticipant(resource.data);
+    match /customerNotifications/{notificationId} {
+      allow read, update: if dataBelongsToCurrentUser(resource.data);
+      allow create: if signedIn()
+        && (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        );
       allow delete: if false;
+    }
+
+    match /messageThreads/{threadId} {
+      allow read, update, delete: if canAccessMessage(resource.data);
+      allow create: if canAccessMessage(request.resource.data);
 
       match /messages/{messageId} {
-        allow read: if threadParticipant(threadId);
-        allow create: if threadParticipant(threadId);
-        allow update: if threadParticipant(threadId);
-        allow delete: if false;
+        allow read, update, delete: if canAccessMessage(
+          get(/databases/$(database)/documents/messageThreads/$(threadId)).data
+        );
+        allow create: if canAccessMessage(
+          get(/databases/$(database)/documents/messageThreads/$(threadId)).data
+        ) && dataBelongsToCurrentUser(request.resource.data);
       }
     }
 
-    match /businessExpenses/{expenseId} {
-      allow read: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessMember(request.resource.data.businessId);
-      allow update: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
-      allow delete: if false;
-    }
+    match /{collection}/{docId} {
+      allow read: if genericPublicReadCollection(collection)
+        || (
+          genericBusinessScopedCollection(collection)
+          && (
+            dataBelongsToCurrentUser(resource.data)
+            || canReadBusinessScoped(resource.data)
+          )
+        )
+        || (
+          collection in [
+            "messages",
+            "chatThreads",
+            "conversations",
+            "businessCustomerMessages",
+            "customerMessages",
+            "directMessages",
+            "userMessages"
+          ]
+          && canAccessMessage(resource.data)
+        );
 
-    match /businessActivityLogs/{logId} {
-      allow read: if signedIn() && hasBusinessId(resource.data) && isBusinessMember(resource.data.businessId);
-      allow create: if signedIn() && hasBusinessId(request.resource.data) && isBusinessMember(request.resource.data.businessId);
-      allow update, delete: if false;
-    }
+      allow create: if (
+          genericBusinessScopedCollection(collection)
+          && (
+            dataBelongsToCurrentUser(request.resource.data)
+            || canWriteBusinessScoped(request.resource.data)
+          )
+        )
+        || (
+          genericPublicReadCollection(collection)
+          && (
+            createsOwnBusiness(request.resource.data)
+            || canWriteBusinessScoped(request.resource.data)
+            || dataBelongsToCurrentUser(request.resource.data)
+          )
+          && hasNoPublicPrivateFields(request.resource.data)
+        )
+        || (
+          collection in [
+            "messages",
+            "chatThreads",
+            "conversations",
+            "businessCustomerMessages",
+            "customerMessages",
+            "directMessages",
+            "userMessages"
+          ]
+          && canAccessMessage(request.resource.data)
+        );
 
-    match /{document=**} {
-      allow read, write: if false;
+      allow update: if (
+          genericBusinessScopedCollection(collection)
+          && (
+            dataBelongsToCurrentUser(resource.data)
+            || canReadBusinessScoped(resource.data)
+          )
+          && (
+            dataBelongsToCurrentUser(request.resource.data)
+            || canWriteBusinessScoped(request.resource.data)
+          )
+          && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields())
+        )
+        || (
+          genericPublicReadCollection(collection)
+          && (
+            canWriteBusinessScoped(resource.data)
+            || canWriteBusinessScoped(request.resource.data)
+            || dataBelongsToCurrentUser(resource.data)
+          )
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields())
+        )
+        || (
+          collection in [
+            "messages",
+            "chatThreads",
+            "conversations",
+            "businessCustomerMessages",
+            "customerMessages",
+            "directMessages",
+            "userMessages"
+          ]
+          && canAccessMessage(resource.data)
+        );
+
+      allow delete: if genericBusinessScopedCollection(collection)
+        && (
+          canReadBusinessScoped(resource.data)
+          || dataBelongsToCurrentUser(resource.data)
+        );
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
     }
   }
 }

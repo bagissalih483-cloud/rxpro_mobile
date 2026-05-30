@@ -1,6 +1,6 @@
 # RxPro PDF diagnosis implementation status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 This file maps `RxPro_Yapilmasi_Gerekenler_Teshis_Tedavi.pdf` to the current
 codebase after the latest hardening pass.
@@ -52,6 +52,35 @@ codebase after the latest hardening pass.
   now has a domain view policy and focused test; Riverpod is still not added
   because the dependency is not present and dependency resolution must be run
   locally.
+- Discover/Explore business loading state has started moving out of the widget
+  into `HomeExploreController`. The controller owns load/error/completion state,
+  nearest area detection, repeated-location-query decisions, and filtered list
+  derivation, with a focused controller test.
+- Business appointment dashboard row parsing, schedule bounds,
+  visible-month filtering, staff fallback/deduplication, and capacity decisions
+  now sit in `BusinessAppointmentDashboardPolicy`, with a focused domain test
+  for modern and legacy appointment field formats.
+- Business profile edit fallback selection, optional email/website validation,
+  required field validation, and profile readiness scoring now sit in
+  `BusinessProfileEditPolicy`, with a focused domain test.
+- Account profile edit validation, write-input normalization, and verification
+  summary text now sit in `AccountUserProfilePolicy`, with a focused domain
+  test.
+- Manual appointment staff normalization, selected-staff fallback, date/time
+  formatting, duration clamping, and form validation now sit in
+  `BusinessManualAppointmentPolicy`, with a focused domain test.
+- Business service management display normalization, active/passive
+  classification, price/duration/session validation, and save payload creation
+  now sit in `BusinessServiceFormPolicy`, with a focused domain test.
+- Business product/stok display normalization, numeric parsing/formatting,
+  low-stock detection, stock summary calculation, and product form validation
+  now sit in `BusinessProductPolicy`, with a focused domain test.
+- Direct Firebase core architecture debt has been reduced further: notification
+  writes, follow-cache warmup reads, business-directory reads, and current-user
+  state reads now sit behind repository boundaries. App-session user/business
+  document reads now sit behind a repository as well. The architecture gate
+  currently allows 0 approved direct core surfaces outside
+  repository/service/domain.
 
 ## Still open before honestly calling it 9+
 
@@ -85,9 +114,14 @@ flutter pub get
 
 ## Main remaining code/product gaps
 
-- State management is still mixed. The next valuable refactor is Discover,
-  appointment entry, message inbox, and completing the notifications controller
-  into a provider-backed pattern after dependency resolution.
+- State management is still mixed. Discover, notifications, messages, business
+  profile edit, and account profile edit now have first controller/policy
+  boundaries; manual appointment form decisions have also moved into a policy.
+  Business service and product/stok form decisions have also moved into
+  policies. The next valuable refactor is the remaining appointment entry state
+  and other
+  operational forms, then completing these controllers into a provider-backed
+  pattern after dependency resolution.
 - Two approved generic navigation helpers remain for legacy/debug entry points,
   but concrete feature navigation is now guarded by the route catalog.
 - Notification preference UI exists, but real-device behavior still needs
@@ -111,6 +145,6 @@ stronger than that.
 
 Still, without iOS signing, App Check enforcement, real-device push/Crashlytics
 verification, store readiness, and live quota monitoring, it is not honest to
-call the product fully above 9 for broad production. It is roughly an 8.7/10
+call the product fully above 9 for broad production. It is roughly an 8.9/10
 candidate today, with the remaining gap dominated by external production
 validation and a few architecture/UX maturity items.

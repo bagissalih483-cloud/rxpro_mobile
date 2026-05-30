@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 
+import 'data/business_directory_firestore_repository.dart';
 import 'business_category.dart';
 import 'business_geo_index.dart';
 import 'business_location_data.dart';
@@ -19,6 +19,8 @@ class BusinessDirectoryCacheService {
   List<BusinessDirectoryItem>? _cache;
   DateTime? _lastLoadedAt;
   Future<List<BusinessDirectoryItem>>? _activeLoad;
+  final BusinessDirectoryFirestoreRepository _repository =
+      BusinessDirectoryFirestoreRepository();
 
   static const Duration cacheTtl = Duration(minutes: 5);
   static const Duration _firestoreTimeout = Duration(seconds: 5);
@@ -77,7 +79,7 @@ class BusinessDirectoryCacheService {
     ).catchError((_) => <BusinessDirectoryItem>[]);
     final localWithFallback = _mergeNearbyBusinesses(
       local: local,
-      live: fallback,
+      fallback: fallback,
       position: position,
     );
 
@@ -100,7 +102,7 @@ class BusinessDirectoryCacheService {
     if (!forceRefresh) {
       debugPrint(
         'FIX_EXPLORE_DIRECTORY_STARTER local=${local.length} '
-        'live=0 merged=${local.length} mode=localOnly '
+        'directory=0 merged=${local.length} mode=localOnly '
         'elapsedMs=${stopwatch.elapsedMilliseconds}',
       );
       return local;
@@ -108,7 +110,7 @@ class BusinessDirectoryCacheService {
 
     debugPrint(
       'FIX_EXPLORE_DIRECTORY_STARTER local=${local.length} '
-      'live=0 merged=${local.length} mode=registeredOnly '
+      'directory=0 merged=${local.length} mode=registeredOnly '
       'elapsedMs=${stopwatch.elapsedMilliseconds}',
     );
 
@@ -117,33 +119,17 @@ class BusinessDirectoryCacheService {
 
   Future<List<BusinessDirectoryItem>> _loadBusinesses() async {
     try {
-      final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-      QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
-
-      while (docs.length < _businessPageCap) {
-        Query<Map<String, dynamic>> query = FirebaseFirestore.instance
-            .collection(FirestoreCollections.businesses)
-            .orderBy(FieldPath.documentId)
-            .limit(_businessPageSize);
-
-        if (lastDoc != null) {
-          query = query.startAfterDocument(lastDoc);
-        }
-
-        final snapshot = await query
-            .get(const GetOptions(source: Source.serverAndCache))
-            .timeout(_firestoreTimeout);
-
-        if (snapshot.docs.isEmpty) break;
-
-        final remaining = _businessPageCap - docs.length;
-        docs.addAll(snapshot.docs.take(remaining));
-        lastDoc = snapshot.docs.last;
-
-        if (snapshot.docs.length < _businessPageSize) break;
-      }
-
-      final list = docs.map(BusinessDirectoryItem.fromDoc).toList();
+      final docs = await _repository.loadBusinessDocs(
+        pageSize: _businessPageSize,
+        pageCap: _businessPageCap,
+        timeout: _firestoreTimeout,
+      );
+      final list = docs
+          .map((doc) => BusinessDirectoryItem.fromMap(
+                doc.data,
+                fallbackId: doc.id,
+              ))
+          .toList();
 
       list.sort((a, b) => a.name.compareTo(b.name));
 
@@ -228,16 +214,20 @@ class BusinessDirectoryCacheService {
       radiusKm: radiusKm,
     );
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection(collection)
-        .where(prefixField, whereIn: prefixes)
-        .limit(300)
-        .get(const GetOptions(source: Source.serverAndCache))
-        .timeout(_firestoreTimeout);
+    final docs = await _repository.loadNearbyDocs(
+      collection: collection,
+      prefixField: prefixField,
+      prefixes: prefixes,
+      limit: 300,
+      timeout: _firestoreTimeout,
+    );
 
     final byId = <String, BusinessDirectoryItem>{};
-    for (final doc in snapshot.docs) {
-      final item = BusinessDirectoryItem.fromDoc(doc);
+    for (final doc in docs) {
+      final item = BusinessDirectoryItem.fromMap(
+        doc.data,
+        fallbackId: doc.id,
+      );
       if (!item.visible || !item.hasCoordinate) continue;
       final distance = item.distanceKmFrom(position);
       if (distance.isFinite && distance <= radiusKm) {
@@ -256,7 +246,7 @@ class BusinessDirectoryCacheService {
 
   List<BusinessDirectoryItem> _mergeNearbyBusinesses({
     required List<BusinessDirectoryItem> local,
-    required List<BusinessDirectoryItem> live,
+    required List<BusinessDirectoryItem> fallback,
     required Position position,
   }) {
     final byKey = <String, BusinessDirectoryItem>{};
@@ -281,7 +271,7 @@ class BusinessDirectoryCacheService {
     for (final item in local) {
       put(item);
     }
-    for (final item in live) {
+    for (final item in fallback) {
       put(item);
     }
 
@@ -377,12 +367,6 @@ class BusinessDirectoryItem {
       toLat: lat!,
       toLng: lng!,
     );
-  }
-
-  factory BusinessDirectoryItem.fromDoc(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    return BusinessDirectoryItem.fromMap(doc.data(), fallbackId: doc.id);
   }
 
   factory BusinessDirectoryItem.fromMap(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/appointments/domain/appointment_booking_request.dart';
 import 'package:rxpro_mobile/features/appointments/service/appointment_booking_service.dart';
+import 'package:rxpro_mobile/features/businesses/domain/business_profile_booking_policy.dart';
 
 import '../../core/app_cache/app_cache_service.dart';
 import '../../core/theme/rx_ui.dart';
@@ -15,6 +16,7 @@ import 'package:rxpro_mobile/features/businesses/data/business_profile_repositor
 part 'presentation/widgets/business_profile_header_part.dart';
 part 'presentation/widgets/business_profile_intro_part.dart';
 part 'presentation/widgets/business_profile_booking_part.dart';
+part 'presentation/widgets/business_profile_booking_widgets_part.dart';
 part 'presentation/widgets/business_profile_reviews_part.dart';
 
 bool _rxProfileIsCorporateSession(Map<String, dynamic>? data) {

@@ -57,6 +57,13 @@ Full production release is still blocked by:
 - missing iOS `DEVELOPMENT_TEAM`.
 - open real-device, Crashlytics, Analytics, App Check enforcement, and store
   URL confirmations listed in `docs\PRODUCTION_EXTERNAL_VERIFICATION.md`.
+- Firebase/GCP budget and quota alerts for Functions, Firestore, Storage,
+  Routes, Places-disabled import workflows, and AI usage.
+- Public data surface verification via `docs\PUBLIC_DATA_MATRIX.md` and
+  `tools\public_data_matrix_check.ps1`.
+- Firestore/Storage emulator coverage is currently 29/29, including public data
+  guards, App Check-adjacent abuse surfaces, finance writes, and service pricing
+  permissions.
 
 ## Validation
 

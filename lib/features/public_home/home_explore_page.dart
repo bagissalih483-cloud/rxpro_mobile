@@ -11,23 +11,14 @@ import '../../core/diagnostics/rx_runtime_diagnostics.dart';
 import '../../core/services/app_observability_service.dart';
 import '../../core/session/app_session_scope.dart';
 import '../guest/guest_required_sheet.dart';
-import 'domain/home_explore_category_counts.dart';
-import 'domain/home_explore_location_policy.dart';
+import 'domain/home_explore_filter_policy.dart';
 import 'presentation/widgets/home_explore_content_list.dart';
 import 'presentation/widgets/home_explore_filter_widgets.dart';
 import 'presentation/widgets/home_explore_shell_widgets.dart';
+import 'presentation/home_explore_controller.dart';
 import 'data/home_explore_badge_repository.dart';
 import 'data/home_explore_claim_repository.dart';
 import 'data/home_explore_session_repository.dart';
-
-enum _ExploreSortMode { recommended, distance, rating, category, name }
-
-class _DetectedExploreArea {
-  const _DetectedExploreArea({required this.city, required this.district});
-
-  final String city;
-  final String district;
-}
 
 /// Public home/explore UI keeps Firebase badge and auth access behind
 /// repository boundaries.
@@ -57,6 +48,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   final BusinessDirectionsService _directionsService =
       const BusinessDirectionsService();
   final TextEditingController searchController = TextEditingController();
+  late final HomeExploreController _exploreController;
   final ScrollController _exploreScrollController = ScrollController(
     keepScrollOffset: false,
   );
@@ -64,25 +56,18 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   StreamSubscription<String?>? _authSub;
   String? _lastUid;
 
-  List<BusinessDirectoryItem> _businesses = <BusinessDirectoryItem>[];
-  bool _loadingBusinesses = false;
-  Object? _businessLoadError;
-  int _businessLoadTicket = 0;
-  bool _hasCompletedInitialBusinessLoad = false;
-
   Position? currentPosition;
-  Position? _lastLocationQueryPosition;
-  String _detectedCity = '';
-  String _detectedDistrict = '';
-  bool loadingLocation = false;
 
   String selectedCategory = BusinessCategories.allLabel;
   double radiusKm = 10;
-  _ExploreSortMode sortMode = _ExploreSortMode.recommended;
+  HomeExploreSortMode sortMode = HomeExploreSortMode.recommended;
 
   @override
   void initState() {
     super.initState();
+
+    _exploreController = HomeExploreController()
+      ..addListener(_handleExploreControllerChanged);
 
     _lastUid = _sessionRepository.currentUid();
     _authSub = _sessionRepository.watchUid().listen((nextUid) {
@@ -95,11 +80,10 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         searchController.clear();
         selectedCategory = BusinessCategories.allLabel;
         radiusKm = 10;
-        sortMode = _ExploreSortMode.recommended;
+        sortMode = HomeExploreSortMode.recommended;
         currentPosition = null;
-        _detectedCity = '';
-        _detectedDistrict = '';
       });
+      _exploreController.resetLocationContext();
 
       _startInitialExploreLoadIfEnabled(reason: 'auth_change');
     });
@@ -112,22 +96,17 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   @override
   void dispose() {
     _authSub?.cancel();
+    _exploreController.removeListener(_handleExploreControllerChanged);
+    _exploreController.dispose();
     _exploreScrollController.dispose();
     searchController.dispose();
     super.dispose();
   }
 
-  Future<List<BusinessDirectoryItem>> _loadExploreBusinesses({
-    Position? position,
-    bool forceRefresh = false,
-  }) {
-    final targetPosition = position ?? currentPosition;
-    return BusinessDirectoryCacheService.instance.getBusinessesForExplore(
-      position: targetPosition,
-      radiusKm: radiusKm,
-      categoryLabel: selectedCategory,
-      forceRefresh: forceRefresh,
-    );
+  void _handleExploreControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _startInitialExploreLoad({bool forceRefresh = false}) async {
@@ -148,79 +127,20 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     bool forceRefresh = false,
     bool replaceWithEmpty = false,
   }) async {
-    final ticket = ++_businessLoadTicket;
     final targetPosition = position ?? currentPosition;
-    final stopwatch = Stopwatch()..start();
-
-    if (mounted) {
-      setState(() {
-        _loadingBusinesses = true;
-        _businessLoadError = null;
-      });
-    }
-
-    debugPrint(
-      'FIX_EXPLORE_LOAD_START ticket=$ticket '
-      'category="$selectedCategory" radiusKm=${radiusKm.round()} '
-      'hasPosition=${targetPosition != null} force=$forceRefresh',
+    return _exploreController.reloadBusinesses(
+      position: targetPosition,
+      radiusKm: radiusKm,
+      categoryLabel: selectedCategory,
+      forceRefresh: forceRefresh,
+      replaceWithEmpty: replaceWithEmpty,
     );
-
-    try {
-      final items = await _loadExploreBusinesses(
-        position: targetPosition,
-        forceRefresh: forceRefresh,
-      ).timeout(const Duration(seconds: 12));
-
-      if (!mounted || ticket != _businessLoadTicket) return false;
-
-      final area = _detectAreaFromNearestBusiness(
-        items: items,
-        position: targetPosition,
-      );
-
-      setState(() {
-        if (replaceWithEmpty || items.isNotEmpty || _businesses.isEmpty) {
-          _businesses = items;
-        }
-        if (area != null) {
-          _detectedCity = area.city;
-          _detectedDistrict = area.district;
-        } else if (targetPosition == null) {
-          _detectedCity = '';
-          _detectedDistrict = '';
-        }
-        _hasCompletedInitialBusinessLoad = true;
-      });
-
-      debugPrint(
-        'FIX_EXPLORE_LOAD_DONE ticket=$ticket count=${items.length} '
-        'elapsedMs=${stopwatch.elapsedMilliseconds}',
-      );
-      return true;
-    } catch (error) {
-      debugPrint(
-        'FIX_EXPLORE_LOAD_FAILED ticket=$ticket '
-        'elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
-      );
-
-      if (!mounted || ticket != _businessLoadTicket) return false;
-
-      setState(() {
-        _businessLoadError = error;
-        _hasCompletedInitialBusinessLoad = true;
-      });
-      return true;
-    } finally {
-      if (mounted && ticket == _businessLoadTicket) {
-        setState(() => _loadingBusinesses = false);
-      }
-    }
   }
 
   Future<void> _requestLocation() async {
-    if (loadingLocation) return;
+    if (_exploreController.loadingLocation) return;
 
-    setState(() => loadingLocation = true);
+    _exploreController.setLocationLoading(true);
 
     try {
       final enabled = await Geolocator.isLocationServiceEnabled().timeout(
@@ -270,11 +190,12 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       );
       setState(() {
         currentPosition = position;
-        if (sortMode == _ExploreSortMode.distance) {
-          sortMode = _ExploreSortMode.recommended;
+        if (sortMode == HomeExploreSortMode.distance) {
+          sortMode = HomeExploreSortMode.recommended;
         }
       });
-      if (!_shouldRunLocationQuery(position) && _businesses.isNotEmpty) {
+      if (!_exploreController.shouldRunLocationQuery(position) &&
+          _exploreController.businesses.isNotEmpty) {
         _snack(
           'Konumun 1 km içinde değişmedi. Mevcut yakın işletme listesi gösteriliyor.',
         );
@@ -288,13 +209,13 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         replaceWithEmpty: true,
       ).then((applied) {
         if (applied) {
-          _lastLocationQueryPosition = position;
+          _exploreController.markLocationQueryApplied(position);
           _scrollExploreToTop();
         }
       });
 
       if (!mounted) return;
-      final count = _filteredBusinesses(_businesses).length;
+      final count = _filteredBusinesses().length;
       _snack(
         count == 0
             ? 'Bu kilometre aralığında işletme bulunamadı. Mesafeyi artırmayı deneyin.'
@@ -304,7 +225,7 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
       _snack('Konum alınamadı: $e');
     } finally {
       if (mounted) {
-        setState(() => loadingLocation = false);
+        _exploreController.setLocationLoading(false);
       }
     }
   }
@@ -317,14 +238,6 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
 
     await _reloadExploreBusinesses(forceRefresh: true, replaceWithEmpty: true);
   }
-
-  bool _shouldRunLocationQuery(Position position) =>
-      HomeExploreLocationPolicy.shouldRunLocationQuery(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        previousLatitude: _lastLocationQueryPosition?.latitude,
-        previousLongitude: _lastLocationQueryPosition?.longitude,
-      );
 
   void _snack(String message) {
     if (!mounted) return;
@@ -518,132 +431,14 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     );
   }
 
-  List<BusinessDirectoryItem> _filteredBusinesses(
-    List<BusinessDirectoryItem> items,
-  ) {
-    final query = searchController.text.trim().toLowerCase();
-
-    final filtered = items.where((item) {
-      if (!item.visible) return false;
-
-      if (!BusinessCategories.matches(
-        selectedLabel: selectedCategory,
-        businessCategory: item.category,
-      )) {
-        return false;
-      }
-
-      if (query.isNotEmpty) {
-        final searchable = [
-          item.name,
-          item.category,
-          item.description,
-          item.city,
-          item.district,
-          item.neighborhood,
-        ].join(' ').toLowerCase();
-
-        if (!searchable.contains(query)) return false;
-      }
-
-      if (currentPosition != null) {
-        if (!item.hasCoordinate) return false;
-        final distance = item.distanceKmFrom(currentPosition);
-        if (distance.isFinite && distance > radiusKm) return false;
-      }
-
-      return true;
-    }).toList();
-
-    filtered.sort((a, b) {
-      switch (sortMode) {
-        case _ExploreSortMode.distance:
-          return _compareDistance(a, b);
-        case _ExploreSortMode.rating:
-          return _compareRating(a, b);
-        case _ExploreSortMode.category:
-          final category = a.category.compareTo(b.category);
-          if (category != 0) return category;
-          return _compareDistance(a, b);
-        case _ExploreSortMode.name:
-          return a.name.compareTo(b.name);
-        case _ExploreSortMode.recommended:
-          if (currentPosition != null) return _compareDistance(a, b);
-
-          final score = _businessScore(b).compareTo(_businessScore(a));
-          if (score != 0) return score;
-          return _compareDistance(a, b);
-      }
-    });
-
-    return filtered;
-  }
-
-  _DetectedExploreArea? _detectAreaFromNearestBusiness({
-    required List<BusinessDirectoryItem> items,
-    required Position? position,
-  }) {
-    if (position == null) return null;
-
-    BusinessDirectoryItem? nearest;
-    var nearestDistance = double.infinity;
-    for (final item in items) {
-      if (!item.visible || !item.hasCoordinate) continue;
-      if (item.district.trim().isEmpty && item.city.trim().isEmpty) continue;
-
-      final distance = item.distanceKmFrom(position);
-      if (!distance.isFinite || distance >= nearestDistance) continue;
-
-      nearest = item;
-      nearestDistance = distance;
-    }
-
-    if (nearest == null) return null;
-
-    return _DetectedExploreArea(
-      city: nearest.city.trim(),
-      district: nearest.district.trim(),
+  List<BusinessDirectoryItem> _filteredBusinesses() {
+    return _exploreController.filteredBusinesses(
+      queryText: searchController.text,
+      selectedCategory: selectedCategory,
+      currentPosition: currentPosition,
+      radiusKm: radiusKm,
+      sortMode: sortMode,
     );
-  }
-
-  int _compareDistance(BusinessDirectoryItem a, BusinessDirectoryItem b) {
-    final distance = a
-        .distanceKmFrom(currentPosition)
-        .compareTo(b.distanceKmFrom(currentPosition));
-    if (distance != 0) return distance;
-
-    if (a.isMember != b.isMember) return a.isMember ? -1 : 1;
-
-    return _compareRating(a, b);
-  }
-
-  int _compareRating(BusinessDirectoryItem a, BusinessDirectoryItem b) {
-    final ratingCompare = b.ratingAvg.compareTo(a.ratingAvg);
-    if (ratingCompare != 0) return ratingCompare;
-
-    final followerCompare = b.followerCount.compareTo(a.followerCount);
-    if (followerCompare != 0) return followerCompare;
-
-    return a.name.compareTo(b.name);
-  }
-
-  double _businessScore(BusinessDirectoryItem item) {
-    final distance = item.distanceKmFrom(currentPosition);
-    final distanceScore = distance.isFinite
-        ? 60 - (distance > 60 ? 60 : distance)
-        : 0;
-    final memberBoost = item.isMember ? 35 : 0;
-    final ratingScore = item.ratingAvg * 8;
-    final popularityScore = item.followerCount > 500
-        ? 20
-        : item.followerCount / 25;
-    final coordinateBoost = item.hasCoordinate ? 5 : 0;
-
-    return distanceScore +
-        memberBoost +
-        ratingScore +
-        popularityScore +
-        coordinateBoost;
   }
 
   List<String> _categories() {
@@ -662,11 +457,10 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
             Expanded(
               child: Builder(
                 builder: (context) {
-                  final allItems = _businesses;
-                  final filtered = _filteredBusinesses(allItems);
+                  final allItems = _exploreController.businesses;
+                  final filtered = _filteredBusinesses();
                   final categories = _categories();
-                  final categoryCounts = HomeExploreCategoryCounts.build(
-                    items: allItems,
+                  final categoryCounts = _exploreController.categoryCounts(
                     categories: categories,
                     queryText: searchController.text,
                     currentPosition: currentPosition,
@@ -674,27 +468,26 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
                   );
                   final waitingForManualLoad =
                       RxRuntimeDiagnostics.disableExploreAutoLoad &&
-                      !_hasCompletedInitialBusinessLoad &&
-                      !_loadingBusinesses &&
-                      allItems.isEmpty;
+                      _exploreController.waitingForManualLoad;
                   if (RxRuntimeDiagnostics.verboseExploreRender) {
                     debugPrint(
                       'FIX_EXPLORE_RENDER all=${allItems.length} '
-                      'filtered=${filtered.length} loading=$_loadingBusinesses '
-                      'done=$_hasCompletedInitialBusinessLoad '
+                      'filtered=${filtered.length} '
+                      'loading=${_exploreController.loadingBusinesses} '
+                      'done=${_exploreController.hasCompletedInitialBusinessLoad} '
                       'manualWait=$waitingForManualLoad '
-                      'detectedCity=$_detectedCity '
-                      'detectedDistrict=$_detectedDistrict '
-                      'error=${_businessLoadError != null} '
+                      'detectedCity=${_exploreController.detectedCity} '
+                      'detectedDistrict=${_exploreController.detectedDistrict} '
+                      'error=${_exploreController.businessLoadError != null} '
                       'screen=${MediaQuery.sizeOf(context)}',
                     );
                   }
 
                   return HomeExploreContentList(
-                    loadingBusinesses: _loadingBusinesses,
+                    loadingBusinesses: _exploreController.loadingBusinesses,
                     hasCompletedInitialBusinessLoad:
-                        _hasCompletedInitialBusinessLoad,
-                    businessLoadError: _businessLoadError,
+                        _exploreController.hasCompletedInitialBusinessLoad,
+                    businessLoadError: _exploreController.businessLoadError,
                     waitingForManualLoad: waitingForManualLoad,
                     allItems: allItems,
                     filteredItems: filtered,
@@ -808,9 +601,9 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
   }
 
   Widget _buildFilterPanel() {
-    return HomeExploreControlPanel<_ExploreSortMode>(
+    return HomeExploreControlPanel<HomeExploreSortMode>(
       hasPosition: currentPosition != null,
-      loadingLocation: loadingLocation,
+      loadingLocation: _exploreController.loadingLocation,
       radiusKm: radiusKm,
       onLocationPressed: _requestLocation,
       onRadiusChanged: (value) => setState(() => radiusKm = value),
@@ -822,7 +615,10 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
               forceRefresh: true,
               replaceWithEmpty: true,
             ).then((applied) {
-              if (applied) _lastLocationQueryPosition = currentPosition;
+              final position = currentPosition;
+              if (applied && position != null) {
+                _exploreController.markLocationQueryApplied(position);
+              }
             }),
           );
           return;
@@ -833,10 +629,10 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
         );
       },
       sortModes: const [
-        _ExploreSortMode.recommended,
-        _ExploreSortMode.rating,
-        _ExploreSortMode.category,
-        _ExploreSortMode.name,
+        HomeExploreSortMode.recommended,
+        HomeExploreSortMode.rating,
+        HomeExploreSortMode.category,
+        HomeExploreSortMode.name,
       ],
       selectedSortMode: sortMode,
       sortLabelBuilder: _sortModeLabel,
@@ -845,32 +641,32 @@ class _HomeExplorePageState extends State<HomeExplorePage> {
     );
   }
 
-  static IconData _sortModeIcon(_ExploreSortMode mode) {
+  static IconData _sortModeIcon(HomeExploreSortMode mode) {
     switch (mode) {
-      case _ExploreSortMode.recommended:
+      case HomeExploreSortMode.recommended:
         return Icons.auto_awesome_outlined;
-      case _ExploreSortMode.distance:
+      case HomeExploreSortMode.distance:
         return Icons.near_me_outlined;
-      case _ExploreSortMode.rating:
+      case HomeExploreSortMode.rating:
         return Icons.star_outline_rounded;
-      case _ExploreSortMode.category:
+      case HomeExploreSortMode.category:
         return Icons.category_outlined;
-      case _ExploreSortMode.name:
+      case HomeExploreSortMode.name:
         return Icons.sort_by_alpha_rounded;
     }
   }
 
-  static String _sortModeLabel(_ExploreSortMode mode) {
+  static String _sortModeLabel(HomeExploreSortMode mode) {
     switch (mode) {
-      case _ExploreSortMode.recommended:
+      case HomeExploreSortMode.recommended:
         return 'Akıllı';
-      case _ExploreSortMode.distance:
+      case HomeExploreSortMode.distance:
         return 'Yakınlık';
-      case _ExploreSortMode.rating:
+      case HomeExploreSortMode.rating:
         return 'Puan';
-      case _ExploreSortMode.category:
+      case HomeExploreSortMode.category:
         return 'Kategori';
-      case _ExploreSortMode.name:
+      case HomeExploreSortMode.name:
         return 'A-Z';
     }
   }

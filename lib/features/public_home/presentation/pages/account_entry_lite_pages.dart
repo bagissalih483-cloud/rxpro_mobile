@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/core/uploads/app_image_upload_service.dart';
 import 'package:rxpro_mobile/features/public_home/data/account_user_profile_repository.dart';
+import 'package:rxpro_mobile/features/public_home/domain/account_user_profile_policy.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/widgets/account_entry_cards.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -66,13 +67,21 @@ class _AccountUserProfileLitePageState
     setState(() => _saving = true);
 
     try {
-      await _repository.updateProfile(
-        uid: widget.user.uid,
+      final input = AccountUserProfilePolicy.normalizeUpdate(
         displayName: _displayNameController.text,
         phone: _phoneController.text,
         city: _cityController.text,
         district: _districtController.text,
         photoUrl: _photoUrl,
+      );
+
+      await _repository.updateProfile(
+        uid: widget.user.uid,
+        displayName: input.displayName,
+        phone: input.phone,
+        city: input.city,
+        district: input.district,
+        photoUrl: input.photoUrl,
       );
 
       if (!mounted) return;
@@ -99,13 +108,21 @@ class _AccountUserProfileLitePageState
         file: file,
       );
 
-      await _repository.updateProfile(
-        uid: widget.user.uid,
+      final input = AccountUserProfilePolicy.normalizeUpdate(
         displayName: _displayNameController.text,
         phone: _phoneController.text,
         city: _cityController.text,
         district: _districtController.text,
         photoUrl: url,
+      );
+
+      await _repository.updateProfile(
+        uid: widget.user.uid,
+        displayName: input.displayName,
+        phone: input.phone,
+        city: input.city,
+        district: input.district,
+        photoUrl: input.photoUrl,
       );
 
       if (!mounted) return;
@@ -158,8 +175,11 @@ class _AccountUserProfileLitePageState
                     AccountInfoCard(
                       icon: Icons.verified_user_outlined,
                       title: 'Hesap doğrulama',
-                      text:
-                          'E-posta: ${_email.isEmpty ? '-' : _email}\nTelefon: ${widget.user.phoneNumber ?? _phoneController.text.trim().ifEmpty('-')}',
+                      text: AccountUserProfilePolicy.verificationText(
+                        email: _email,
+                        authPhoneNumber: widget.user.phoneNumber,
+                        profilePhone: _phoneController.text,
+                      ),
                     ),
                     const SizedBox(height: 14),
                     _sectionTitle('Kişisel bilgiler'),
@@ -174,13 +194,7 @@ class _AccountUserProfileLitePageState
                         hint: 'Örn: Ayşe Demir',
                         icon: Icons.person_outline_rounded,
                       ),
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.length < 2) {
-                          return 'Ad soyad en az 2 karakter olmalıdır.';
-                        }
-                        return null;
-                      },
+                      validator: AccountUserProfilePolicy.validateDisplayName,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -500,8 +514,4 @@ class _SettingSwitchTile extends StatelessWidget {
       ),
     );
   }
-}
-
-extension _EmptyText on String {
-  String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
 }

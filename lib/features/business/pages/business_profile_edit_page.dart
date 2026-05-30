@@ -6,6 +6,7 @@ import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/core/uploads/app_image_upload_service.dart';
 import 'package:rxpro_mobile/features/business/data/business_profile_edit_repository.dart';
+import 'package:rxpro_mobile/features/business/domain/business_profile_edit_policy.dart';
 
 /// Business profile edit page keeps document writes behind a repository.
 class BusinessProfileEditPage extends StatefulWidget {
@@ -60,7 +61,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
         widget.businessId,
       );
 
-      _businessNameController.text = _firstNonEmpty([
+      _businessNameController.text = BusinessProfileEditPolicy.firstNonEmpty([
         data[FirestoreFields.businessName],
         data[FirestoreFields.name],
         data[FirestoreFields.companyName],
@@ -75,18 +76,18 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
       );
       _categoryId = category.id;
 
-      _phoneController.text = _firstNonEmpty([
+      _phoneController.text = BusinessProfileEditPolicy.firstNonEmpty([
         data[FirestoreFields.phone],
         data[FirestoreFields.phoneNumber],
         data[FirestoreFields.nationalPhoneNumber],
         data[FirestoreFields.internationalPhoneNumber],
       ]);
-      _businessEmailController.text = _firstNonEmpty([
+      _businessEmailController.text = BusinessProfileEditPolicy.firstNonEmpty([
         data[FirestoreFields.businessEmail],
         data[FirestoreFields.contactEmail],
         data[FirestoreFields.email],
       ]);
-      _websiteController.text = _firstNonEmpty([
+      _websiteController.text = BusinessProfileEditPolicy.firstNonEmpty([
         data[FirestoreFields.websiteUrl],
         data[FirestoreFields.websiteUri],
         data['website'],
@@ -351,13 +352,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   label: 'İşletme adı',
                   hint: 'Örn: Fix Beauty Studio',
                 ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.length < 2) {
-                    return 'İşletme adı en az 2 karakter olmalıdır.';
-                  }
-                  return null;
-                },
+                validator: BusinessProfileEditPolicy.validateBusinessName,
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
@@ -400,6 +395,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   label: 'İşletme e-postası',
                   hint: 'ornek@fix.com',
                 ),
+                validator: BusinessProfileEditPolicy.validateOptionalEmail,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -410,6 +406,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   label: 'Web sitesi',
                   hint: 'https://...',
                 ),
+                validator: BusinessProfileEditPolicy.validateOptionalUrl,
               ),
               const SizedBox(height: 14),
               Row(
@@ -450,16 +447,7 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   hint:
                       'İşletmenizi, uzmanlığınızı ve sunduğunuz hizmetleri yazın.',
                 ),
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) {
-                    return 'Kurumsal profil açıklaması boş bırakılamaz.';
-                  }
-                  if (text.length < 10) {
-                    return 'Açıklama biraz daha detaylı olmalıdır.';
-                  }
-                  return null;
-                },
+                validator: BusinessProfileEditPolicy.validateDescription,
               ),
               const SizedBox(height: 14),
               Row(
@@ -474,10 +462,11 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                         label: 'İl',
                         hint: 'Şanlıurfa',
                       ),
-                      validator: (value) {
-                        if ((value ?? '').trim().isEmpty) return 'İl giriniz.';
-                        return null;
-                      },
+                      validator: (value) =>
+                          BusinessProfileEditPolicy.validateRequired(
+                            value,
+                            'İl giriniz.',
+                          ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -490,12 +479,11 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                         label: 'İlçe',
                         hint: 'Haliliye',
                       ),
-                      validator: (value) {
-                        if ((value ?? '').trim().isEmpty) {
-                          return 'İlçe giriniz.';
-                        }
-                        return null;
-                      },
+                      validator: (value) =>
+                          BusinessProfileEditPolicy.validateRequired(
+                            value,
+                            'İlçe giriniz.',
+                          ),
                     ),
                   ),
                 ],
@@ -511,12 +499,11 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   label: 'Adres',
                   hint: 'Mahalle, cadde, sokak, bina bilgisi',
                 ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return 'Adres boş bırakılamaz.';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                    BusinessProfileEditPolicy.validateRequired(
+                      value,
+                      'Adres boş bırakılamaz.',
+                    ),
               ),
               const SizedBox(height: 14),
               _businessLocationCard(),
@@ -529,12 +516,11 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
                   label: 'Çalışma saatleri',
                   hint: 'Örn: Pazartesi - Cumartesi 09:00 - 20:00',
                 ),
-                validator: (value) {
-                  if ((value ?? '').trim().isEmpty) {
-                    return 'Çalışma saatleri boş bırakılamaz.';
-                  }
-                  return null;
-                },
+                validator: (value) =>
+                    BusinessProfileEditPolicy.validateRequired(
+                      value,
+                      'Çalışma saatleri boş bırakılamaz.',
+                    ),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -654,18 +640,18 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
   }
 
   Widget _readinessCard() {
-    final completed = <bool>[
-      _businessNameController.text.trim().isNotEmpty,
-      _descriptionController.text.trim().length >= 10,
-      _cityController.text.trim().isNotEmpty,
-      _districtController.text.trim().isNotEmpty,
-      _addressController.text.trim().isNotEmpty,
-      _workingHoursController.text.trim().isNotEmpty,
-      _businessLat != null && _businessLng != null,
-      _logoUrl != null && _logoUrl!.isNotEmpty,
-      _coverUrl != null && _coverUrl!.isNotEmpty,
-    ].where((item) => item).length;
-    final percent = ((completed / 9) * 100).round();
+    final readiness = BusinessProfileEditPolicy.readiness(
+      businessName: _businessNameController.text,
+      description: _descriptionController.text,
+      city: _cityController.text,
+      district: _districtController.text,
+      address: _addressController.text,
+      workingHours: _workingHoursController.text,
+      hasLocation: _businessLat != null && _businessLng != null,
+      hasLogo: _logoUrl != null && _logoUrl!.isNotEmpty,
+      hasCover: _coverUrl != null && _coverUrl!.isNotEmpty,
+    );
+    final percent = readiness.percent;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -793,14 +779,6 @@ class _BusinessProfileEditPageState extends State<BusinessProfileEditPage> {
     );
   }
 
-  static String _firstNonEmpty(List<Object?> values) {
-    for (final value in values) {
-      final text = value?.toString().trim() ?? '';
-      if (text.isNotEmpty) return text;
-    }
-
-    return '';
-  }
 }
 
 class _BusinessEditAppBar extends StatelessWidget

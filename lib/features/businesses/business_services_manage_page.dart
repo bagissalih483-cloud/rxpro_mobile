@@ -4,6 +4,7 @@ import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
 import 'data/business_services_repository.dart';
+import 'domain/business_service_form_policy.dart';
 
 /// 50C-K2: Business services management Firestore collection/field literals use
 /// FirestoreCollections/FirestoreFields constants. Service behavior is unchanged.
@@ -47,30 +48,18 @@ class BusinessServicesManagePage extends StatelessWidget {
         builder: (context, snapshot) {
           final docs = snapshot.data?.docs ?? [];
 
-          docs.sort((a, b) {
-            final an =
-                (a.data()[FirestoreFields.serviceName] ??
-                        a.data()[FirestoreFields.name] ??
-                        '')
-                    .toString();
-            final bn =
-                (b.data()[FirestoreFields.serviceName] ??
-                        b.data()[FirestoreFields.name] ??
-                        '')
-                    .toString();
-            return an.compareTo(bn);
-          });
+          docs.sort(
+            (a, b) => BusinessServiceFormPolicy.sortKey(
+              a.data(),
+            ).compareTo(BusinessServiceFormPolicy.sortKey(b.data())),
+          );
 
           final activeDocs = docs.where((d) {
-            final data = d.data();
-            return data[FirestoreFields.bookingEnabled] != false &&
-                data[FirestoreFields.isActive] != false;
+            return BusinessServiceFormPolicy.isActive(d.data());
           }).toList();
 
           final passiveDocs = docs.where((d) {
-            final data = d.data();
-            return data[FirestoreFields.bookingEnabled] == false ||
-                data[FirestoreFields.isActive] == false;
+            return !BusinessServiceFormPolicy.isActive(d.data());
           }).toList();
 
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -292,23 +281,13 @@ class _ServiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = doc.data();
 
-    final name =
-        (data[FirestoreFields.serviceName] ??
-                data[FirestoreFields.name] ??
-                'Hizmet')
-            .toString();
-    final type =
-        (data[FirestoreFields.serviceTypeLabel] ??
-                data[FirestoreFields.serviceType] ??
-                'Tekil Hizmet')
-            .toString();
+    final name = BusinessServiceFormPolicy.serviceNameOf(data);
+    final type = BusinessServiceFormPolicy.typeLabelOf(data);
     final price =
         data[FirestoreFields.price] ?? data[FirestoreFields.servicePrice] ?? 0;
     final duration = data[FirestoreFields.durationMinutes] ?? 0;
-    final active =
-        data[FirestoreFields.bookingEnabled] != false &&
-        data[FirestoreFields.isActive] != false;
-    final category = (data[FirestoreFields.category] ?? 'Genel').toString();
+    final active = BusinessServiceFormPolicy.isActive(data);
+    final category = BusinessServiceFormPolicy.categoryOf(data);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 9),
@@ -466,15 +445,9 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
       text: (data[FirestoreFields.sessionCount] ?? '').toString(),
     );
 
-    _type = (data[FirestoreFields.serviceType] ?? data['type'] ?? 'single')
-        .toString();
-    if (_type != 'single' && _type != 'package' && _type != 'sessionPackage') {
-      _type = 'single';
-    }
+    _type = BusinessServiceFormPolicy.typeOf(data);
 
-    _active =
-        data[FirestoreFields.bookingEnabled] != false &&
-        data[FirestoreFields.isActive] != false;
+    _active = BusinessServiceFormPolicy.isActive(data);
   }
 
   @override
@@ -488,17 +461,6 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
     super.dispose();
   }
 
-  String get _typeLabel {
-    switch (_type) {
-      case 'package':
-        return 'Paket Hizmet';
-      case 'sessionPackage':
-        return 'Seanslı Paket';
-      default:
-        return 'Tekil Hizmet';
-    }
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -507,36 +469,17 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
     setState(() => _saving = true);
 
     try {
-      final price =
-          double.tryParse(_price.text.replaceAll(',', '.').trim()) ?? 0;
-      final duration = int.tryParse(_duration.text.trim()) ?? 45;
-      final sessionCount = int.tryParse(_sessionCount.text.trim());
-
-      final payload = <String, dynamic>{
-        FirestoreFields.businessId: widget.businessId,
-        FirestoreFields.serviceName: _name.text.trim(),
-        FirestoreFields.name: _name.text.trim(),
-        FirestoreFields.price: price,
-        FirestoreFields.servicePrice: price,
-        FirestoreFields.durationMinutes: duration,
-        FirestoreFields.description: _description.text.trim(),
-        FirestoreFields.category: _category.text.trim().isEmpty
-            ? 'Genel'
-            : _category.text.trim(),
-        'type': _type,
-        FirestoreFields.serviceType: _type,
-        FirestoreFields.serviceTypeLabel: _typeLabel,
-        'isPackage': _type == 'package' || _type == 'sessionPackage',
-        'isSessionPackage': _type == 'sessionPackage',
-        FirestoreFields.sessionCount: _type == 'sessionPackage'
-            ? (sessionCount ?? 1)
-            : null,
-        'remainingSessionDefault': _type == 'sessionPackage'
-            ? (sessionCount ?? 1)
-            : null,
-        FirestoreFields.bookingEnabled: _active,
-        FirestoreFields.isActive: _active,
-      };
+      final payload = BusinessServiceFormPolicy.buildPayload(
+        businessId: widget.businessId,
+        name: _name.text,
+        price: _price.text,
+        duration: _duration.text,
+        description: _description.text,
+        category: _category.text,
+        type: _type,
+        sessionCount: _sessionCount.text,
+        active: _active,
+      );
 
       await _servicesRepository.saveBusinessService(
         serviceId: widget.serviceId,
@@ -637,12 +580,7 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                       labelText: 'Hizmet / Paket adı',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Hizmet adı gerekli';
-                      }
-                      return null;
-                    },
+                    validator: BusinessServiceFormPolicy.validateName,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -657,6 +595,7 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                             suffixText: 'TL',
                             border: OutlineInputBorder(),
                           ),
+                          validator: BusinessServiceFormPolicy.validatePrice,
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -670,6 +609,7 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                             suffixText: 'dk',
                             border: OutlineInputBorder(),
                           ),
+                          validator: BusinessServiceFormPolicy.validateDuration,
                         ),
                       ),
                     ],
@@ -693,6 +633,11 @@ class _ServiceFormPageState extends State<ServiceFormPage> {
                         labelText: 'Seans sayısı',
                         border: OutlineInputBorder(),
                       ),
+                      validator: (value) =>
+                          BusinessServiceFormPolicy.validateSessionCount(
+                            value,
+                            _type,
+                          ),
                     ),
                   ],
                   const SizedBox(height: 12),

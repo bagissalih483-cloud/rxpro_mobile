@@ -1,32 +1,26 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
 import '../app_cache/app_cache_service.dart';
-import '../firestore/firestore_collections.dart';
 import '../firestore/firestore_fields.dart';
 import '../session/app_role.dart';
 import '../session/session_role_policy.dart';
+import 'data/current_user_state_repository.dart';
 
 /// 49D-D2: Legacy CurrentUserState output is kept, but Firestore role resolution
 /// now delegates to SessionRolePolicy so old Home/Explore state does not
 /// drift away from AppSession/AppRole decisions.
 class CurrentUserStateService {
   CurrentUserStateService({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
+    CurrentUserStateRepository? repository,
     AppCacheService? cache,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance,
+  }) : _repository = repository ?? CurrentUserStateRepository(),
        _cache = cache ?? AppCacheService();
 
-  final FirebaseAuth _auth;
-  final FirebaseFirestore _firestore;
+  final CurrentUserStateRepository _repository;
   final AppCacheService _cache;
 
   Future<CurrentUserState> getInitialState() async {
-    final firebaseUser = _auth.currentUser;
+    final firebaseUser = _repository.currentUser;
     final cachedCounts = await _cache.getUnreadCounts();
 
     if (firebaseUser == null) {
@@ -57,7 +51,7 @@ class CurrentUserStateService {
 
     return CurrentUserState(
       uid: firebaseUser.uid,
-      email: firebaseUser.email ?? '',
+      email: firebaseUser.email,
       displayName: _safeDisplayName(
         firebaseUser.displayName,
         firebaseUser.email,
@@ -76,10 +70,12 @@ class CurrentUserStateService {
 
   Stream<CurrentUserState> watch() {
     late StreamController<CurrentUserState> controller;
-    StreamSubscription<User?>? authSub;
-    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? userDocSub;
+    StreamSubscription<CurrentUserAuthSnapshot?>? authSub;
+    StreamSubscription<CurrentUserDocumentSnapshot>? userDocSub;
 
-    Future<void> emitInitialForUser(User firebaseUser) async {
+    Future<void> emitInitialForUser(
+      CurrentUserAuthSnapshot firebaseUser,
+    ) async {
       final cached = await _cache.getUserSnapshot();
       final cachedCounts = await _cache.getUnreadCounts();
 
@@ -112,7 +108,7 @@ class CurrentUserStateService {
         controller.add(
           CurrentUserState(
             uid: firebaseUser.uid,
-            email: firebaseUser.email ?? '',
+            email: firebaseUser.email,
             displayName: _safeDisplayName(
               firebaseUser.displayName,
               firebaseUser.email,
@@ -133,7 +129,7 @@ class CurrentUserStateService {
 
     controller = StreamController<CurrentUserState>.broadcast(
       onListen: () {
-        authSub = _auth.authStateChanges().listen(
+        authSub = _repository.watchAuthState().listen(
           (firebaseUser) async {
             await userDocSub?.cancel();
             userDocSub = null;
@@ -150,13 +146,9 @@ class CurrentUserStateService {
 
             await emitInitialForUser(firebaseUser);
 
-            userDocSub = _firestore
-                .collection(FirestoreCollections.users)
-                .doc(firebaseUser.uid)
-                .snapshots()
-                .listen(
+            userDocSub = _repository.watchUserDocument(firebaseUser.uid).listen(
                   (snapshot) async {
-                    final data = snapshot.data() ?? {};
+                    final data = snapshot.data;
 
                     final displayName = _firstNonEmpty([
                       data[FirestoreFields.displayName],
@@ -252,18 +244,15 @@ class CurrentUserStateService {
   }
 
   Future<void> refreshCacheOnce() async {
-    final firebaseUser = _auth.currentUser;
+    final firebaseUser = _repository.currentUser;
 
     if (firebaseUser == null) {
       await _cache.clearUserSnapshot();
       return;
     }
 
-    final snapshot = await _firestore
-        .collection(FirestoreCollections.users)
-        .doc(firebaseUser.uid)
-        .get();
-    final data = snapshot.data() ?? {};
+    final snapshot = await _repository.loadUserDocument(firebaseUser.uid);
+    final data = snapshot.data;
 
     final displayName = _firstNonEmpty([
       data[FirestoreFields.displayName],

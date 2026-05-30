@@ -35,7 +35,9 @@ Codex cannot truthfully validate from source code alone.
 
 ## Firebase, Store, And Operations
 
-- [x] Firestore and Storage emulator rules tests passed 21/21 on 2026-05-29.
+- [x] Firestore and Storage emulator rules tests passed 24/24 on 2026-05-29 before the 29-3M follow-up.
+- [x] Firestore and Storage emulator rules tests passed 28/28 on 2026-05-29 after the 29-3M follow-up guards.
+- [x] Firestore and Storage emulator rules tests passed 29/29 on 2026-05-29 after service pricing and finance write-permission guards.
 - [ ] Firestore and Storage production rules deployed from the reviewed rules files.
 - [ ] Firebase App Check enforcement enabled for Firestore, Storage, and callable Functions after device smoke testing.
 - [ ] Firebase/GCP budget alerts configured for Places, Routes, Functions, Firestore, Storage, and AI usage.

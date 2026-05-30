@@ -30,8 +30,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
   bool saving = false;
   int expandedBookingSection = 0;
 
-  // 49B-A: AppointmentService derleme köprüsü.
-  // 49B-B'de _createAppointment içindeki iş kuralları bu servise taşınacak.
+  // 49B-A: AppointmentService derleme koprusu.
+  // 49B-B'de _createAppointment icindeki is kurallari bu servise tasinacak.
   final AppointmentBookingService _appointmentBookingService =
       AppointmentBookingService();
 
@@ -43,37 +43,6 @@ class _AppointmentTabState extends State<_AppointmentTab>
     super.initState();
     _cachedServicesStream = _servicesStream();
     _cachedStaffStream = _staffStream();
-  }
-
-  final times = const [
-    '09:00',
-    '09:30',
-    '10:00',
-    '10:30',
-    '11:00',
-    '11:30',
-    '12:00',
-    '12:30',
-    '13:30',
-    '14:00',
-    '14:30',
-    '15:00',
-    '15:30',
-    '16:00',
-    '16:30',
-    '17:00',
-    '17:30',
-    '18:00',
-  ];
-
-  List<String> _stringList(dynamic value) {
-    if (value is Iterable) {
-      return value
-          .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-    }
-    return const <String>[];
   }
 
   Stream<List<_InlineService>> _servicesStream() {
@@ -115,7 +84,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
                 return data[FirestoreFields.isActive] != false;
               })
               .map((data) {
-                final serviceIds = _stringList(
+                final serviceIds = BusinessProfileBookingPolicy.stringList(
                   data[FirestoreFields.serviceIds] ??
                       data[FirestoreFields.staffServiceIds] ??
                       data[FirestoreFields.allowedServiceIds],
@@ -150,36 +119,36 @@ class _AppointmentTabState extends State<_AppointmentTab>
   }
 
   List<DateTime> _days() {
-    final now = DateTime.now();
-    return List.generate(21, (index) {
-      return DateTime(now.year, now.month, now.day).add(Duration(days: index));
-    });
+    return BusinessProfileBookingPolicy.upcomingDays(now: DateTime.now());
   }
 
   String _dateText(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day.$month.${date.year}';
+    return BusinessProfileBookingPolicy.dateText(date);
   }
 
   String _shortDay(DateTime date) {
-    const names = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-    return names[date.weekday - 1];
+    return BusinessProfileBookingPolicy.shortDay(date);
   }
 
   bool _selectedStaffCanProvideService(String serviceId) {
     if (selectedStaffId == null) return true;
-    if (selectedStaffServiceIds.isEmpty) return true;
-    return selectedStaffServiceIds.contains(serviceId);
+    return BusinessProfileBookingPolicy.staffCanProvideService(
+      serviceId: serviceId,
+      staffServiceIds: selectedStaffServiceIds,
+    );
   }
 
   List<_InlineService> _servicesForSelectedStaff(
     List<_InlineService> services,
   ) {
     if (selectedStaffId == null) return services;
-    if (selectedStaffServiceIds.isEmpty) return services;
     return services
-        .where((service) => selectedStaffServiceIds.contains(service.id))
+        .where(
+          (service) => BusinessProfileBookingPolicy.staffCanProvideService(
+            serviceId: service.id,
+            staffServiceIds: selectedStaffServiceIds,
+          ),
+        )
         .toList();
   }
 
@@ -189,7 +158,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
         selectedDateText == null ||
         selectedTimeText == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hizmet, personel, tarih ve saat seçin.')),
+        const SnackBar(content: Text('Hizmet, personel, tarih ve saat secin.')),
       );
       return;
     }
@@ -235,11 +204,11 @@ class _AppointmentTabState extends State<_AppointmentTab>
               children: [
                 Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
                 SizedBox(width: 8),
-                Expanded(child: Text('Randevunuz oluşturuldu')),
+                Expanded(child: Text('Randevunuz olusturuldu')),
               ],
             ),
             content: Text(
-              'Randevunuz başarıyla kaydedildi.\n\n'
+              'Randevunuz basariyla kaydedildi.\n\n'
               'Hizmet: ${result.serviceName}\n'
               'Personel: ${result.staffName}\n'
               'Tarih: ${result.dateText}\n'
@@ -275,7 +244,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Randevu oluşturulamadı: $e')));
+        ).showSnackBar(SnackBar(content: Text('Randevu olusturulamadi: $e')));
       }
     } finally {
       if (mounted) {
@@ -295,9 +264,9 @@ class _AppointmentTabState extends State<_AppointmentTab>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _RxAccordionSection(
-          title: 'Hizmet Seç',
+          title: 'Hizmet Sec',
           subtitle:
-              selectedServiceName ?? 'Randevu almak istediğiniz hizmeti seçin',
+              selectedServiceName ?? 'Randevu almak istediginiz hizmeti secin',
           icon: Icons.spa_outlined,
           expanded: expandedBookingSection == 0,
           completed: selectedServiceId != null,
@@ -314,7 +283,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
 
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const _MiniLoadingCard(
-                  text: 'Hizmetler hazırlanıyor...',
+                  text: 'Hizmetler hazirlaniyor...',
                 );
               }
 
@@ -323,8 +292,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
                   icon: Icons.spa_outlined,
                   title: 'Uygun hizmet yok',
                   text: selectedStaffId == null
-                      ? 'Bu kurumsal kullanıcı henüz hizmet eklememiş.'
-                      : 'Seçilen personelin verebildiği aktif hizmet bulunmuyor.',
+                      ? 'Bu kurumsal kullanici henuz hizmet eklememis.'
+                      : 'Secilen personelin verebildigi aktif hizmet bulunmuyor.',
                 );
               }
 
@@ -336,8 +305,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
                     '${service.durationMinutes} dk',
                   ];
                   final subtitle = subtitleParts.isEmpty
-                      ? 'Hizmet seç'
-                      : subtitleParts.join(' • ');
+                      ? 'Hizmet sec'
+                      : subtitleParts.join(' - ');
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -376,9 +345,9 @@ class _AppointmentTabState extends State<_AppointmentTab>
         const SizedBox(height: 10),
 
         _RxAccordionSection(
-          title: 'Personel Seç',
+          title: 'Personel Sec',
           subtitle:
-              selectedStaffName ?? 'Randevu almak istediğiniz personeli seçin',
+              selectedStaffName ?? 'Randevu almak istediginiz personeli secin',
           icon: Icons.person_outline,
           expanded: expandedBookingSection == 1,
           completed: selectedStaffId != null,
@@ -401,7 +370,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
                         .toList();
 
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const _MiniLoadingCard(text: 'Personel hazırlanıyor...');
+                return const _MiniLoadingCard(text: 'Personel hazirlaniyor...');
               }
 
               if (staff.isEmpty) {
@@ -409,8 +378,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
                   icon: Icons.people_alt_outlined,
                   title: 'Uygun personel yok',
                   text: selectedServiceId == null
-                      ? 'Bu kurumsal kullanıcı henüz aktif personel eklememiş.'
-                      : 'Seçilen hizmeti verebilen aktif personel bulunmuyor.',
+                      ? 'Bu kurumsal kullanici henuz aktif personel eklememis.'
+                      : 'Secilen hizmeti verebilen aktif personel bulunmuyor.',
                 );
               }
 
@@ -423,7 +392,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
                     child: _RxBookingOptionTile(
                       icon: Icons.person_outline,
                       title: person.name,
-                      subtitle: 'Personel seç',
+                      subtitle: 'Personel sec',
                       selected: selected,
                       onTap: () {
                         setState(() {
@@ -455,8 +424,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
         const SizedBox(height: 10),
 
         _RxAccordionSection(
-          title: 'Tarih Seç',
-          subtitle: selectedDateText ?? 'Randevu tarihini seçin',
+          title: 'Tarih Sec',
+          subtitle: selectedDateText ?? 'Randevu tarihini secin',
           icon: Icons.calendar_month_outlined,
           expanded: expandedBookingSection == 2,
           completed: selectedDateText != null,
@@ -490,8 +459,8 @@ class _AppointmentTabState extends State<_AppointmentTab>
         const SizedBox(height: 10),
 
         _RxAccordionSection(
-          title: 'Saat Seç',
-          subtitle: selectedTimeText ?? 'Uygun randevu saatini seçin',
+          title: 'Saat Sec',
+          subtitle: selectedTimeText ?? 'Uygun randevu saatini secin',
           icon: Icons.schedule_outlined,
           expanded: expandedBookingSection == 3,
           completed: selectedTimeText != null,
@@ -503,7 +472,7 @@ class _AppointmentTabState extends State<_AppointmentTab>
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: times.map((time) {
+            children: BusinessProfileBookingPolicy.defaultTimes.map((time) {
               final selected = selectedTimeText == time;
 
               return _RxBookingTimeTile(
@@ -541,381 +510,10 @@ class _AppointmentTabState extends State<_AppointmentTab>
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.calendar_month_outlined),
-            label: Text(saving ? 'Oluşturuluyor...' : 'Randevu Oluştur'),
+            label: Text(saving ? 'Olusturuluyor...' : 'Randevu Olustur'),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RxAccordionSection extends StatelessWidget {
-  const _RxAccordionSection({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.expanded,
-    required this.completed,
-    required this.onTap,
-    required this.child,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool expanded;
-  final bool completed;
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Column(
-        children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(22),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: completed
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFEDE9FE),
-                    child: Icon(
-                      completed ? Icons.check_rounded : icon,
-                      color: completed
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFF7C3AED),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF6B7280),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 160),
-                    child: const Icon(Icons.keyboard_arrow_down_rounded),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-              child: child,
-            ),
-            crossFadeState: expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 180),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BookingSummaryCard extends StatelessWidget {
-  const _BookingSummaryCard({
-    required this.serviceName,
-    required this.staffName,
-    required this.dateText,
-    required this.timeText,
-  });
-
-  final String? serviceName;
-  final String? staffName;
-  final String? dateText;
-  final String? timeText;
-
-  @override
-  Widget build(BuildContext context) {
-    final complete =
-        serviceName != null &&
-        staffName != null &&
-        dateText != null &&
-        timeText != null;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: complete ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: complete ? const Color(0xFFBBF7D0) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            complete ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-            color: complete ? const Color(0xFF16A34A) : const Color(0xFF64748B),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              complete
-                  ? '$serviceName • $staffName • $dateText • $timeText'
-                  : 'Randevu oluşturmak için hizmet, personel, tarih ve saat seçin.',
-              style: TextStyle(
-                color: complete
-                    ? const Color(0xFF166534)
-                    : const Color(0xFF64748B),
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RxBookingOptionTile extends StatelessWidget {
-  const _RxBookingOptionTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 64,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFFEDE9FE) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF7C3AED)
-                  : const Color(0xFFE5E7EB),
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: selected
-                    ? const Color(0xFF7C3AED)
-                    : const Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 14,
-                        color: selected
-                            ? const Color(0xFF5B21B6)
-                            : const Color(0xFF111827),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF6B7280),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked,
-                size: 20,
-                color: selected
-                    ? const Color(0xFF7C3AED)
-                    : const Color(0xFFD1D5DB),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RxBookingDateTile extends StatelessWidget {
-  const _RxBookingDateTile({
-    required this.weekday,
-    required this.day,
-    required this.month,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String weekday;
-  final String day;
-  final String month;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 58,
-      height: 58,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF7C3AED) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFF7C3AED)
-                  : const Color(0xFFE5E7EB),
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                weekday,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? Colors.white70 : const Color(0xFF6B7280),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                day,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1,
-                  fontWeight: FontWeight.w900,
-                  color: selected ? Colors.white : const Color(0xFF111827),
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                month,
-                maxLines: 1,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? Colors.white70 : const Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RxBookingTimeTile extends StatelessWidget {
-  const _RxBookingTimeTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 76,
-      height: 40,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: const Size(76, 40),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: selected ? const Color(0xFFEDE9FE) : Colors.white,
-          foregroundColor: selected
-              ? const Color(0xFF6D28D9)
-              : const Color(0xFF111827),
-          side: BorderSide(
-            color: selected ? const Color(0xFF7C3AED) : const Color(0xFFE5E7EB),
-            width: selected ? 1.4 : 1,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
-        ),
-      ),
     );
   }
 }
@@ -933,7 +531,8 @@ class _InlineService {
     required this.duration,
   });
 
-  int get durationMinutes => int.tryParse(duration.trim()) ?? 30;
+  int get durationMinutes =>
+      BusinessProfileBookingPolicy.durationMinutes(duration);
 }
 
 class _InlineStaff {
@@ -952,7 +551,9 @@ class _InlineStaff {
   });
 
   bool canProvideService(String serviceId) {
-    if (serviceIds.isEmpty) return true;
-    return serviceIds.contains(serviceId);
+    return BusinessProfileBookingPolicy.staffCanProvideService(
+      serviceId: serviceId,
+      staffServiceIds: serviceIds,
+    );
   }
 }

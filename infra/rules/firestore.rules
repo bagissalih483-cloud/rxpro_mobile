@@ -91,6 +91,85 @@ service cloud.firestore {
         );
     }
 
+    function isBusinessOwnerOnly(businessId) {
+      return signedIn()
+        && cleanBusinessId(businessId)
+        && (
+          isBusinessOwnerByBusinessDoc(businessId)
+          || (
+            userDocExists()
+            && (
+              userData().ownedBusinessId == businessId
+              || userData().ownerBusinessId == businessId
+              || userData().businessOwnerId == businessId
+            )
+          )
+        );
+    }
+
+    function hasUserPermission(permission) {
+      return userDocExists()
+        && (
+          userData().get(permission, false) == true
+          || (
+            userData().permissions is list
+            && permission in userData().permissions
+          )
+          || (
+            userData().permissionKeys is list
+            && permission in userData().permissionKeys
+          )
+          || (
+            userData().permissions is map
+            && userData().permissions.get(permission, false) == true
+          )
+        );
+    }
+
+    function userLinkedToBusinessScope(businessId) {
+      return userDocExists()
+        && (
+          userData().ownedBusinessId == businessId
+          || userData().ownerBusinessId == businessId
+          || userData().businessOwnerId == businessId
+          || userData().businessId == businessId
+          || userData().activeBusinessId == businessId
+          || userData().selectedBusinessId == businessId
+          || userData().staffBusinessId == businessId
+          || userData().linkedBusinessId == businessId
+        );
+    }
+
+    function canManageFinanceScoped(data) {
+      return hasBusinessScope(data)
+        && (
+          dataBelongsToCurrentUser(data)
+          || (
+            userLinkedToBusinessScope(data.businessId)
+            && (
+              hasUserPermission("financeWrite")
+              || hasUserPermission("canManageFinance")
+              || hasUserPermission("paymentCollect")
+            )
+          )
+        );
+    }
+
+    function canManageServicePricingScoped(data) {
+      return hasBusinessScope(data)
+        && (
+          dataBelongsToCurrentUser(data)
+          || (
+            userLinkedToBusinessScope(data.businessId)
+            && (
+              hasUserPermission("financeWrite")
+              || hasUserPermission("serviceWrite")
+              || hasUserPermission("canManageServices")
+            )
+          )
+        );
+    }
+
     function createsOwnBusiness(data) {
       return signedIn()
         && (
@@ -149,6 +228,45 @@ service cloud.firestore {
       ];
     }
 
+    function guardedRootCollection(collection) {
+      return collection in [
+        "users",
+        "users_private",
+        "publicProfiles",
+        "businesses",
+        "businessProfiles",
+        "registeredBusinesses",
+        "businessServices",
+        "businessPlaceIndex",
+        "directory_pois_google_cache",
+        "placeQueryBuckets",
+        "businessClaimRequests",
+        "accountDeletionRequests",
+        "functionRateLimits",
+        "functionAbuseLogs",
+        "adminAuditLogs",
+        "moderationBlocks",
+        "businessProfilePostReports",
+        "businessReviewReports",
+        "campaignReports",
+        "businessCampaigns",
+        "campaigns",
+        "businessReviews",
+        "businessStaff",
+        "appointments",
+        "businessFinanceRecords",
+        "financeRecords",
+        "notifications",
+        "notificationPreferences",
+        "customerNotifications",
+        "messageThreads"
+      ];
+    }
+
+    function genericPublicReadCollection(collection) {
+      return publicReadCollection(collection) && !guardedRootCollection(collection);
+    }
+
     function businessScopedCollection(collection) {
       return collection in [
         "appointments",
@@ -174,6 +292,10 @@ service cloud.firestore {
         "businessCustomers",
         "bulkMessageDrafts"
       ];
+    }
+
+    function genericBusinessScopedCollection(collection) {
+      return businessScopedCollection(collection) && !guardedRootCollection(collection);
     }
 
     function messageParticipant(data) {
@@ -322,6 +444,42 @@ service cloud.firestore {
       ];
     }
 
+    function protectedBusinessScopedIdentityFields() {
+      return [
+        "businessId",
+        "uid",
+        "userId",
+        "customerUid",
+        "customerId",
+        "clientUid",
+        "ownerUid",
+        "createdBy",
+        "createdByUid"
+      ];
+    }
+
+    function protectedStaffSelfManagedFields() {
+      return [
+        "businessId",
+        "uid",
+        "linkedUid",
+        "ownerUid",
+        "createdBy",
+        "createdByUid",
+        "inviteCode",
+        "role",
+        "roles",
+        "permissions",
+        "permissionKeys",
+        "financeRead",
+        "financeWrite",
+        "appointmentsRead",
+        "appointmentsWrite",
+        "campaignRead",
+        "campaignWrite"
+      ];
+    }
+
     function hasNoPublicPrivateFields(data) {
       return !data.keys().hasAny(publicDocumentForbiddenFields());
     }
@@ -344,7 +502,7 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      match /{document=**} {
+      match /{document}/{nested=**} {
         allow read, write: if isSelf(uid);
       }
     }
@@ -373,7 +531,7 @@ service cloud.firestore {
         && keepsFieldsUnchanged(protectedBusinessOwnershipFields());
       allow delete: if false;
 
-      match /{document=**} {
+      match /{document}/{nested=**} {
         allow read, write: if isBusinessMember(businessId);
       }
     }
@@ -555,12 +713,29 @@ service cloud.firestore {
 
     match /businessReviews/{reviewId} {
       allow read: if true;
-      allow create: if dataBelongsToCurrentUser(request.resource.data)
-        || canWriteBusinessScoped(request.resource.data);
-      allow update: if isPlatformAdmin()
-        || canWriteBusinessScoped(resource.data)
-        || dataBelongsToCurrentUser(resource.data);
+      allow create: if (
+          dataBelongsToCurrentUser(request.resource.data)
+          || canWriteBusinessScoped(request.resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if (
+          isPlatformAdmin()
+          || canWriteBusinessScoped(resource.data)
+          || dataBelongsToCurrentUser(resource.data)
+        )
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
+    }
+
+    match /businessServices/{serviceId} {
+      allow read: if true;
+      allow create: if canManageServicePricingScoped(request.resource.data)
+        && hasNoPublicPrivateFields(request.resource.data);
+      allow update: if canManageServicePricingScoped(resource.data)
+        && hasNoPublicPrivateFields(request.resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
+      allow delete: if canManageServicePricingScoped(resource.data);
     }
 
     match /businessStaff/{staffId} {
@@ -570,9 +745,24 @@ service cloud.firestore {
           || dataBelongsToCurrentUser(resource.data)
         );
       allow create: if canWriteBusinessScoped(request.resource.data);
-      allow update: if canReadBusinessScoped(resource.data)
-        || canWriteBusinessScoped(request.resource.data)
-        || dataBelongsToCurrentUser(resource.data);
+      allow update: if (
+          canWriteBusinessScoped(resource.data)
+          && canWriteBusinessScoped(request.resource.data)
+          && keepsFieldsUnchanged([
+            "businessId",
+            "uid",
+            "linkedUid",
+            "ownerUid",
+            "createdBy",
+            "createdByUid",
+            "inviteCode"
+          ])
+        )
+        || (
+          dataBelongsToCurrentUser(resource.data)
+          && dataBelongsToCurrentUser(request.resource.data)
+          && keepsFieldsUnchanged(protectedStaffSelfManagedFields())
+        );
       allow delete: if canReadBusinessScoped(resource.data);
     }
 
@@ -588,7 +778,24 @@ service cloud.firestore {
         && (
           dataBelongsToCurrentUser(request.resource.data)
           || canWriteBusinessScoped(request.resource.data)
-        );
+        )
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
+      allow delete: if false;
+    }
+
+    match /businessFinanceRecords/{recordId} {
+      allow read: if canReadBusinessScoped(resource.data);
+      allow create: if canManageFinanceScoped(request.resource.data);
+      allow update: if canManageFinanceScoped(resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
+      allow delete: if false;
+    }
+
+    match /financeRecords/{recordId} {
+      allow read: if canReadBusinessScoped(resource.data);
+      allow create: if canManageFinanceScoped(request.resource.data);
+      allow update: if canManageFinanceScoped(resource.data)
+        && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields());
       allow delete: if false;
     }
 
@@ -635,9 +842,9 @@ service cloud.firestore {
     }
 
     match /{collection}/{docId} {
-      allow read: if publicReadCollection(collection)
+      allow read: if genericPublicReadCollection(collection)
         || (
-          businessScopedCollection(collection)
+          genericBusinessScopedCollection(collection)
           && (
             dataBelongsToCurrentUser(resource.data)
             || canReadBusinessScoped(resource.data)
@@ -657,19 +864,20 @@ service cloud.firestore {
         );
 
       allow create: if (
-          businessScopedCollection(collection)
+          genericBusinessScopedCollection(collection)
           && (
             dataBelongsToCurrentUser(request.resource.data)
             || canWriteBusinessScoped(request.resource.data)
           )
         )
         || (
-          publicReadCollection(collection)
+          genericPublicReadCollection(collection)
           && (
             createsOwnBusiness(request.resource.data)
             || canWriteBusinessScoped(request.resource.data)
             || dataBelongsToCurrentUser(request.resource.data)
           )
+          && hasNoPublicPrivateFields(request.resource.data)
         )
         || (
           collection in [
@@ -685,7 +893,7 @@ service cloud.firestore {
         );
 
       allow update: if (
-          businessScopedCollection(collection)
+          genericBusinessScopedCollection(collection)
           && (
             dataBelongsToCurrentUser(resource.data)
             || canReadBusinessScoped(resource.data)
@@ -694,14 +902,17 @@ service cloud.firestore {
             dataBelongsToCurrentUser(request.resource.data)
             || canWriteBusinessScoped(request.resource.data)
           )
+          && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields())
         )
         || (
-          publicReadCollection(collection)
+          genericPublicReadCollection(collection)
           && (
             canWriteBusinessScoped(resource.data)
             || canWriteBusinessScoped(request.resource.data)
             || dataBelongsToCurrentUser(resource.data)
           )
+          && hasNoPublicPrivateFields(request.resource.data)
+          && keepsFieldsUnchanged(protectedBusinessScopedIdentityFields())
         )
         || (
           collection in [
@@ -716,7 +927,7 @@ service cloud.firestore {
           && canAccessMessage(resource.data)
         );
 
-      allow delete: if businessScopedCollection(collection)
+      allow delete: if genericBusinessScopedCollection(collection)
         && (
           canReadBusinessScoped(resource.data)
           || dataBelongsToCurrentUser(resource.data)

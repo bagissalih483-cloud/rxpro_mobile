@@ -6,6 +6,7 @@ import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/appointments/services/customer_appointment_action_service.dart';
 import 'package:rxpro_mobile/features/appointments/data/customer_appointment_repository.dart';
+import 'package:rxpro_mobile/features/appointments/domain/customer_appointment_status_policy.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/widgets/customer_appointment_widgets.dart';
 
 class CustomerAppointmentsPage extends StatefulWidget {
@@ -28,103 +29,16 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
   @override
   bool get wantKeepAlive => true;
 
-  static String _clean(dynamic value) => value?.toString().trim() ?? '';
-
-  static bool _matchesCurrentUser(Map<String, dynamic> data, String uid) {
-    return [
-      data['customerUid'],
-      data['customerId'],
-      data['userId'],
-      data['uid'],
-      data['clientUid'],
-    ].map(_clean).contains(uid);
-  }
-
-  static String _statusOf(Map<String, dynamic> data) {
-    return _clean(
-      data['status'] ??
-          data['appointmentStatus'] ??
-          data['state'] ??
-          data['bookingStatus'],
-    ).toLowerCase();
-  }
-
-  static bool _isCancelled(Map<String, dynamic> data) {
-    final status = _statusOf(data);
-    if (status.contains('cancel')) return true;
-    if (status.contains('iptal')) return true;
-    if (data['isCancelled'] == true) return true;
-    return false;
-  }
-
-  static bool _isPostponeRequested(Map<String, dynamic> data) {
-    final status = _statusOf(data);
-    final approval = _clean(
-      data['customerApprovalStatus'] ?? data['postponeRequestStatus'],
-    ).toLowerCase();
-
-    return status == 'postpone_requested' ||
-        status == 'reschedule_requested' ||
-        approval == 'pending';
-  }
-
-  static bool _isPast(Map<String, dynamic> data) {
-    final startAt = data['startAt'];
-    if (startAt is Timestamp) {
-      return startAt.toDate().isBefore(DateTime.now());
-    }
-
-    final iso = _clean(data['startAtIso']);
-    final parsedIso = DateTime.tryParse(iso);
-    if (parsedIso != null) return parsedIso.isBefore(DateTime.now());
-
-    return false;
-  }
-
-  static bool _isActive(Map<String, dynamic> data) {
-    if (_isCancelled(data)) return false;
-    if (_isPostponeRequested(data)) return false;
-    if (_isPast(data)) return false;
-
-    final status = _statusOf(data);
-    if (status.isEmpty) return true;
-
-    return [
-      'active',
-      'pending',
-      'approved',
-      'confirmed',
-      'onaylı',
-      'onayli',
-      'bekliyor',
-    ].contains(status);
-  }
-
-  static bool _isCompleted(Map<String, dynamic> data) {
-    if (_isCancelled(data)) return false;
-    if (_isPostponeRequested(data)) return false;
-
-    final status = _statusOf(data);
-    if ([
-      'done',
-      'completed',
-      'complete',
-      'gecmis',
-      'geçmiş',
-      'tamamlandi',
-      'tamamlandı',
-    ].contains(status)) {
-      return true;
-    }
-
-    return _isPast(data);
-  }
-
   Stream<List<_AppointmentItem>> _appointmentsStream(String uid) {
     return _appointmentRepository.watchMergedCustomerAppointments(uid: uid).map(
       (docs) {
         final items = docs
-            .where((doc) => _matchesCurrentUser(doc.data, uid))
+            .where(
+              (doc) => CustomerAppointmentStatusPolicy.matchesCurrentUser(
+                doc.data,
+                uid,
+              ),
+            )
             .map(_AppointmentItem.fromCustomerDocument)
             .toList();
 
@@ -604,100 +518,6 @@ class _AppointmentItem {
     );
   }
 
-  // ignore: unused_element
-  factory _AppointmentItem.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? {};
-
-    final cancelled = _CustomerAppointmentsPageState._isCancelled(data);
-    final active = _CustomerAppointmentsPageState._isActive(data);
-    final past = _CustomerAppointmentsPageState._isCompleted(data);
-    final postponed = _CustomerAppointmentsPageState._isPostponeRequested(data);
-    final startAt = data['startAt'];
-
-    int sort = 0;
-
-    if (startAt is Timestamp) {
-      sort = startAt.millisecondsSinceEpoch;
-    } else {
-      sort =
-          DateTime.tryParse(
-            _CustomerAppointmentsPageState._clean(data['startAtIso']),
-          )?.millisecondsSinceEpoch ??
-          DateTime.tryParse(
-            _CustomerAppointmentsPageState._clean(data['createdAtLocalIso']),
-          )?.millisecondsSinceEpoch ??
-          0;
-    }
-
-    final postponeStartAtRaw = data['postponeRequestedStartAt'];
-    final approval = _CustomerAppointmentsPageState._clean(
-      data['customerApprovalStatus'] ?? data['postponeRequestStatus'],
-    ).toLowerCase();
-
-    return _AppointmentItem(
-      id: doc.id,
-      businessId: _CustomerAppointmentsPageState._clean(data['businessId']),
-      businessOwnerUid: _CustomerAppointmentsPageState._clean(
-        data['businessOwnerUid'] ?? data['ownerUid'] ?? data['providerUid'],
-      ),
-      businessName:
-          _CustomerAppointmentsPageState._clean(data['businessName']).isEmpty
-          ? 'Kurumsal Kullanıcı'
-          : _CustomerAppointmentsPageState._clean(data['businessName']),
-      serviceName:
-          _CustomerAppointmentsPageState._clean(data['serviceName']).isEmpty
-          ? 'Hizmet'
-          : _CustomerAppointmentsPageState._clean(data['serviceName']),
-      staffName:
-          _CustomerAppointmentsPageState._clean(data['staffName']).isEmpty
-          ? 'Personel'
-          : _CustomerAppointmentsPageState._clean(data['staffName']),
-      dateText:
-          _CustomerAppointmentsPageState._clean(
-            data['dateText'] ?? data['appointmentDate'],
-          ).isEmpty
-          ? '-'
-          : _CustomerAppointmentsPageState._clean(
-              data['dateText'] ?? data['appointmentDate'],
-            ),
-      timeText:
-          _CustomerAppointmentsPageState._clean(
-            data['timeText'] ?? data['appointmentTime'],
-          ).isEmpty
-          ? '-'
-          : _CustomerAppointmentsPageState._clean(
-              data['timeText'] ?? data['appointmentTime'],
-            ),
-      status: _CustomerAppointmentsPageState._statusOf(data),
-      isActive: active,
-      isPast: past,
-      isCancelled: cancelled,
-      isPostponeRequested: postponed,
-      customerApprovalStatus: approval.isEmpty ? '-' : approval,
-      postponeDateKey: _CustomerAppointmentsPageState._clean(
-        data['postponeRequestedDateKey'],
-      ),
-      postponeDateText: _CustomerAppointmentsPageState._clean(
-        data['postponeRequestedDateText'] ?? data['postponedDateText'],
-      ),
-      postponeTimeText: _CustomerAppointmentsPageState._clean(
-        data['postponeRequestedTimeText'] ?? data['postponedTimeText'],
-      ),
-      postponeStartAt: postponeStartAtRaw is Timestamp
-          ? postponeStartAtRaw
-          : null,
-      postponeStartAtIso: _CustomerAppointmentsPageState._clean(
-        data['postponeRequestedStartAtIso'],
-      ),
-      postponeRequestNote: _CustomerAppointmentsPageState._clean(
-        data['postponeRequestNote'] ?? data['postponedNote'],
-      ),
-      cancellationReason: _CustomerAppointmentsPageState._clean(
-        data['cancellationReason'] ?? data['postponeRejectedReason'],
-      ),
-      sortValue: sort,
-    );
-  }
   factory _AppointmentItem.fromCustomerDocument(
     CustomerAppointmentDocument doc,
   ) {
@@ -708,10 +528,10 @@ class _AppointmentItem {
     required String id,
     required Map<String, dynamic> data,
   }) {
-    final cancelled = _CustomerAppointmentsPageState._isCancelled(data);
-    final active = _CustomerAppointmentsPageState._isActive(data);
-    final past = _CustomerAppointmentsPageState._isCompleted(data);
-    final postponed = _CustomerAppointmentsPageState._isPostponeRequested(data);
+    final cancelled = CustomerAppointmentStatusPolicy.isCancelled(data);
+    final active = CustomerAppointmentStatusPolicy.isActive(data);
+    final past = CustomerAppointmentStatusPolicy.isCompleted(data);
+    final postponed = CustomerAppointmentStatusPolicy.isPostponeRequested(data);
     final startAt = data['startAt'];
 
     int sort = 0;
@@ -721,78 +541,78 @@ class _AppointmentItem {
     } else {
       sort =
           DateTime.tryParse(
-            _CustomerAppointmentsPageState._clean(data['startAtIso']),
+            CustomerAppointmentStatusPolicy.clean(data['startAtIso']),
           )?.millisecondsSinceEpoch ??
           DateTime.tryParse(
-            _CustomerAppointmentsPageState._clean(data['createdAtLocalIso']),
+            CustomerAppointmentStatusPolicy.clean(data['createdAtLocalIso']),
           )?.millisecondsSinceEpoch ??
           0;
     }
 
     final postponeStartAtRaw = data['postponeRequestedStartAt'];
-    final approval = _CustomerAppointmentsPageState._clean(
+    final approval = CustomerAppointmentStatusPolicy.clean(
       data['customerApprovalStatus'] ?? data['postponeRequestStatus'],
     ).toLowerCase();
 
     return _AppointmentItem(
       id: id,
-      businessId: _CustomerAppointmentsPageState._clean(data['businessId']),
-      businessOwnerUid: _CustomerAppointmentsPageState._clean(
+      businessId: CustomerAppointmentStatusPolicy.clean(data['businessId']),
+      businessOwnerUid: CustomerAppointmentStatusPolicy.clean(
         data['businessOwnerUid'] ?? data['ownerUid'] ?? data['providerUid'],
       ),
       businessName:
-          _CustomerAppointmentsPageState._clean(data['businessName']).isEmpty
+          CustomerAppointmentStatusPolicy.clean(data['businessName']).isEmpty
           ? 'Kurumsal Kullanıcı'
-          : _CustomerAppointmentsPageState._clean(data['businessName']),
+          : CustomerAppointmentStatusPolicy.clean(data['businessName']),
       serviceName:
-          _CustomerAppointmentsPageState._clean(data['serviceName']).isEmpty
+          CustomerAppointmentStatusPolicy.clean(data['serviceName']).isEmpty
           ? 'Hizmet'
-          : _CustomerAppointmentsPageState._clean(data['serviceName']),
+          : CustomerAppointmentStatusPolicy.clean(data['serviceName']),
       staffName:
-          _CustomerAppointmentsPageState._clean(data['staffName']).isEmpty
+          CustomerAppointmentStatusPolicy.clean(data['staffName']).isEmpty
           ? 'Personel'
-          : _CustomerAppointmentsPageState._clean(data['staffName']),
+          : CustomerAppointmentStatusPolicy.clean(data['staffName']),
       dateText:
-          _CustomerAppointmentsPageState._clean(
+          CustomerAppointmentStatusPolicy.clean(
             data['dateText'] ?? data['appointmentDate'],
           ).isEmpty
           ? '-'
-          : _CustomerAppointmentsPageState._clean(
+          : CustomerAppointmentStatusPolicy.clean(
               data['dateText'] ?? data['appointmentDate'],
             ),
       timeText:
-          _CustomerAppointmentsPageState._clean(
+          CustomerAppointmentStatusPolicy.clean(
             data['timeText'] ?? data['appointmentTime'],
           ).isEmpty
           ? '-'
-          : _CustomerAppointmentsPageState._clean(
+          : CustomerAppointmentStatusPolicy.clean(
               data['timeText'] ?? data['appointmentTime'],
             ),
-      status: _CustomerAppointmentsPageState._statusOf(data),
+      status: CustomerAppointmentStatusPolicy.statusOf(data),
       isActive: active,
       isPast: past,
       isCancelled: cancelled,
       isPostponeRequested: postponed,
       customerApprovalStatus: approval.isEmpty ? '-' : approval,
-      postponeDateKey: _CustomerAppointmentsPageState._clean(
+      postponeDateKey: CustomerAppointmentStatusPolicy.clean(
         data['postponeRequestedDateKey'],
       ),
-      postponeDateText: _CustomerAppointmentsPageState._clean(
+      postponeDateText: CustomerAppointmentStatusPolicy.clean(
         data['postponeRequestedDateText'] ?? data['postponedDateText'],
       ),
-      postponeTimeText: _CustomerAppointmentsPageState._clean(
+      postponeTimeText: CustomerAppointmentStatusPolicy.clean(
         data['postponeRequestedTimeText'] ?? data['postponedTimeText'],
       ),
       postponeStartAt: postponeStartAtRaw is Timestamp
           ? postponeStartAtRaw
           : null,
-      postponeStartAtIso: _CustomerAppointmentsPageState._clean(
+      postponeStartAtIso: CustomerAppointmentStatusPolicy.clean(
         data['postponeRequestedStartAtIso'],
       ),
-      postponeRequestNote: _CustomerAppointmentsPageState._clean(
+      postponeRequestNote: CustomerAppointmentStatusPolicy.clean(
         data['postponeRequestNote'] ?? data['postponedNote'],
       ),
-      cancellationReason: _CustomerAppointmentsPageState._clean(
+      cancellationReason: CustomerAppointmentStatusPolicy.clean(
         data['cancellationReason'] ?? data['postponeRejectedReason'],
       ),
       sortValue: sort,

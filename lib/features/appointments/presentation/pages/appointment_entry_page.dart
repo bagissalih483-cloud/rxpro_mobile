@@ -1,12 +1,11 @@
-import 'dart:math' as math;
-
-import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 import 'package:flutter/material.dart';
 
 import 'package:rxpro_mobile/core/session/app_role.dart';
 import 'package:rxpro_mobile/core/session/session_role_gate.dart';
 
 import 'package:rxpro_mobile/features/business_role/business_role_resolver.dart';
+import 'package:rxpro_mobile/features/appointments/domain/business_appointment_dashboard_policy.dart';
+import 'package:rxpro_mobile/features/appointments/domain/business_manual_appointment_policy.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/models/appointment_dashboard_models.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/widgets/appointment_dashboard_views.dart';
 
@@ -106,21 +105,15 @@ class _BusinessAppointmentDashboardPageState
   }
 
   int get openingHour {
-    final raw = widget.businessData[FirestoreFields.openingHour];
-    if (raw is num) return raw.toInt().clamp(0, 23);
-    return 9;
+    return BusinessAppointmentDashboardPolicy.openingHour(widget.businessData);
   }
 
   int get closingHour {
-    final raw = widget.businessData[FirestoreFields.closingHour];
-    if (raw is num) return raw.toInt().clamp(1, 24);
-    return 20;
+    return BusinessAppointmentDashboardPolicy.closingHour(widget.businessData);
   }
 
   int get slotMinutes {
-    final raw = widget.businessData[FirestoreFields.slotMinutes];
-    if (raw is num) return raw.toInt().clamp(15, 120);
-    return 30;
+    return BusinessAppointmentDashboardPolicy.slotMinutes(widget.businessData);
   }
 
   Stream<List<Map<String, dynamic>>> _appointmentsStream() {
@@ -146,150 +139,49 @@ class _BusinessAppointmentDashboardPageState
     return _staffStreamCache!;
   }
 
-  DateTime _dayOnly(DateTime value) =>
-      DateTime(value.year, value.month, value.day);
+  DateTime _dayOnly(DateTime value) {
+    return BusinessAppointmentDashboardPolicy.dayOnly(value);
+  }
 
   bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+    return BusinessAppointmentDashboardPolicy.sameDay(a, b);
   }
 
   DateTime? _dateOf(Map<String, dynamic> data) {
-    final startAt = data[FirestoreFields.startAt];
-    if (startAt is DateTime) return startAt;
-
-    final iso =
-        (data[FirestoreFields.startAtIso] ??
-                data[FirestoreFields.appointmentDateIso] ??
-                '')
-            .toString();
-    if (iso.isNotEmpty) {
-      try {
-        return DateTime.parse(iso);
-      } catch (_) {}
-    }
-
-    final dateText =
-        (data[FirestoreFields.appointmentDate] ??
-                data[FirestoreFields.dateText] ??
-                '')
-            .toString();
-    final timeText =
-        (data[FirestoreFields.appointmentTime] ??
-                data[FirestoreFields.timeText] ??
-                '09:00')
-            .toString();
-    final parsedDate = _parseTrDate(dateText);
-    if (parsedDate == null) return null;
-
-    final parts = timeText.split(':');
-    final h = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 9;
-    final m = int.tryParse(parts.length > 1 ? parts[1] : '') ?? 0;
-
-    return DateTime(parsedDate.year, parsedDate.month, parsedDate.day, h, m);
-  }
-
-  DateTime? _parseTrDate(String text) {
-    final clean = text.trim();
-    if (clean.isEmpty) return null;
-
-    final iso = DateTime.tryParse(clean);
-    if (iso != null) return iso;
-
-    final match = RegExp(
-      r'(\d{1,2})[./-](\d{1,2})[./-](\d{4})',
-    ).firstMatch(clean);
-    if (match == null) return null;
-
-    final d = int.tryParse(match.group(1) ?? '');
-    final m = int.tryParse(match.group(2) ?? '');
-    final y = int.tryParse(match.group(3) ?? '');
-    if (d == null || m == null || y == null) return null;
-
-    return DateTime(y, m, d);
-  }
-
-  String _clean(dynamic value) => value?.toString().trim() ?? '';
-
-  bool _isCancelledOrPassive(Map<String, dynamic> data) {
-    final status = _clean(
-      data[FirestoreFields.status] ??
-          data[FirestoreFields.appointmentStatus] ??
-          data[FirestoreFields.state] ??
-          data[FirestoreFields.bookingStatus],
-    ).toLowerCase();
-
-    return data[FirestoreFields.isCancelled] == true ||
-        status.contains('cancel') ||
-        status.contains('iptal') ||
-        status.contains('passive') ||
-        status.contains('pasif');
+    return BusinessAppointmentDashboardPolicy.dateOf(data);
   }
 
   String _staffIdOf(Map<String, dynamic> data) {
-    return _clean(
-      data[FirestoreFields.staffId] ??
-          data[FirestoreFields.staffUid] ??
-          data[FirestoreFields.employeeId] ??
-          data[FirestoreFields.personnelId],
-    );
+    return BusinessAppointmentDashboardPolicy.staffIdOf(data);
   }
 
   String _staffNameOf(Map<String, dynamic> data) {
-    return _clean(
-      data[FirestoreFields.staffName] ??
-          data[FirestoreFields.employeeName] ??
-          data[FirestoreFields.personnelName] ??
-          data[FirestoreFields.workerName] ??
-          'Personel',
-    );
+    return BusinessAppointmentDashboardPolicy.staffNameOf(data);
   }
 
   String _customerNameOf(Map<String, dynamic> data) {
-    return _clean(
-      data[FirestoreFields.customerName] ??
-          data[FirestoreFields.clientName] ??
-          data[FirestoreFields.userName] ??
-          data[FirestoreFields.name] ??
-          'Müşteri',
-    );
+    return BusinessAppointmentDashboardPolicy.customerNameOf(data);
   }
 
   String _serviceNameOf(Map<String, dynamic> data) {
-    return _clean(
-      data[FirestoreFields.serviceName] ??
-          data[FirestoreFields.service] ??
-          'Randevu',
-    );
+    return BusinessAppointmentDashboardPolicy.serviceNameOf(data);
   }
 
   String _timeText(DateTime value) {
-    final h = value.hour.toString().padLeft(2, '0');
-    final m = value.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    return BusinessAppointmentDashboardPolicy.timeText(value);
   }
 
   String _dateTitle(DateTime value) {
-    final months = [
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
-    ];
-
-    return '${value.day} ${months[value.month - 1]} ${value.year}';
+    return BusinessAppointmentDashboardPolicy.dateTitle(value);
   }
 
   int _capacityForDay(int staffCount) {
-    final perStaff = (((closingHour - openingHour) * 60) / slotMinutes).floor();
-    return math.max(1, perStaff * math.max(1, staffCount));
+    return BusinessAppointmentDashboardPolicy.capacityForDay(
+      openingHour: openingHour,
+      closingHour: closingHour,
+      slotMinutes: slotMinutes,
+      staffCount: staffCount,
+    );
   }
 
   Color _heatColor(double ratio) {
@@ -356,60 +248,20 @@ class _BusinessAppointmentDashboardPageState
         return StreamBuilder<List<Map<String, dynamic>>>(
           stream: _staffStream(),
           builder: (context, staffSnapshot) {
-            final appointments = (appointmentSnapshot.data ?? [])
-                .where((data) => !_isCancelledOrPassive(data))
-                .where((data) {
-                  final dt = _dateOf(data);
-                  if (dt == null) return false;
-                  return dt.year == visibleMonth.year &&
-                      dt.month == visibleMonth.month;
-                })
-                .toList();
+            final appointments =
+                BusinessAppointmentDashboardPolicy.activeAppointmentsForMonth(
+                  appointments: appointmentSnapshot.data ?? const [],
+                  visibleMonth: visibleMonth,
+                );
 
-            final staff = (staffSnapshot.data ?? [])
-                .map((data) {
-                  final name = _clean(
-                    data[FirestoreFields.staffName] ??
-                        data[FirestoreFields.name] ??
-                        data[FirestoreFields.displayName] ??
-                        data[FirestoreFields.fullName] ??
-                        'Personel',
-                  );
-
-                  return AppointmentStaffLite(
-                    id: _clean(
-                      data[FirestoreFields.staffId] ??
-                          data[FirestoreFields.staffUid] ??
-                          data[BusinessAppointmentDashboardFields.documentId],
-                    ),
-                    name: name,
-                  );
-                })
-                .where((item) {
-                  return item.name.trim().isNotEmpty;
-                })
-                .toList();
-
-            if (staff.isEmpty) {
-              final byAppointments = <String, AppointmentStaffLite>{};
-              for (final data in appointments) {
-                final id = _staffIdOf(data);
-                final name = _staffNameOf(data);
-                if (id.isNotEmpty || name.isNotEmpty) {
-                  byAppointments[id.isEmpty ? name : id] = AppointmentStaffLite(
-                    id: id.isEmpty ? name : id,
-                    name: name.isEmpty ? 'Personel' : name,
-                  );
-                }
-              }
-              staff.addAll(byAppointments.values);
-            }
-
-            if (staff.isEmpty) {
-              staff.add(
-                const AppointmentStaffLite(id: 'default', name: 'Genel'),
-              );
-            }
+            final staff = BusinessAppointmentDashboardPolicy.staffOptions(
+              staffRows: staffSnapshot.data ?? const [],
+              appointments: appointments,
+            )
+                .map(
+                  (item) => AppointmentStaffLite(id: item.id, name: item.name),
+                )
+                .toList(growable: false);
 
             final loading =
                 appointmentSnapshot.connectionState ==

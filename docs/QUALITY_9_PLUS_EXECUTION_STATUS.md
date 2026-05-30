@@ -1,6 +1,6 @@
 # 9+ Quality Execution Status
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
 ## Completed in code
 
@@ -131,6 +131,59 @@ Last updated: 2026-05-29
 - Push notification token/session ownership Firestore logic was moved into
   `RxPushNotificationSessionRepository`, reducing the approved direct Firebase
   surface to 5 files.
+- Public Firestore read surfaces are now tracked in `docs/PUBLIC_DATA_MATRIX.md`
+  and enforced by `tools/public_data_matrix_check.ps1` in the CI quality gate.
+- Imported Şanlıurfa/Mardin directory data remains public-readable while client
+  writes are denied; live Google Places operational scripts were removed from
+  the mobile release path.
+- Finance writes and service pricing edits now require owner scope or explicit
+  finance/service permissions, and emulator rules cover both paths.
+- Explore filtering/sorting and customer appointment status classification were
+  moved into domain policies with focused tests.
+- Message compose state, message unread-badge decisions, and notification
+  center scope state now sit behind small controllers/policies with focused
+  tests.
+- Message thread state for read marking, send, recall, and open/close actions
+  now sits behind `MessageThreadController` with a focused fake-data-source
+  test, reducing state logic inside `MessagesInboxPage`.
+- Realtime notification Firestore writes were moved behind
+  `RxNotificationRepository`; `RxNotificationService` is now a facade and the
+  direct Firebase architecture budget was tightened from 5 files to 4 files.
+- Follow-cache warmup and business-directory Firestore reads were moved behind
+  repository boundaries. The direct Firebase architecture budget is now tightened
+  again as part of the staged reduction.
+- Current-user state auth/document reads were moved behind
+  `CurrentUserStateRepository`; this continued the staged direct Firebase
+  surface reduction.
+- App session user/business document reads were moved behind
+  `AppSessionRepository`; the direct Firebase architecture budget is now
+  tightened to 0 approved core files.
+- Appointment slot release now exposes a pure slot-id calculation so cancelled
+  or no-show rebooking behavior can be tested without Firestore mocks.
+- Business profile booking date/time/staff-service suitability decisions were
+  moved into a domain policy with focused tests, and the booking widgets were
+  split into a separate part so feature large-file budget stays green.
+- Discover/Explore business loading state now sits behind
+  `HomeExploreController`; load-error/completion state, nearest area detection,
+  repeated-location-query decisions, filtered list derivation, and category
+  counts are covered by controller/policy boundaries with focused tests.
+- Business appointment dashboard date parsing, cancellation/passive
+  classification, staff/customer/service label selection, time labels, and day
+  capacity calculations now sit in `BusinessAppointmentDashboardPolicy` with a
+  focused domain test. That policy also now owns schedule bounds,
+  visible-month filtering, and staff fallback/deduplication.
+- Business profile edit fallback/validation/readiness behavior and account
+  profile edit validation/normalization/verification text now sit in focused
+  policy classes with domain tests.
+- Manual appointment staff normalization, selected-staff fallback, date/time
+  formatting, duration clamping, and form validation now sit in
+  `BusinessManualAppointmentPolicy` with a focused domain test.
+- Business service management display normalization, active/passive
+  classification, price/duration/session validation, and save payload creation
+  now sit in `BusinessServiceFormPolicy` with a focused domain test.
+- Business product/stok display normalization, numeric parsing/formatting,
+  low-stock detection, stock summary calculation, and product form validation
+  now sit in `BusinessProductPolicy` with a focused domain test.
 
 ## External blockers
 
@@ -156,17 +209,86 @@ Last updated: 2026-05-29
   `functions/**/*.js` file outside `node_modules`, not only `functions/index.js`.
 - `node --check emulator_rules_lab/tests/firestore.rules.test.js` passed.
 - `node --check emulator_rules_lab/tests/storage.rules.test.js` passed.
-- `tools/run_rules_tests.ps1` passed with 21 emulator rules tests after the
-  stricter media upload limit, notification preference rules, generated
-  thumbnail uploads, and owner-scoped business media path update.
+- `tools/run_rules_tests.ps1` passed with 29 Firestore/Storage emulator rules
+  tests after public data, App Check-adjacent abuse surfaces, finance writes,
+  and service pricing permission guards.
 - `tools/run_rules_tests.ps1` now validates the native test command exit code.
 - `npm audit --omit=dev` for the emulator rules lab reported 0 production
   dependency vulnerabilities. Full dev audit still reports Firebase CLI/Mocha
   tooling advisories, so those should be treated as local test-tooling debt, not
   mobile runtime exposure.
 - `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules` passed, including
-  architecture, text quality, secret scan, and Functions syntax.
+  architecture, text quality, secret scan, public data matrix, and Functions
+  syntax.
 - `tools/release_gate_check.ps1 -SkipIos` passed.
+- `tools/feature_architecture_report.ps1 -FailOnLargeFiles` passed with 0
+  feature files over 30KB.
+- `git diff --check` passed; only Git line-ending warnings were reported.
+- After adding `MessageThreadController`, `tools/ci_quality_check.ps1
+  -SkipFlutter -SkipRules`, `tools/release_gate_check.ps1 -SkipIos`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/text_quality_check.ps1`, and `git diff --check` passed.
+- After moving realtime notification writes behind a repository,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/release_gate_check.ps1 -SkipIos`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/run_rules_tests.ps1`, and `git diff --check` passed. Firestore/Storage
+  emulator rules remain at 29 passing tests.
+- After moving follow-cache and business-directory reads behind repositories,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/release_gate_check.ps1 -SkipIos`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`, and
+  `git diff --check` passed. The architecture gate now reports only 2 direct
+  Firebase core surfaces outside repository/service/domain.
+- After moving current-user state reads behind a repository,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/feature_architecture_report.ps1 -FailOnLargeFiles`, and
+  `git diff --check` passed. The architecture gate now reports only 1 direct
+  Firebase core surface outside repository/service/domain.
+- After moving app-session reads behind a repository,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/release_gate_check.ps1 -SkipIos`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`, and
+  `git diff --check` passed. The architecture gate now reports 0 direct
+  Firebase surfaces outside repository/service/domain.
+- After moving Discover/Explore loading state into a controller,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/feature_architecture_report.ps1 -FailOnLargeFiles`, and
+  `git diff --check` passed.
+- After moving business appointment dashboard decisions into a domain policy,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/feature_architecture_report.ps1 -FailOnLargeFiles`, and
+  `git diff --check` passed.
+- After expanding business appointment dashboard policy coverage for schedule
+  bounds, visible-month filtering, and staff fallback/deduplication,
+  `tools/architecture_check.ps1`, `tools/ci_quality_check.ps1 -SkipFlutter
+  -SkipRules`, `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
+- After moving business profile edit fallback/validation/readiness decisions
+  into a domain policy with a focused test, `tools/architecture_check.ps1`,
+  `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
+- After moving account profile edit validation/normalization/verification text
+  into a domain policy with a focused test, `tools/architecture_check.ps1`,
+  `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
+- After moving manual appointment staff/date/time/duration/form decisions into
+  a domain policy with a focused test, `tools/architecture_check.ps1`,
+  `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
+- After moving business service management display/form/payload decisions into
+  a domain policy with a focused test, `tools/architecture_check.ps1`,
+  `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
+- After moving business product/stok display/form/summary decisions into a
+  domain policy with a focused test, `tools/architecture_check.ps1`,
+  `tools/ci_quality_check.ps1 -SkipFlutter -SkipRules`,
+  `tools/feature_architecture_report.ps1 -FailOnLargeFiles`,
+  `tools/release_gate_check.ps1 -SkipIos`, and `git diff --check` passed.
 - Full `tools/release_gate_check.ps1` failed only because iOS
   `DEVELOPMENT_TEAM` is missing.
 - `tools/quality_status_report.ps1` can be used to see feature architecture,
@@ -186,6 +308,11 @@ Last updated: 2026-05-29
 
 ## Not verified here
 
+- Latest focused Flutter test execution in this Codex shell timed out without
+  output; rerun Flutter analyze/test/build from the user's normal PowerShell.
+- `dart format` also timed out in this Codex shell; rerun formatting/analyze in
+  normal PowerShell before the final release commit if Flutter reports style or
+  analyzer issues.
 - `flutter build apk --release` should be run by the user in normal PowerShell after code changes; the Codex sandbox can hit Gradle/SDK permission limits that are not app defects.
 - iOS release cannot pass until Firebase plist and Apple signing team are configured.
 

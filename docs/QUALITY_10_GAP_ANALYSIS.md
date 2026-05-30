@@ -1,8 +1,8 @@
 # Quality 10 Gap Analysis
 
-Last updated: 2026-05-29
+Last updated: 2026-05-30
 
-Facebook-level reference score: 10. Current realistic RxPro score: about 8.7.
+Facebook-level reference score: 10. Current realistic RxPro score: about 8.9.
 
 ## P0 - must close before calling it 9+
 
@@ -44,14 +44,18 @@ Facebook-level reference score: 10. Current realistic RxPro score: about 8.7.
   architecture gate blocks new direct `MaterialPageRoute` regressions outside
   the catalog or approved generic helpers.
 - State management is still mixed between `setState`, `FutureBuilder`,
-  `StreamBuilder`, and service calls.
+  `StreamBuilder`, and service calls. Discover/Explore business loading,
+  business profile edit, and account profile edit now have first
+  controller/policy boundaries, but the wider app still needs the same pattern
+  applied to the rest of appointment entry and remaining operational screens.
 - Notifications gained a first controller boundary for scope resolution,
   notification stream selection, and read actions. The controller now depends on
   a small data-source contract and has a focused test file. Summary copy,
   unread count, and route decisions are now covered by a domain view policy.
   Riverpod is not added yet because the dependency is not present and `pub get`
   still needs a clean local run.
-- Direct Firebase access still exists in 5 approved core infrastructure files.
+- Direct Firebase access outside repository/service/domain boundaries is now
+  closed by the architecture gate with a 0-file budget.
 - Analytics events are wired, but dashboards and funnel alerts are not verified.
 - Admin/moderation now has shared search, status filtering, SLA age indicators,
   audit-log support notes, and an in-panel playbook for the main moderation
@@ -143,5 +147,32 @@ Facebook-level reference score: 10. Current realistic RxPro score: about 8.7.
 - Extracted notification center view decisions into a domain policy with a
   focused test.
 - Moved push notification token/session ownership reads and writes behind a
-  repository boundary, reducing direct Firebase architecture debt to 5 approved
-  core files.
+  repository boundary as part of the earlier direct Firebase surface reduction.
+- Moved realtime notification writes, follow-cache warmup reads,
+  business-directory reads, and current-user state reads behind repository
+  boundaries.
+- Moved app-session user/business document reads behind a repository boundary.
+  The direct Firebase architecture budget is now 0 approved core files.
+- Moved Discover/Explore business loading, load-error/completion state, nearest
+  area detection, and repeated-location-query decisions into
+  `HomeExploreController` with a focused controller test.
+- Moved business appointment dashboard date/status/name/capacity decisions into
+  `BusinessAppointmentDashboardPolicy` with a focused domain test.
+- Moved business appointment dashboard schedule bounds, visible-month
+  appointment filtering, and staff list fallback/deduplication into
+  `BusinessAppointmentDashboardPolicy` with expanded focused tests.
+- Moved business profile edit field fallback, optional email/website
+  validation, required field validation, and storefront readiness scoring into
+  `BusinessProfileEditPolicy` with a focused domain test.
+- Moved account profile edit validation, write-input normalization, and
+  verification summary text into `AccountUserProfilePolicy` with a focused
+  domain test.
+- Moved manual appointment staff normalization, selected-staff fallback,
+  date/time formatting, duration clamping, and form validation into
+  `BusinessManualAppointmentPolicy` with a focused domain test.
+- Moved business service form display normalization, active/passive
+  classification, price/duration/session validation, and save payload creation
+  into `BusinessServiceFormPolicy` with a focused domain test.
+- Moved business product display normalization, numeric parsing/formatting,
+  low-stock detection, stock summary calculation, and product form validation
+  into `BusinessProductPolicy` with a focused domain test.

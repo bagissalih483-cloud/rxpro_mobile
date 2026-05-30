@@ -54,12 +54,12 @@ if (Test-Path -LiteralPath $pubspecPath) {
 
 Test-Contains `
   -Path (Join-Path $root 'lib/core/security/firebase_app_check_bootstrap.dart') `
-  -Pattern 'AndroidProvider\.playIntegrity' `
+  -Pattern 'AndroidPlayIntegrityProvider' `
   -Failure 'Android App Check release provider is not Play Integrity.'
 
 Test-Contains `
   -Path (Join-Path $root 'lib/core/security/firebase_app_check_bootstrap.dart') `
-  -Pattern 'AppleProvider\.appAttestWithDeviceCheckFallback' `
+  -Pattern 'AppleAppAttestWithDeviceCheckFallbackProvider' `
   -Failure 'Apple App Check release provider is not App Attest with DeviceCheck fallback.'
 
 $releaseArgs = @('-ExecutionPolicy', 'Bypass', '-File', (Join-Path $root 'tools\release_gate_check.ps1'))
@@ -85,6 +85,7 @@ $requiredDocs = @(
   'docs\CLEAN_ZIP_AND_SECRET_HANDOFF.md',
   'docs\FIX_APPSTORE_RELEASE_CHECKLIST.md',
   'docs\RELEASE_EXTERNAL_DEPENDENCIES.md',
+  'docs\PUBLIC_DATA_MATRIX.md',
   'docs\SECURITY_PUBLIC_DATA_AND_APP_CHECK_PLAN.md',
   'docs\PRODUCTION_EXTERNAL_VERIFICATION.md'
 )
@@ -93,6 +94,24 @@ foreach ($relativePath in $requiredDocs) {
   if (-not (Test-Path -LiteralPath (Join-Path $root $relativePath))) {
     Add-Failure "$relativePath is missing."
   }
+}
+
+$matrixCheckPath = Join-Path $root 'tools\public_data_matrix_check.ps1'
+if (Test-Path -LiteralPath $matrixCheckPath) {
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $matrixOutput = & powershell -ExecutionPolicy Bypass -File $matrixCheckPath 2>&1
+    $matrixExitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  $matrixOutput | ForEach-Object { Write-Host $_ }
+  if ($matrixExitCode -ne 0) {
+    Add-Failure 'Public data matrix check is not clean.'
+  }
+} else {
+  Add-Failure 'tools\public_data_matrix_check.ps1 is missing.'
 }
 
 if (-not $SkipManualConfirmations) {

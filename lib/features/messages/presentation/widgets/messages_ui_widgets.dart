@@ -53,7 +53,7 @@ class MessagesRoleHeader extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               RxStatusChip(
-                label: '$threadCount görüşme',
+                label: '$threadCount gorusme',
                 icon: Icons.forum_outlined,
                 color: RxColors.success,
               ),
