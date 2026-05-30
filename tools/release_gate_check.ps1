@@ -2,7 +2,8 @@ param(
   [string]$ExpectedAndroidPackage = "com.fix.mobile",
   [string]$ExpectedIosBundleId = "com.fix.mobile",
   [switch]$SkipAndroid,
-  [switch]$SkipIos
+  [switch]$SkipIos,
+  [switch]$SkipIosSigning
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,8 +14,29 @@ function Fail($message) {
   $script:Failures += $message
 }
 
+function Get-FirstRegexGroup {
+  param(
+    [Parameter(Mandatory = $true)][string]$Text,
+    [Parameter(Mandatory = $true)][string]$Pattern
+  )
+
+  $match = [regex]::Match($Text, $Pattern)
+  if (-not $match.Success) {
+    return ''
+  }
+  return $match.Groups[1].Value
+}
+
 Write-Host "== RxPro release gate check =="
 $Failures = @()
+
+$firebaseOptionsPath = Join-Path $root 'lib/firebase_options.dart'
+$firebaseOptions = ''
+if (Test-Path $firebaseOptionsPath) {
+  $firebaseOptions = Get-Content $firebaseOptionsPath -Raw
+} else {
+  Fail "lib/firebase_options.dart is missing."
+}
 
 if (-not $SkipAndroid) {
   $gradleFile = Join-Path $root 'android/app/build.gradle.kts'
@@ -57,6 +79,13 @@ if (-not $SkipAndroid) {
     if ($googleServices -notmatch "`"package_name`"\s*:\s*`"$ExpectedAndroidPackage`"") {
       Fail "android/app/google-services.json does not match $ExpectedAndroidPackage. Download a new Firebase Android config."
     }
+    if ($firebaseOptions.Trim().Length -gt 0) {
+      $googleAppId = Get-FirstRegexGroup -Text $googleServices -Pattern '"mobilesdk_app_id"\s*:\s*"([^"]+)"'
+      $dartAndroidAppId = Get-FirstRegexGroup -Text $firebaseOptions -Pattern "(?s)static const FirebaseOptions android = FirebaseOptions\(.+?appId:\s*'([^']+)'"
+      if ($googleAppId.Length -eq 0 -or $dartAndroidAppId.Length -eq 0 -or $googleAppId -ne $dartAndroidAppId) {
+        Fail "Android Firebase appId mismatch between google-services.json and lib/firebase_options.dart."
+      }
+    }
   }
 
   $pubspecPath = Join-Path $root 'pubspec.yaml'
@@ -84,10 +113,10 @@ if (-not $SkipAndroid) {
     Fail "Firebase App Check bootstrap file is missing."
   } else {
     $appCheckBootstrap = Get-Content $appCheckBootstrapPath -Raw
-    if ($appCheckBootstrap -notmatch 'AndroidProvider\.playIntegrity') {
+    if ($appCheckBootstrap -notmatch 'AndroidPlayIntegrityProvider') {
       Fail "Firebase App Check Android release provider must use Play Integrity."
     }
-    if ($appCheckBootstrap -notmatch 'AppleProvider\.appAttestWithDeviceCheckFallback') {
+    if ($appCheckBootstrap -notmatch 'AppleAppAttestWithDeviceCheckFallbackProvider') {
       Fail "Firebase App Check Apple release provider must use App Attest with DeviceCheck fallback."
     }
   }
@@ -112,6 +141,15 @@ if (-not $SkipIos) {
   $plistPath = Join-Path $root 'ios/Runner/GoogleService-Info.plist'
   if (-not (Test-Path $plistPath)) {
     Fail "ios/Runner/GoogleService-Info.plist is missing."
+  } else {
+    $plist = Get-Content $plistPath -Raw
+    if ($firebaseOptions.Trim().Length -gt 0) {
+      $plistAppId = Get-FirstRegexGroup -Text $plist -Pattern "(?s)<key>GOOGLE_APP_ID</key>\s*<string>([^<]+)</string>"
+      $dartIosAppId = Get-FirstRegexGroup -Text $firebaseOptions -Pattern "(?s)static const FirebaseOptions ios = FirebaseOptions\(.+?appId:\s*'([^']+)'"
+      if ($plistAppId.Length -eq 0 -or $dartIosAppId.Length -eq 0 -or $plistAppId -ne $dartIosAppId) {
+        Fail "iOS Firebase appId mismatch between GoogleService-Info.plist and lib/firebase_options.dart."
+      }
+    }
   }
 
   $xcodeProjectPath = Join-Path $root 'ios/Runner.xcodeproj/project.pbxproj'
@@ -122,7 +160,7 @@ if (-not $SkipIos) {
     if ($xcodeProject -notmatch "PRODUCT_BUNDLE_IDENTIFIER = $ExpectedIosBundleId;") {
       Fail "iOS bundle id must be $ExpectedIosBundleId."
     }
-    if ($xcodeProject -notmatch 'DEVELOPMENT_TEAM = [A-Z0-9]+;') {
+    if (-not $SkipIosSigning -and $xcodeProject -notmatch 'DEVELOPMENT_TEAM = [A-Z0-9]+;') {
       Fail "iOS DEVELOPMENT_TEAM is not configured for release signing."
     }
   }

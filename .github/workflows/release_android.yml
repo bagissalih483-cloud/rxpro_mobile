@@ -1,0 +1,156 @@
+name: Android Release Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_type:
+        description: "Which Android artifact should be produced?"
+        required: true
+        default: "apk"
+        type: choice
+        options:
+          - apk
+          - aab
+          - both
+      build_name:
+        description: "Version name"
+        required: true
+        default: "1.0.0"
+        type: string
+      build_number:
+        description: "Version code. Use auto to use the GitHub run number."
+        required: true
+        default: "auto"
+        type: string
+      app_check_debug:
+        description: "Use Firebase App Check debug provider for local/sideload testing."
+        required: true
+        default: false
+        type: boolean
+      run_tests:
+        description: "Run Flutter tests before building."
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  android-release:
+    name: Build Android Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RXPRO_UPLOAD_CRASHLYTICS_MAPPING: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Restore Android signing files
+        shell: pwsh
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          $required = @(
+            "ANDROID_UPLOAD_KEYSTORE_BASE64",
+            "ANDROID_STORE_PASSWORD",
+            "ANDROID_KEY_ALIAS",
+            "ANDROID_KEY_PASSWORD"
+          )
+
+          foreach ($name in $required) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing GitHub secret: $name"
+            }
+          }
+
+          $keystorePath = Join-Path $env:GITHUB_WORKSPACE "android/rxpro-upload-keystore.jks"
+          $keyPropertiesPath = Join-Path $env:GITHUB_WORKSPACE "android/key.properties"
+
+          [IO.Directory]::CreateDirectory((Split-Path -Parent $keystorePath)) | Out-Null
+          [IO.File]::WriteAllBytes(
+            $keystorePath,
+            [Convert]::FromBase64String($env:ANDROID_UPLOAD_KEYSTORE_BASE64)
+          )
+
+          $keyProperties = @(
+            "storeFile=$keystorePath",
+            "storePassword=$env:ANDROID_STORE_PASSWORD",
+            "keyAlias=$env:ANDROID_KEY_ALIAS",
+            "keyPassword=$env:ANDROID_KEY_PASSWORD"
+          ) -join [Environment]::NewLine
+
+          Set-Content -LiteralPath $keyPropertiesPath -Value $keyProperties -Encoding ascii -Force
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        if: ${{ inputs.run_tests }}
+        run: flutter test --dart-define=RXPRO_SAFE_BOOT=true
+
+      - name: Release gate
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tools/release_gate_check.ps1 -SkipIos
+
+      - name: Build Android artifact
+        shell: pwsh
+        run: |
+          $buildName = "${{ inputs.build_name }}"
+          $buildNumber = "${{ inputs.build_number }}"
+          if ([string]::IsNullOrWhiteSpace($buildNumber) -or $buildNumber -eq "auto") {
+            $buildNumber = "${{ github.run_number }}"
+          }
+
+          $commonArgs = @(
+            "--release",
+            "--build-name",
+            $buildName,
+            "--build-number",
+            $buildNumber,
+            "--dart-define=RXPRO_APP_CHECK_DEBUG=${{ inputs.app_check_debug }}"
+          )
+
+          $artifactType = "${{ inputs.artifact_type }}"
+          if ($artifactType -eq "apk" -or $artifactType -eq "both") {
+            flutter build apk @commonArgs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          if ($artifactType -eq "aab" -or $artifactType -eq "both") {
+            flutter build appbundle @commonArgs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+      - name: Upload APK
+        if: ${{ inputs.artifact_type == 'apk' || inputs.artifact_type == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rxpro-android-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload AAB
+        if: ${{ inputs.artifact_type == 'aab' || inputs.artifact_type == 'both' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rxpro-android-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
