@@ -60,6 +60,10 @@ jobs:
       - name: Build iOS release without codesign
         shell: pwsh
         run: |
+          $logDir = Join-Path $env:GITHUB_WORKSPACE "build/ci_logs"
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          $flutterLogPath = Join-Path $logDir "flutter-ios-build.log"
+
           $buildName = "${{ inputs.build_name }}"
           $buildNumber = "${{ inputs.build_number }}"
           if ([string]::IsNullOrWhiteSpace($buildNumber) -or $buildNumber -eq "auto") {
@@ -78,11 +82,28 @@ jobs:
             "--dart-define=RXPRO_APP_CHECK_DEBUG=${{ inputs.app_check_debug }}"
           )
 
-          flutter @buildArgs
+          flutter @buildArgs 2>&1 | Tee-Object -FilePath $flutterLogPath
+          $buildExitCode = $LASTEXITCODE
 
-          if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
+          $derivedDataLogs = Join-Path $env:HOME "Library/Developer/Xcode/DerivedData"
+          if (Test-Path $derivedDataLogs) {
+            $xcodeLogDir = Join-Path $logDir "xcode"
+            New-Item -ItemType Directory -Force -Path $xcodeLogDir | Out-Null
+            Get-ChildItem -Path $derivedDataLogs -Recurse -Include "*.xcactivitylog", "*.xcresult" -ErrorAction SilentlyContinue |
+              Copy-Item -Destination $xcodeLogDir -Force -ErrorAction SilentlyContinue
           }
+
+          if ($buildExitCode -ne 0) {
+            exit $buildExitCode
+          }
+
+      - name: Upload iOS diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rxpro-ios-diagnostic-logs
+          path: build/ci_logs/**
+          if-no-files-found: ignore
 
       - name: Upload unsigned iOS app bundle
         uses: actions/upload-artifact@v4
