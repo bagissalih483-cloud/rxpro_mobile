@@ -32,9 +32,11 @@ class AppointmentSlotLockRelease {
       appointment['staffDocId'],
       appointment['assignedStaffId'],
     ]);
-    final startAt = _dateOf(appointment[FirestoreFields.startAt]) ??
+    final startAt =
+        _dateOf(appointment[FirestoreFields.startAt]) ??
         DateTime.tryParse(_clean(appointment[FirestoreFields.startAtIso]));
-    final endAt = _dateOf(appointment[FirestoreFields.endAt]) ??
+    final endAt =
+        _dateOf(appointment[FirestoreFields.endAt]) ??
         DateTime.tryParse(_clean(appointment['endAtIso'])) ??
         startAt?.add(
           Duration(

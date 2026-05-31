@@ -30,4 +30,3 @@ class LegalSection {
   final String title;
   final String body;
 }
-

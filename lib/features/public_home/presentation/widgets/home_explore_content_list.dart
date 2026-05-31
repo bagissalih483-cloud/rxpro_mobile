@@ -4,7 +4,7 @@ import 'package:rxpro_mobile/core/businesses/business_directory_cache_service.da
 import 'package:rxpro_mobile/core/theme/rx_ui.dart';
 import 'package:rxpro_mobile/features/stories/business_story_rail.dart';
 
-import 'home_explore_business_cards.dart';
+import 'home_explore_business_grid.dart';
 import 'home_explore_filter_widgets.dart';
 import 'home_explore_shell_widgets.dart';
 
@@ -92,90 +92,126 @@ class HomeExploreContentList extends StatelessWidget {
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
       children: [
-          if (loadingBusinesses && allItems.isEmpty) ...[
-            const LinearProgressIndicator(minHeight: 2),
-            const SizedBox(height: 10),
-          ],
-          HomeExploreSearchBox(
-            controller: searchController,
-            onChanged: onSearchChanged,
-            onClear: onSearchCleared,
+        if (loadingBusinesses && allItems.isEmpty) ...[
+          const LinearProgressIndicator(minHeight: 2),
+          const SizedBox(height: 10),
+        ],
+        const _ExploreBookingHero(),
+        const SizedBox(height: 10),
+        HomeExploreSearchBox(
+          controller: searchController,
+          onChanged: onSearchChanged,
+          onClear: onSearchCleared,
+        ),
+        const SizedBox(height: 10),
+        const BusinessStoryRail(compact: true),
+        const SizedBox(height: 10),
+        HomeExploreCategoryRow(
+          categories: categories,
+          selectedCategory: selectedCategory,
+          counts: categoryCounts,
+          onSelected: onCategorySelected,
+        ),
+        const SizedBox(height: 10),
+        filterPanel,
+        const SizedBox(height: 14),
+        RxSectionHeader(
+          title: sectionTitle,
+          subtitle: currentPosition == null
+              ? 'Konumdan bağımsız tüm kayıtlı işletmeler.'
+              : '${radiusKm.round()} km içinde kayıtlı işletmeler önce gösterilir.',
+          trailing: RxStatusChip(
+            label: '${filteredItems.length} sonuç',
+            color: RxColors.success,
+            compact: true,
           ),
-          const SizedBox(height: 10),
-          const BusinessStoryRail(compact: true),
-          const SizedBox(height: 10),
-          HomeExploreCategoryRow(
-            categories: categories,
-            selectedCategory: selectedCategory,
-            counts: categoryCounts,
-            onSelected: onCategorySelected,
-          ),
-          const SizedBox(height: 10),
-          filterPanel,
-          const SizedBox(height: 14),
-          RxSectionHeader(
-            title: sectionTitle,
-            subtitle: currentPosition == null
-                ? 'Konumdan bağımsız tüm kayıtlı işletmeler.'
-                : '${radiusKm.round()} km içinde kayıtlı işletmeler önce gösterilir.',
-            trailing: RxStatusChip(
-              label: '${filteredItems.length} sonuç',
-              color: RxColors.success,
-              compact: true,
+        ),
+        const SizedBox(height: 10),
+        if (waitingForManualLoad)
+          ExploreInfoState(
+            icon: Icons.pause_circle_outline_rounded,
+            title: 'Keşfet verisi beklemede',
+            text:
+                'İşletme listesini hazır olduğunda manuel olarak yükleyebilirsin.',
+            actionText: 'İşletmeleri yükle',
+            onAction: onManualLoad,
+          )
+        else if (loadingBusinesses && allItems.isEmpty)
+          ...List.generate(
+            4,
+            (index) => const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: RxSkeletonCard(height: 108),
             ),
+          )
+        else if (filteredItems.isEmpty)
+          ExploreInfoState(
+            icon: loadingBusinesses ? Icons.explore_outlined : Icons.search_off,
+            title: emptyTitle,
+            text: emptyText,
+            actionText: loadingBusinesses ? null : 'Filtreleri temizle',
+            onAction: loadingBusinesses ? null : onResetFilters,
+          )
+        else
+          HomeExploreBusinessGrid(
+            items: filteredItems,
+            origin: currentPosition,
+            onOpenBusiness: onOpenBusiness,
+            onOpenDirections: onOpenDirections,
+            onClaimBusiness: onClaimBusiness,
           ),
-          const SizedBox(height: 10),
-          if (waitingForManualLoad)
-            ExploreInfoState(
-              icon: Icons.pause_circle_outline_rounded,
-              title: 'Keşfet beklemede',
-              text:
-                  'Tanı modu otomatik işletme yüklemesini durdurdu. Bu ekran açık kalırsa sorun veri yükleme adımında değildir.',
-              actionText: 'Keşfet verisini yükle',
-              onAction: onManualLoad,
-            )
-          else if (loadingBusinesses && allItems.isEmpty)
-            ...List.generate(
-              4,
-              (index) => const Padding(
-                padding: EdgeInsets.only(bottom: 10),
-                child: RxSkeletonCard(height: 108),
-              ),
-            )
-          else if (filteredItems.isEmpty)
-            ExploreInfoState(
-              icon: loadingBusinesses
-                  ? Icons.explore_outlined
-                  : Icons.search_off,
-              title: emptyTitle,
-              text: emptyText,
-              actionText: loadingBusinesses ? null : 'Filtreleri temizle',
-              onAction: loadingBusinesses ? null : onResetFilters,
-            )
-          else
-            ...filteredItems
-                .take(200)
-                .toList(growable: false)
-                .asMap()
-                .entries
-                .map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    key: ValueKey('explore_business_${entry.value.id}'),
-                    child: HomeExploreBusinessCard(
-                      item: entry.value,
-                      distanceKm: entry.value.distanceKmFrom(currentPosition),
-                      origin: currentPosition,
-                      showRouteDistance: entry.key < 2,
-                      onTap: () => onOpenBusiness(entry.value),
-                      onDirections: () => onOpenDirections(entry.value),
-                      onClaim: entry.value.isMember
-                          ? null
-                          : () => onClaimBusiness(entry.value),
+      ],
+    );
+  }
+}
+
+class _ExploreBookingHero extends StatelessWidget {
+  const _ExploreBookingHero();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFFAF4),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD7F2E0)),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Color(0xFFDDFBEA),
+              child: Icon(Icons.search_rounded, color: Color(0xFF15803D)),
+            ),
+            SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bugün ne arıyorsun?',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF17384A),
                     ),
                   ),
-                ),
-      ],
+                  SizedBox(height: 3),
+                  Text(
+                    'Yakındaki uygun işletmeleri bul ve randevuya başla.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

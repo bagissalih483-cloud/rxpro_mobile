@@ -29,6 +29,14 @@ class AccountingFirestorePaths {
     return '${receivables(businessId)}/$receivableId';
   }
 
+  static String installments(String businessId) {
+    return '${businessRoot(businessId)}/accountingInstallments';
+  }
+
+  static String installment(String businessId, String installmentId) {
+    return '${installments(businessId)}/$installmentId';
+  }
+
   static String expenses(String businessId) {
     return '${businessRoot(businessId)}/accountingExpenses';
   }

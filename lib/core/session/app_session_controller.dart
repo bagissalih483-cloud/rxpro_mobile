@@ -16,15 +16,16 @@ class AppSessionController {
   static final AppSessionRepository _repository = AppSessionRepository();
 
   static Stream<AppSession> watchForUser(User user) {
-    return _repository.watchUserDocument(user.uid).asyncMap(
-      (snapshot) => resolveFromUserDoc(user: user, snapshot: snapshot).timeout(
-        _sessionResolveTimeout,
-        onTimeout: () => _timeoutFallbackSession(
-          user: user,
-          snapshot: snapshot,
-        ),
-      ),
-    );
+    return _repository
+        .watchUserDocument(user.uid)
+        .asyncMap(
+          (snapshot) =>
+              resolveFromUserDoc(user: user, snapshot: snapshot).timeout(
+                _sessionResolveTimeout,
+                onTimeout: () =>
+                    _timeoutFallbackSession(user: user, snapshot: snapshot),
+              ),
+        );
   }
 
   static Future<AppSession> resolveFromUserDoc({
@@ -244,7 +245,7 @@ class AppSessionController {
         uid: user.uid,
         email: user.email ?? '',
         message:
-            'Oturum bilgisi beklenenden uzun surdu. Lutfen tekrar deneyin.',
+            'Oturum bilgileri beklenenden uzun sürdü. Lütfen tekrar deneyin.',
       );
     }
 
@@ -256,7 +257,7 @@ class AppSessionController {
         isAuthenticated: true,
         uid: user.uid,
         email: user.email ?? data['email']?.toString() ?? '',
-        displayName: _displayName(user, data, fallback: 'Bireysel Kullanici'),
+        displayName: _displayName(user, data, fallback: 'Bireysel Kullanıcı'),
         businessId: '',
         businessName: '',
         userData: data,
@@ -278,9 +279,9 @@ class AppSessionController {
         isAuthenticated: true,
         uid: user.uid,
         email: user.email ?? data['email']?.toString() ?? '',
-        displayName: _displayName(user, data, fallback: 'Kurumsal Kullanici'),
+        displayName: _displayName(user, data, fallback: 'Kurumsal Kullanıcı'),
         businessId: fallbackId,
-        businessName: _businessName(data, fallback: 'Kurumsal Kullanici'),
+        businessName: _businessName(data, fallback: 'Kurumsal Kullanıcı'),
         userData: data,
         businessData: data,
         permissions: Map<String, dynamic>.from(data['permissions'] ?? {}),
@@ -292,8 +293,7 @@ class AppSessionController {
       uid: user.uid,
       email: user.email ?? data['email']?.toString() ?? '',
       userData: data,
-      message:
-          'Kullanici rolu zamaninda cozumlenemedi. Lutfen tekrar deneyin.',
+      message: 'Kullanıcı rolü zamanında çözümlenemedi. Lütfen tekrar deneyin.',
     );
   }
 }

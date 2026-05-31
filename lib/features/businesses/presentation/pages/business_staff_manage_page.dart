@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/responsive/rx_keyboard_shortcuts.dart';
 import 'package:rxpro_mobile/features/businesses/data/business_staff_repository.dart';
 import 'package:rxpro_mobile/features/businesses/presentation/widgets/business_staff_manage_widgets.dart';
 
@@ -85,9 +86,19 @@ class _BusinessStaffManagePageState extends State<BusinessStaffManagePage> {
     );
   }
 
+  Future<void> _openNewStaffForm() async {
+    final code = await _codeFuture;
+    if (!mounted) return;
+    _openForm(code);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return RxKeyboardShortcutScope(
+      onCreate: () {
+        _openNewStaffForm();
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Personel ve Yetkiler'),
@@ -95,11 +106,7 @@ class _BusinessStaffManagePageState extends State<BusinessStaffManagePage> {
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final code = await _codeFuture;
-          if (!context.mounted) return;
-          _openForm(code);
-        },
+        onPressed: _openNewStaffForm,
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Personel Ekle'),
       ),
@@ -267,6 +274,7 @@ class _BusinessStaffManagePageState extends State<BusinessStaffManagePage> {
             },
           ),
         ],
+      ),
       ),
     );
   }

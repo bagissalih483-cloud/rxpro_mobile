@@ -100,14 +100,14 @@ class GuestFeaturePreviewPage extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        'Giriş Yap / Kaydol',
+                        'Giriş yap veya hesap oluştur',
                         style: TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Keşfet ekranını misafir olarak kullanmaya devam edebilirsiniz.',
+                    'İstersen keşfetmeye misafir olarak devam edebilirsin.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11.8, color: Color(0xFF6C757D)),
                   ),

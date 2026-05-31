@@ -16,14 +16,22 @@ enum AccountingPaymentStatus {
   unpaid,
   partial,
   collected,
+  paid,
+  openAccount,
+  installment,
+  free,
   overdue,
   refunded,
   cancelled,
 }
 
+enum AccountingProcessStatus { pending, processed, cancelled }
+
 enum AccountingPaymentMethod { cash, card, bank, nfc, mixed, unknown }
 
 enum AccountingExpenseStatus { unpaid, paid, cancelled }
+
+enum AccountingInstallmentStatus { pending, partial, paid, overdue, cancelled }
 
 @immutable
 class AccountingMoney {
@@ -77,6 +85,7 @@ class AccountingSale {
     required this.totalAmountKurus,
     required this.paidAmountKurus,
     required this.remainingAmountKurus,
+    required this.processStatus,
     required this.paymentStatus,
     required this.paymentMethod,
     required this.createdAt,
@@ -106,6 +115,7 @@ class AccountingSale {
   final int remainingAmountKurus;
   final int discountAmountKurus;
   final int depositAmountKurus;
+  final AccountingProcessStatus processStatus;
   final AccountingPaymentStatus paymentStatus;
   final AccountingPaymentMethod paymentMethod;
   final DateTime? dueDate;
@@ -147,6 +157,44 @@ class AccountingPayment {
   final String? collectedByUid;
   final String? note;
   final String source;
+}
+
+@immutable
+class AccountingInstallment {
+  const AccountingInstallment({
+    required this.installmentId,
+    required this.businessId,
+    required this.saleId,
+    required this.installmentNo,
+    required this.amountKurus,
+    required this.paidAmountKurus,
+    required this.dueDate,
+    required this.status,
+    this.customerId,
+    this.customerName,
+  });
+
+  final String installmentId;
+  final String businessId;
+  final String saleId;
+  final String? customerId;
+  final String? customerName;
+  final int installmentNo;
+  final int amountKurus;
+  final int paidAmountKurus;
+  final DateTime? dueDate;
+  final AccountingInstallmentStatus status;
+
+  int get remainingAmountKurus {
+    final remaining = amountKurus - paidAmountKurus;
+    return remaining > 0 ? remaining : 0;
+  }
+
+  bool get isOpen {
+    return remainingAmountKurus > 0 &&
+        status != AccountingInstallmentStatus.paid &&
+        status != AccountingInstallmentStatus.cancelled;
+  }
 }
 
 @immutable

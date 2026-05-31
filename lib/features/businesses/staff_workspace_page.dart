@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rxpro_mobile/app/app_routes.dart';
+import 'package:rxpro_mobile/core/app_state/fix_shell_nav_state.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
+import 'package:rxpro_mobile/core/responsive/rx_adaptive_modal.dart';
 import 'package:flutter/material.dart';
 
 import 'package:rxpro_mobile/core/appointments/appointment_status.dart';
@@ -8,11 +10,21 @@ import 'package:rxpro_mobile/core/appointments/appointment_status_mapper.dart';
 import 'package:rxpro_mobile/core/tasks/task_status_filter.dart';
 
 import 'package:rxpro_mobile/features/businesses/data/staff_workspace_repository.dart';
-import 'package:rxpro_mobile/features/finance/services/finance_record_service.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/staff_workspace_controller.dart';
+import 'package:rxpro_mobile/features/accounting/services/appointment_adisyon_service.dart';
 
 part 'presentation/widgets/staff_workspace_permissions_part.dart';
+part 'presentation/widgets/staff_workspace_assignment_part.dart';
+part 'presentation/widgets/staff_workspace_task_status_part.dart';
+part 'presentation/widgets/staff_workspace_task_text_part.dart';
 part 'presentation/widgets/staff_workspace_actions_part.dart';
+part 'presentation/widgets/staff_workspace_appointment_actions_part.dart';
+part 'presentation/widgets/staff_workspace_overdue_actions_part.dart';
+part 'presentation/widgets/staff_workspace_task_list_part.dart';
+part 'presentation/widgets/staff_workspace_expense_sheet_part.dart';
 part 'presentation/widgets/staff_workspace_widgets_part.dart';
+part 'presentation/widgets/staff_workspace_appointment_tile_part.dart';
+part 'presentation/widgets/staff_workspace_info_box_part.dart';
 
 enum _StaffTaskTab { queue, inProgress, completed, cancelled }
 
@@ -36,7 +48,9 @@ class StaffWorkspacePage extends StatefulWidget {
 class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
   // Canli personel masraf yazma su an guvenli modda kapali tutulur.
   static const bool _staffExpenseLiveWriteEnabled = false;
-  final Set<int> _expanded = <int>{0};
+  final StaffWorkspaceController _controller = StaffWorkspaceController(
+    initialExpanded: {0},
+  );
   final StaffWorkspaceRepository _workspaceRepository =
       StaffWorkspaceRepository();
 
@@ -67,13 +81,13 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
   };
 
   void _toggle(int index) {
-    setState(() {
-      if (_expanded.contains(index)) {
-        _expanded.remove(index);
-      } else {
-        _expanded.add(index);
-      }
-    });
+    _controller.toggle(index);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Widget _buildAssignedTasksFlow() {
@@ -187,16 +201,19 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
         _can('createPosts') ||
         _can('viewCustomers');
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(widget.title),
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-        children: [
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: Text(widget.title),
+            backgroundColor: const Color(0xFFF8FAFC),
+            elevation: 0,
+          ),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+            children: [
           if (!widget.tasksOnly) ...[
             _StaffPanelHeader(
               businessName: businessName,
@@ -212,7 +229,7 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
               title: 'Atanmış Randevular',
               subtitle: 'Yetkili olduğun işlemleri buradan tamamla',
               icon: Icons.event_available_outlined,
-              expanded: _expanded.contains(0),
+              expanded: _controller.isExpanded(0),
               onTap: () => _toggle(0),
               child: _buildAssignedTasksFlow(),
             ),
@@ -223,7 +240,7 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                   : 'Yetkili Hızlı İşlemler',
               subtitle: 'Bu personel hesabında açık olan işlem alanları',
               icon: Icons.flash_on_outlined,
-              expanded: _expanded.contains(1),
+              expanded: _controller.isExpanded(1),
               onTap: () => _toggle(1),
               child: Column(
                 children: [
@@ -325,7 +342,7 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
               title: 'Yetkilerim',
               subtitle: 'Bu hesapta açık olan işlem izinleri',
               icon: Icons.admin_panel_settings_outlined,
-              expanded: _expanded.contains(2),
+              expanded: _controller.isExpanded(2),
               onTap: () => _toggle(2),
               child: Column(
                 children: _permissions.entries.map((entry) {
@@ -346,9 +363,7 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                         Expanded(
                           child: Text(
                             _permissionLabels[entry.key] ?? entry.key,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         ),
                       ],
@@ -357,8 +372,10 @@ class _StaffWorkspacePageState extends State<StaffWorkspacePage> {
                 }).toList(),
               ),
             ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

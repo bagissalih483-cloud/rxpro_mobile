@@ -52,81 +52,121 @@ void main() {
       expect(source.forceRefreshValues, [true]);
     });
 
-    test('preserves existing list on empty reload unless replacement is forced', () async {
-      final source = _FakeHomeExploreDataSource([
-        [_item(id: 'first', name: 'First')],
-        const <BusinessDirectoryItem>[],
-        const <BusinessDirectoryItem>[],
-      ]);
-      final controller = HomeExploreController(dataSource: source);
-      addTearDown(controller.dispose);
+    test(
+      'preserves existing list on empty reload unless replacement is forced',
+      () async {
+        final source = _FakeHomeExploreDataSource([
+          [_item(id: 'first', name: 'First')],
+          const <BusinessDirectoryItem>[],
+          const <BusinessDirectoryItem>[],
+        ]);
+        final controller = HomeExploreController(dataSource: source);
+        addTearDown(controller.dispose);
 
-      await controller.reloadBusinesses(
-        position: null,
-        radiusKm: 10,
-        categoryLabel: BusinessCategories.allLabel,
-        replaceWithEmpty: true,
-      );
-      await controller.reloadBusinesses(
-        position: null,
-        radiusKm: 10,
-        categoryLabel: BusinessCategories.allLabel,
-      );
+        await controller.reloadBusinesses(
+          position: null,
+          radiusKm: 10,
+          categoryLabel: BusinessCategories.allLabel,
+          replaceWithEmpty: true,
+        );
+        await controller.reloadBusinesses(
+          position: null,
+          radiusKm: 10,
+          categoryLabel: BusinessCategories.allLabel,
+        );
 
-      expect(controller.businesses.map((item) => item.id), ['first']);
+        expect(controller.businesses.map((item) => item.id), ['first']);
 
-      await controller.reloadBusinesses(
-        position: null,
-        radiusKm: 10,
-        categoryLabel: BusinessCategories.allLabel,
-        replaceWithEmpty: true,
-      );
+        await controller.reloadBusinesses(
+          position: null,
+          radiusKm: 10,
+          categoryLabel: BusinessCategories.allLabel,
+          replaceWithEmpty: true,
+        );
 
-      expect(controller.businesses, isEmpty);
-    });
+        expect(controller.businesses, isEmpty);
+      },
+    );
 
-    test('filters list and suppresses repeated nearby location queries', () async {
+    test(
+      'filters list and suppresses repeated nearby location queries',
+      () async {
+        final origin = _position(37.1901, 38.7937);
+        final nearAgain = _position(37.1905, 38.7941);
+        final source = _FakeHomeExploreDataSource([
+          [
+            _item(
+              id: 'near',
+              name: 'Karakopru Dental',
+              category: BusinessCategories.values[1].label,
+              lat: 37.1910,
+              lng: 38.7940,
+            ),
+            _item(
+              id: 'far',
+              name: 'Remote Dental',
+              category: BusinessCategories.values[1].label,
+              lat: 37.5000,
+              lng: 39.1000,
+            ),
+          ],
+        ]);
+        final controller = HomeExploreController(dataSource: source);
+        addTearDown(controller.dispose);
+
+        await controller.reloadBusinesses(
+          position: origin,
+          radiusKm: 5,
+          categoryLabel: BusinessCategories.values[1].label,
+          replaceWithEmpty: true,
+        );
+        controller.markLocationQueryApplied(origin);
+
+        final filtered = controller.filteredBusinesses(
+          queryText: 'dental',
+          selectedCategory: BusinessCategories.values[1].label,
+          currentPosition: origin,
+          radiusKm: 5,
+          sortMode: HomeExploreSortMode.recommended,
+        );
+
+        expect(filtered.map((item) => item.id), ['near']);
+        expect(controller.shouldRunLocationQuery(nearAgain), isFalse);
+      },
+    );
+
+    test('owns explore UI filters without widget setState coupling', () {
       final origin = _position(37.1901, 38.7937);
-      final nearAgain = _position(37.1905, 38.7941);
-      final source = _FakeHomeExploreDataSource([
-        [
-          _item(
-            id: 'near',
-            name: 'Karakopru Dental',
-            category: BusinessCategories.values[1].label,
-            lat: 37.1910,
-            lng: 38.7940,
-          ),
-          _item(
-            id: 'far',
-            name: 'Remote Dental',
-            category: BusinessCategories.values[1].label,
-            lat: 37.5000,
-            lng: 39.1000,
-          ),
-        ],
-      ]);
-      final controller = HomeExploreController(dataSource: source);
+      final controller = HomeExploreController(
+        dataSource: _FakeHomeExploreDataSource(const []),
+      );
       addTearDown(controller.dispose);
 
-      await controller.reloadBusinesses(
-        position: origin,
-        radiusKm: 5,
-        categoryLabel: BusinessCategories.values[1].label,
-        replaceWithEmpty: true,
-      );
-      controller.markLocationQueryApplied(origin);
+      controller.setQueryText('clinic');
+      controller.setSelectedCategory(BusinessCategories.values[1].label);
+      controller.setRadiusKm(24);
+      controller.setSortMode(HomeExploreSortMode.rating);
+      controller.setCurrentPosition(origin);
 
-      final filtered = controller.filteredBusinesses(
-        queryText: 'dental',
-        selectedCategory: BusinessCategories.values[1].label,
-        currentPosition: origin,
-        radiusKm: 5,
-        sortMode: HomeExploreSortMode.recommended,
-      );
+      expect(controller.queryText, 'clinic');
+      expect(controller.selectedCategory, BusinessCategories.values[1].label);
+      expect(controller.radiusKm, 24);
+      expect(controller.sortMode, HomeExploreSortMode.rating);
+      expect(controller.currentPosition, origin);
 
-      expect(filtered.map((item) => item.id), ['near']);
-      expect(controller.shouldRunLocationQuery(nearAgain), isFalse);
+      controller.resetFilters();
+
+      expect(controller.queryText, isEmpty);
+      expect(controller.selectedCategory, BusinessCategories.allLabel);
+      expect(controller.radiusKm, 10);
+      expect(controller.sortMode, HomeExploreSortMode.recommended);
+      expect(controller.currentPosition, origin);
+
+      controller.resetSessionState();
+
+      expect(controller.currentPosition, isNull);
+      expect(controller.detectedCity, isEmpty);
+      expect(controller.detectedDistrict, isEmpty);
     });
   });
 }

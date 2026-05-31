@@ -84,6 +84,17 @@ class MessageThreadController extends ChangeNotifier {
     }
 
     if (messages.length == _lastReadMessageCount) return;
+    final hasUnreadIncoming = messages.any((message) {
+      if (message.senderUid == currentUid) return false;
+      return isBusinessOwner
+          ? !message.readByBusiness
+          : !message.readByCustomer;
+    });
+    if (!hasUnreadIncoming) {
+      _lastReadMessageCount = messages.length;
+      return;
+    }
+
     _lastReadMessageCount = messages.length;
     unawaited(markThreadAsRead());
   }
@@ -114,10 +125,7 @@ class MessageThreadController extends ChangeNotifier {
   Future<void> recallMessage(MessageItem message) {
     if (!canRecall(message)) return Future<void>.value();
 
-    return _dataSource.recallMessage(
-      threadId: threadId,
-      messageId: message.id,
-    );
+    return _dataSource.recallMessage(threadId: threadId, messageId: message.id);
   }
 
   Future<void> closeThread() {

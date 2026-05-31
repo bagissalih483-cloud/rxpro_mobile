@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/app_state/fix_session_gate.dart';
+import '../../core/responsive/rx_adaptive_modal.dart';
 
 class GuestRequiredSheet {
   const GuestRequiredSheet._();
@@ -10,13 +11,9 @@ class GuestRequiredSheet {
     required String title,
     required String message,
   }) {
-    return showModalBottomSheet<void>(
+    return showRxAdaptiveModal<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      desktopMaxWidth: 440,
       builder: (_) {
         return SafeArea(
           top: false,
@@ -71,7 +68,7 @@ class GuestRequiredSheet {
                       ),
                     ),
                     child: const Text(
-                      'Giriş Yap / Kaydol',
+                      'Giriş yap veya hesap oluştur',
                       style: TextStyle(fontWeight: FontWeight.w900),
                     ),
                   ),

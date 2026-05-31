@@ -90,4 +90,3 @@ class FinanceIncomeRow {
     return parts.join('  -  ');
   }
 }
-

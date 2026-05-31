@@ -106,14 +106,11 @@ class BusinessGeoIndex {
 
     for (var latOffset = -1; latOffset <= 1; latOffset++) {
       for (var lngOffset = -1; lngOffset <= 1; lngOffset++) {
-        final lat =
-            (latCenter + latSpan * latOffset)
-                .clamp(-89.999999, 89.999999)
-                .toDouble();
+        final lat = (latCenter + latSpan * latOffset)
+            .clamp(-89.999999, 89.999999)
+            .toDouble();
         final lng = _wrapLongitude(lngCenter + lngSpan * lngOffset);
-        values.add(
-          encode(latitude: lat, longitude: lng, precision: precision),
-        );
+        values.add(encode(latitude: lat, longitude: lng, precision: precision));
       }
     }
 

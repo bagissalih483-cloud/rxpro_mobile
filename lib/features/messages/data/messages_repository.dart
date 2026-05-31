@@ -11,6 +11,7 @@ class MessagesRepository {
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  static const int _threadMessageWindowLimit = 120;
 
   String? get currentUid => _auth.currentUser?.uid;
 
@@ -100,21 +101,25 @@ class MessagesRepository {
         .where(FirestoreFields.adminApproved, isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          final list = snapshot.docs.map((doc) {
-            final data = doc.data();
+          final list = snapshot.docs
+              .map((doc) {
+                final data = doc.data();
 
-            return MessageBusinessItem(
-              id: data[FirestoreFields.id]?.toString() ?? doc.id,
-              name:
-                  data[FirestoreFields.businessName]?.toString() ??
-                  'İsimsiz işletme',
-              category: data[FirestoreFields.category]?.toString() ?? 'Genel',
-              ownerUids: _ownerUidsFromBusinessData(data),
-            );
-          }).where((business) {
-            final uid = currentUid ?? '';
-            return uid.isEmpty || !business.isOwnedBy(uid);
-          }).toList();
+                return MessageBusinessItem(
+                  id: data[FirestoreFields.id]?.toString() ?? doc.id,
+                  name:
+                      data[FirestoreFields.businessName]?.toString() ??
+                      'İsimsiz işletme',
+                  category:
+                      data[FirestoreFields.category]?.toString() ?? 'Genel',
+                  ownerUids: _ownerUidsFromBusinessData(data),
+                );
+              })
+              .where((business) {
+                final uid = currentUid ?? '';
+                return uid.isEmpty || !business.isOwnedBy(uid);
+              })
+              .toList();
 
           list.sort((a, b) => a.name.compareTo(b.name));
           return list;
@@ -137,9 +142,7 @@ class MessagesRepository {
     if (cleanUid.isEmpty) return false;
 
     final ownerUids = await _ownerUidsForBusiness(businessId);
-    return ownerUids.any(
-      (ownerUid) => ownerUid.trim() == cleanUid,
-    );
+    return ownerUids.any((ownerUid) => ownerUid.trim() == cleanUid);
   }
 
   Future<MessageFirstSendResult> sendFirstMessage({
@@ -244,6 +247,8 @@ class MessagesRepository {
     final threadRef = _threads.doc(threadId);
     final messages = await threadRef
         .collection(FirestoreCollections.messages)
+        .where(messageReadField, isEqualTo: false)
+        .limit(50)
         .get();
 
     final batch = _firestore.batch();
@@ -251,7 +256,8 @@ class MessagesRepository {
     for (final message in messages.docs) {
       final data = message.data();
       if (data[messageReadField] == true) continue;
-      if (uid.isNotEmpty && data[FirestoreFields.senderUid]?.toString() == uid) {
+      if (uid.isNotEmpty &&
+          data[FirestoreFields.senderUid]?.toString() == uid) {
         continue;
       }
 
@@ -288,6 +294,8 @@ class MessagesRepository {
     return _threads
         .doc(threadId)
         .collection(FirestoreCollections.messages)
+        .orderBy(FirestoreFields.createdAt, descending: true)
+        .limit(_threadMessageWindowLimit)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs.map((doc) {
@@ -517,7 +525,8 @@ class MessageThreadDetails {
     return MessageThreadDetails(
       businessName: data[FirestoreFields.businessName]?.toString() ?? 'İşletme',
       customerName:
-          data[FirestoreFields.customerName]?.toString() ?? 'Bireysel kullanıcı',
+          data[FirestoreFields.customerName]?.toString() ??
+          'Bireysel kullanıcı',
       status: data[FirestoreFields.status]?.toString() ?? 'open',
       topic: data[FirestoreFields.topic]?.toString() ?? 'general',
     );

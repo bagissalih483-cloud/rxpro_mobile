@@ -4,10 +4,11 @@ import 'package:rxpro_mobile/features/businesses/domain/business_profile_booking
 void main() {
   group('BusinessProfileBookingPolicy', () {
     test('normalizes service id lists from mixed values', () {
-      expect(
-        BusinessProfileBookingPolicy.stringList([' s1 ', '', 's2', 3]),
-        ['s1', 's2', '3'],
-      );
+      expect(BusinessProfileBookingPolicy.stringList([' s1 ', '', 's2', 3]), [
+        's1',
+        's2',
+        '3',
+      ]);
       expect(BusinessProfileBookingPolicy.stringList('s1'), isEmpty);
     });
 

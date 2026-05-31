@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'bulk_message_create_controller.dart';
 import 'campaign_models.dart';
 import 'campaign_service.dart';
 
@@ -41,28 +42,31 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
   final messageController = TextEditingController();
   final CampaignService _campaignService = CampaignService();
 
-  late final List<String> targets;
-  late String target;
-  String channel = _channels.first;
-  bool consentOnly = true;
-  bool saving = false;
+  late final BulkMessageCreateController _controller;
 
   @override
   void initState() {
     super.initState();
     final initialAudience = widget.initialAudience?.trim();
-    target = initialAudience == null || initialAudience.isEmpty
+    final target = initialAudience == null || initialAudience.isEmpty
         ? _defaultTargets.first
         : initialAudience;
 
-    targets = <String>[
+    final targets = <String>[
       if (!_defaultTargets.contains(target)) target,
       ..._defaultTargets,
     ];
+
+    _controller = BulkMessageCreateController(
+      targets: targets,
+      initialTarget: target,
+      initialChannel: _channels.first,
+    );
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     titleController.dispose();
     messageController.dispose();
     super.dispose();
@@ -72,12 +76,12 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
     final initialAudience = widget.initialAudience?.trim();
     if (initialAudience != null &&
         initialAudience.isNotEmpty &&
-        target == initialAudience &&
+        _controller.target == initialAudience &&
         widget.initialEstimatedTargetCount != null) {
       return widget.initialEstimatedTargetCount!;
     }
 
-    switch (target) {
+    switch (_controller.target) {
       case 'Son 30 günde randevu alan bireysel kullanıcılar':
         return 40;
       case 'Son 90 günde randevu alan bireysel kullanıcılar':
@@ -94,8 +98,8 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
   bool get canSave {
     return titleController.text.trim().isNotEmpty &&
         messageController.text.trim().isNotEmpty &&
-        consentOnly &&
-        !saving;
+        _controller.consentOnly &&
+        !_controller.saving;
   }
 
   Future<void> _saveDraft() async {
@@ -109,13 +113,13 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
       return;
     }
 
-    setState(() => saving = true);
+    _controller.setSaving(true);
 
     try {
       final metadata = <String, dynamic>{
         if (widget.audienceMetadata != null) ...widget.audienceMetadata!,
-        'selectedAudience': target,
-        'selectedChannel': channel,
+        'selectedAudience': _controller.target,
+        'selectedChannel': _controller.channel,
         'createdFrom': 'bulk_message_create_page',
       };
 
@@ -125,9 +129,9 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
           businessName: widget.businessName,
           title: titleController.text.trim(),
           message: messageController.text.trim(),
-          audience: target,
-          channel: channel,
-          consentOnly: consentOnly,
+          audience: _controller.target,
+          channel: _controller.channel,
+          consentOnly: _controller.consentOnly,
           estimatedTargetCount: estimatedTargetCount,
           sendStatus: 'draft_ready',
           source: 'bulk_message_create_page_65V_customer_segments',
@@ -155,7 +159,7 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
         ),
       );
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) _controller.setSaving(false);
     }
   }
 
@@ -163,19 +167,22 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Toplu Mesaj'),
-        backgroundColor: const Color(0xFFF8FAFC),
-        foregroundColor: const Color(0xFF0F172A),
-        elevation: 0,
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 130),
-          children: [
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: const Text('Toplu Mesaj'),
+            backgroundColor: const Color(0xFFF8FAFC),
+            foregroundColor: const Color(0xFF0F172A),
+            elevation: 0,
+          ),
+          body: SafeArea(
+            bottom: false,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 130),
+              children: [
             _InfoCard(
               title: widget.businessName,
               body:
@@ -186,7 +193,7 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
               title: 'Mesaj Başlığı',
               child: TextField(
                 controller: titleController,
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => _controller.refreshTextInputs(),
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   hintText: 'Örn. Mayıs kampanyası başladı',
@@ -199,7 +206,7 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
               title: 'Mesaj İçeriği',
               child: TextField(
                 controller: messageController,
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => _controller.refreshTextInputs(),
                 minLines: 4,
                 maxLines: 8,
                 decoration: const InputDecoration(
@@ -213,10 +220,10 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
             _FieldCard(
               title: 'Hedef Bireysel Kullanıcı Grubu',
               child: DropdownButtonFormField<String>(
-                initialValue: target,
+                initialValue: _controller.target,
                 isExpanded: true,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
-                items: targets.map((item) {
+                items: _controller.targets.map((item) {
                   return DropdownMenuItem<String>(
                     value: item,
                     child: Text(
@@ -228,7 +235,7 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
                 }).toList(),
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => target = value);
+                  _controller.selectTarget(value);
                 },
               ),
             ),
@@ -236,7 +243,7 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
             _FieldCard(
               title: 'Gönderim Kanalı',
               child: DropdownButtonFormField<String>(
-                initialValue: channel,
+                initialValue: _controller.channel,
                 isExpanded: true,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: _channels.map((item) {
@@ -251,20 +258,22 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
                 }).toList(),
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => channel = value);
+                  _controller.selectChannel(value);
                 },
               ),
             ),
             const SizedBox(height: 14),
             SwitchListTile(
-              value: consentOnly,
-              onChanged: (value) => setState(() => consentOnly = value),
+              value: _controller.consentOnly,
+              onChanged: _controller.setConsentOnly,
               title: const Text(
                 'Sadece bildirim/kampanya izni olan bireysel kullanıcılara gönder',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              subtitle: const Text('İzin kuralı kapalıyken taslak kaydedilmez.'),
+              subtitle: const Text(
+                'İzin kuralı kapalıyken taslak kaydedilmez.',
+              ),
               tileColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -280,20 +289,26 @@ class _BulkMessageCreatePageState extends State<BulkMessageCreatePage> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: EdgeInsets.fromLTRB(18, 8, 18, 16 + bottomInset),
-        child: FilledButton.icon(
-          onPressed: saving ? null : _saveDraft,
-          icon: saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.check),
-          label: Text(saving ? 'Kaydediliyor...' : 'Mesaj Taslağını Kaydet'),
-        ),
-      ),
+          bottomNavigationBar: SafeArea(
+            minimum: EdgeInsets.fromLTRB(18, 8, 18, 16 + bottomInset),
+            child: FilledButton.icon(
+              onPressed: _controller.saving ? null : _saveDraft,
+              icon: _controller.saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check),
+              label: Text(
+                _controller.saving
+                    ? 'Kaydediliyor...'
+                    : 'Mesaj Taslağını Kaydet',
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

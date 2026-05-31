@@ -4,18 +4,18 @@ class MessageUiPolicy {
   static const Map<String, String> topicLabels = {
     'general': 'Genel',
     'appointment': 'Randevu',
-    'complaint': 'Sikayet',
+    'complaint': 'Şikayet',
     'request': 'Talep',
-    'suggestion': 'Oneri',
-    'business_customer': 'Musteri gorusmesi',
+    'suggestion': 'Öneri',
+    'business_customer': 'Müşteri görüşmesi',
   };
 
   static const Map<String, String> customerNewMessageTopics = {
     'general': 'Genel',
     'appointment': 'Randevu',
-    'complaint': 'Sikayet',
+    'complaint': 'Şikayet',
     'request': 'Talep',
-    'suggestion': 'Oneri',
+    'suggestion': 'Öneri',
   };
 
   static String topicLabel(String? topic) {
@@ -28,7 +28,7 @@ class MessageUiPolicy {
   }
 
   static String statusLabel(String? status) {
-    return isClosed(status) ? 'Kapali' : 'Acik';
+    return isClosed(status) ? 'Kapalı' : 'Açık';
   }
 
   static String inboxRoleLabel({required bool isBusinessOwner}) {
@@ -36,29 +36,31 @@ class MessageUiPolicy {
   }
 
   static String emptyInboxTitle({required bool isBusinessOwner}) {
-    return isBusinessOwner ? 'Henuz musteri mesaji yok' : 'Henuz mesajiniz yok';
+    return isBusinessOwner ? 'Henüz müşteri mesajı yok' : 'Henüz mesajınız yok';
   }
 
   static String emptyInboxText({required bool isBusinessOwner}) {
     return isBusinessOwner
-        ? 'Kesif, profil ve randevu akislarindan gelen bireysel kullanici mesajlari burada gorunur.'
-        : 'Kesfet sayfasindan bir isletme secip ilk mesajinizi gonderebilirsiniz.';
+        ? 'Keşif, profil ve randevu akışlarından gelen bireysel kullanıcı mesajları burada görünür.'
+        : 'Keşfet sayfasından bir işletme seçip ilk mesajınızı gönderebilirsiniz.';
   }
 
   static String threadContextTitle({required bool isBusinessOwner}) {
-    return isBusinessOwner ? 'Bireysel kullanici gorusmesi' : 'Isletme gorusmesi';
+    return isBusinessOwner
+        ? 'Bireysel kullanıcı görüşmesi'
+        : 'İşletme görüşmesi';
   }
 
   static String threadContextText({required bool isBusinessOwner}) {
     return isBusinessOwner
-        ? 'Yanitlariniz kurumsal hesabiniz adina bireysel kullaniciya iletilir.'
-        : 'Yanitlariniz bireysel hesabiniz uzerinden isletmeye iletilir.';
+        ? 'Yanıtlarınız kurumsal hesabınız adına bireysel kullanıcıya iletilir.'
+        : 'Yanıtlarınız bireysel hesabınız üzerinden işletmeye iletilir.';
   }
 
   static String inputHint({required bool isBusinessOwner}) {
     return isBusinessOwner
-        ? 'Bireysel kullaniciya yanit yaz...'
-        : 'Isletmeye mesaj yaz...';
+        ? 'Bireysel kullanıcıya yanıt yaz...'
+        : 'İşletmeye mesaj yaz...';
   }
 
   static bool threadUnread({
@@ -71,8 +73,8 @@ class MessageUiPolicy {
 
   static String closedThreadNotice({required bool isBusinessOwner}) {
     return isBusinessOwner
-        ? 'Bu gorusme kapali. Yeniden acarak yanit verebilirsiniz.'
-        : 'Bu gorusme isletme tarafindan kapatilmis. Yeni yanit icin isletmenin yeniden acmasi gerekir.';
+        ? 'Bu görüşme kapalı. Yeniden açarak yanıt verebilirsiniz.'
+        : 'Bu görüşme işletme tarafından kapatılmış. Yeni yanıt için işletmenin yeniden açması gerekir.';
   }
 
   static String readReceipt({
@@ -81,6 +83,6 @@ class MessageUiPolicy {
     required bool readByBusiness,
   }) {
     final seen = isBusinessOwner ? readByCustomer : readByBusiness;
-    return seen ? 'Goruldu' : 'Gonderildi';
+    return seen ? 'Görüldü' : 'Gönderildi';
   }
 }

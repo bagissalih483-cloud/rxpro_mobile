@@ -10,11 +10,11 @@ class NotificationCenterViewPolicy {
     final isBusiness = scope.businessId.trim().isNotEmpty;
     return NotificationCenterSummary(
       title: isBusiness
-          ? 'Kurumsal Kullanici Bildirimleri'
-          : 'Bireysel Kullanici Bildirimleri',
+          ? 'Kurumsal Kullanıcı Bildirimleri'
+          : 'Bireysel Kullanıcı Bildirimleri',
       subtitle: isBusiness
           ? scope.businessName
-          : 'Randevu, kampanya ve sistem uyarilari',
+          : 'Randevu, kampanya ve sistem uyarıları',
       total: items.length,
       unread: unreadCount(items),
     );
@@ -24,8 +24,8 @@ class NotificationCenterViewPolicy {
     return NotificationCenterEmptyCopy(
       title: 'Bildirim yok',
       body: scope.businessId.trim().isNotEmpty
-          ? 'Bu kurumsal kullanici icin henuz bildirim olusmadi.'
-          : 'Hesabiniz icin henuz bildirim olusmadi.',
+          ? 'Bu kurumsal kullanıcı için henüz bildirim oluşmadı.'
+          : 'Hesabınız için henüz bildirim oluşmadı.',
     );
   }
 

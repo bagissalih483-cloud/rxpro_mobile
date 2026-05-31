@@ -55,44 +55,47 @@ void main() {
   });
 
   group('BusinessCustomerRecord merge', () {
-    test('manual classification wins while appointment history enriches record', () {
-      final manual = BusinessCustomerRecord(
-        id: 'manual-1',
-        businessId: 'business-1',
-        customerUid: 'customer-1',
-        name: 'Ayşe Yılmaz',
-        phone: '0555 111 22 33',
-        segmentId: BusinessCustomerSegments.loyal.id,
-        note: 'VIP bakım paketiyle ilgileniyor.',
-        isManual: true,
-        matchKey: 'uid:customer-1',
-        campaignConsent: true,
-      );
+    test(
+      'manual classification wins while appointment history enriches record',
+      () {
+        final manual = BusinessCustomerRecord(
+          id: 'manual-1',
+          businessId: 'business-1',
+          customerUid: 'customer-1',
+          name: 'Ayşe Yılmaz',
+          phone: '0555 111 22 33',
+          segmentId: BusinessCustomerSegments.loyal.id,
+          note: 'VIP bakım paketiyle ilgileniyor.',
+          isManual: true,
+          matchKey: 'uid:customer-1',
+          campaignConsent: true,
+        );
 
-      final appointment = BusinessCustomerRecord(
-        id: 'appointment:customer-1',
-        businessId: 'business-1',
-        customerUid: 'customer-1',
-        name: 'Ayşe Yılmaz',
-        segmentId: BusinessCustomerSegments.active.id,
-        source: 'appointments',
-        appointmentCount: 4,
-        completedAppointmentCount: 2,
-        lastServiceName: 'Cilt bakımı',
-        matchKey: 'uid:customer-1',
-      );
+        final appointment = BusinessCustomerRecord(
+          id: 'appointment:customer-1',
+          businessId: 'business-1',
+          customerUid: 'customer-1',
+          name: 'Ayşe Yılmaz',
+          segmentId: BusinessCustomerSegments.active.id,
+          source: 'appointments',
+          appointmentCount: 4,
+          completedAppointmentCount: 2,
+          lastServiceName: 'Cilt bakımı',
+          matchKey: 'uid:customer-1',
+        );
 
-      final merged = BusinessCustomerRecord.mergeManualAndAppointmentRecords(
-        <BusinessCustomerRecord>[manual],
-        <BusinessCustomerRecord>[appointment],
-      );
+        final merged = BusinessCustomerRecord.mergeManualAndAppointmentRecords(
+          <BusinessCustomerRecord>[manual],
+          <BusinessCustomerRecord>[appointment],
+        );
 
-      expect(merged, hasLength(1));
-      expect(merged.first.segmentId, BusinessCustomerSegments.loyal.id);
-      expect(merged.first.appointmentCount, 4);
-      expect(merged.first.lastServiceName, 'Cilt bakımı');
-      expect(merged.first.note, contains('VIP'));
-      expect(merged.first.canReceiveBulkMessage, isTrue);
-    });
+        expect(merged, hasLength(1));
+        expect(merged.first.segmentId, BusinessCustomerSegments.loyal.id);
+        expect(merged.first.appointmentCount, 4);
+        expect(merged.first.lastServiceName, 'Cilt bakımı');
+        expect(merged.first.note, contains('VIP'));
+        expect(merged.first.canReceiveBulkMessage, isTrue);
+      },
+    );
   });
 }

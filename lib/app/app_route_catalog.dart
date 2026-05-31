@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'app_routes.dart';
 import '../core/theme/rx_ui.dart';
+import '../core/session/app_role.dart';
+import '../core/session/session_role_gate.dart';
 import '../features/admin/presentation/admin_moderation_page.dart';
 import '../features/appointments/presentation/pages/customer_appointments_page.dart';
 import '../features/auth/fix_login_gate_page.dart';
@@ -12,6 +14,7 @@ import '../features/business/pages/business_profile_post_create_page.dart';
 import '../features/business_analysis/presentation/pages/business_product_movement_page.dart';
 import '../features/businesses/business_owner_hub_page.dart';
 import '../features/businesses/business_customers_page.dart';
+import '../features/businesses/business_live_flow_page.dart';
 import '../features/businesses/business_pos_page.dart';
 import '../features/businesses/business_profile_page.dart';
 import '../features/businesses/business_products_page.dart';
@@ -47,16 +50,17 @@ abstract final class AppRouteCatalog {
       case AppRoutes.businessOwnerHub:
         final args = settings.arguments;
         if (args is BusinessOwnerHubRouteArgs) {
-          return _page(
+          return _corporatePage(
             settings,
             BusinessOwnerHubPage(
               businessId: args.businessId,
               initialData: args.initialData,
               openSection: args.openSection,
             ),
+            permissionKey: _businessOwnerHubPermission(args.openSection),
           );
         }
-        return _page(settings, const BusinessOwnerHubPage());
+        return _corporatePage(settings, const BusinessOwnerHubPage());
       case AppRoutes.businessProductMovement:
         final args = settings.arguments;
         if (args is! BusinessProductMovementRouteArgs ||
@@ -71,58 +75,83 @@ abstract final class AppRouteCatalog {
           ),
         );
       case AppRoutes.businessPos:
-        return _page(settings, const BusinessPosPage());
+        return _corporatePage(
+          settings,
+          const BusinessPosPage(),
+          permissionKey: 'financeRead',
+        );
       case AppRoutes.businessCampaigns:
         final args = settings.arguments;
         if (args is! BusinessPageRouteArgs || args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessCampaignsPage(
             businessId: args.businessId,
             businessName: args.businessName,
           ),
+          permissionKey: 'campaignRead',
         );
       case AppRoutes.businessCustomers:
         final args = settings.arguments;
         if (args is! BusinessPageRouteArgs || args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessCustomersPage(
             businessId: args.businessId,
             businessName: args.businessName,
           ),
+          permissionKey: 'customersRead',
         );
       case AppRoutes.businessFinance:
         final args = settings.arguments;
         if (args is! BusinessPageRouteArgs || args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessFinancePage(
             businessId: args.businessId,
             businessName: args.businessName,
           ),
+          permissionKey: 'financeRead',
+        );
+      case AppRoutes.businessLiveFlow:
+        final args = settings.arguments;
+        if (args is! BusinessPageRouteArgs || args.businessId.trim().isEmpty) {
+          return _badArgs(settings);
+        }
+        return _corporatePage(
+          settings,
+          BusinessLiveFlowPage(
+            businessId: args.businessId,
+            businessName: args.businessName,
+          ),
+          permissionKey: 'appointmentsRead',
         );
       case AppRoutes.businessProducts:
-        return _page(settings, const BusinessProductsPage());
+        return _corporatePage(
+          settings,
+          const BusinessProductsPage(),
+          permissionKey: 'productsManage',
+        );
       case AppRoutes.businessProductForm:
         final args = settings.arguments;
         if (args is! BusinessProductFormRouteArgs ||
             args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessProductFormPage(
             businessId: args.businessId,
             businessName: args.businessName,
             doc: args.doc,
           ),
+          permissionKey: 'productsManage',
         );
       case AppRoutes.businessProfile:
         final args = settings.arguments;
@@ -156,12 +185,13 @@ abstract final class AppRouteCatalog {
             args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessProfilePostCreatePage(
             businessId: args.businessId,
             businessName: args.businessName,
           ),
+          permissionKey: 'campaignWrite',
         );
       case AppRoutes.businessServiceForm:
         final args = settings.arguments;
@@ -169,7 +199,7 @@ abstract final class AppRouteCatalog {
             args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           ServiceFormPage(
             businessId: args.businessId,
@@ -177,6 +207,7 @@ abstract final class AppRouteCatalog {
             serviceId: args.serviceId,
             initialData: args.initialData,
           ),
+          permissionKey: 'servicesManage',
         );
       case AppRoutes.businessExpenseForm:
         final args = settings.arguments;
@@ -184,12 +215,13 @@ abstract final class AppRouteCatalog {
             args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           ExpenseFormPage(
             businessId: args.businessId,
             businessName: args.businessName,
           ),
+          permissionKey: 'financeWrite',
         );
       case AppRoutes.businessStaffForm:
         final args = settings.arguments;
@@ -197,7 +229,7 @@ abstract final class AppRouteCatalog {
             args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           StaffFormPage(
             businessId: args.businessId,
@@ -205,13 +237,14 @@ abstract final class AppRouteCatalog {
             staffId: args.staffId,
             initialData: args.initialData,
           ),
+          permissionKey: 'staffManage',
         );
       case AppRoutes.businessStoryCreate:
         final args = settings.arguments;
         if (args is! BusinessPageRouteArgs || args.businessId.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessStoryCreatePage(
             businessId: args.businessId,
@@ -219,34 +252,45 @@ abstract final class AppRouteCatalog {
             businessLogoUrl: args.businessLogoUrl ?? '',
             category: args.category ?? 'Genel',
           ),
+          permissionKey: 'campaignWrite',
         );
       case AppRoutes.bulkMessageCreate:
         final args = settings.arguments;
         if (args is BusinessCampaignToolRouteArgs) {
-          return _page(
+          return _corporatePage(
             settings,
             BulkMessageCreatePage(
               businessId: args.businessId,
-              businessName: args.businessName ?? 'Isletme',
+              businessName: args.businessName ?? 'İşletme',
               initialAudience: args.initialAudience,
               initialEstimatedTargetCount: args.initialEstimatedTargetCount,
               audienceMetadata: args.audienceMetadata,
             ),
+            permissionKey: 'bulkMessage',
           );
         }
-        return _page(settings, const BulkMessageCreatePage());
+        return _corporatePage(
+          settings,
+          const BulkMessageCreatePage(),
+          permissionKey: 'bulkMessage',
+        );
       case AppRoutes.campaignAiCreate:
         final args = settings.arguments;
         if (args is BusinessCampaignToolRouteArgs) {
-          return _page(
+          return _corporatePage(
             settings,
             CampaignAiCreateSafePage(
               businessId: args.businessId,
-              businessName: args.businessName ?? 'Isletme',
+              businessName: args.businessName ?? 'İşletme',
             ),
+            permissionKey: 'campaignWrite',
           );
         }
-        return _page(settings, const CampaignAiCreateSafePage());
+        return _corporatePage(
+          settings,
+          const CampaignAiCreateSafePage(),
+          permissionKey: 'campaignWrite',
+        );
       case AppRoutes.customerAppointments:
         return _page(settings, const CustomerAppointmentsPage());
       case AppRoutes.explore:
@@ -300,7 +344,7 @@ abstract final class AppRouteCatalog {
             args.customerUid.trim().isEmpty) {
           return _badArgs(settings);
         }
-        return _page(
+        return _corporatePage(
           settings,
           BusinessCustomerDirectMessagePage(
             businessId: args.businessId,
@@ -310,6 +354,7 @@ abstract final class AppRouteCatalog {
             customerEmail: args.customerEmail,
             customerPhone: args.customerPhone,
           ),
+          permissionKey: 'customersRead',
         );
       case AppRoutes.notificationCenter:
         final args = _notificationArgs(settings.arguments);
@@ -375,6 +420,52 @@ abstract final class AppRouteCatalog {
       settings: settings,
       builder: (_) => child,
     );
+  }
+
+  static MaterialPageRoute<dynamic> _corporatePage(
+    RouteSettings settings,
+    Widget child, {
+    String? permissionKey,
+  }) {
+    return _page(
+      settings,
+      SessionRoleGate(
+        allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
+        permissionKey: permissionKey,
+        title: 'Yetki gerekli',
+        description:
+            'Bu kurumsal alana eriŞmek iÇin hesabınızda ilgili yetki tanımlı olmalı.',
+        child: child,
+      ),
+    );
+  }
+
+  static String? _businessOwnerHubPermission(String? openSection) {
+    switch (openSection) {
+      case 'customers':
+        return 'customersRead';
+      case 'staff':
+        return 'staffManage';
+      case 'services':
+        return 'servicesManage';
+      case 'products':
+        return 'productsManage';
+      case 'finance':
+      case 'pos':
+        return 'financeRead';
+      case 'campaigns':
+      case 'bulkMessage':
+      case 'bulkMessages':
+      case 'stories':
+        return 'campaignRead';
+      case 'appointmentManagement':
+      case 'live':
+        return 'appointmentsRead';
+      case 'duration':
+      case 'logs':
+        return 'managementRead';
+    }
+    return 'managementRead';
   }
 
   static MaterialPageRoute<dynamic> _badArgs(RouteSettings settings) {

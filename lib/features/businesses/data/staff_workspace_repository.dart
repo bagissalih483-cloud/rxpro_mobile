@@ -199,16 +199,16 @@ class StaffWorkspaceRepository {
 
     final batch = _firestore.batch();
     batch.set(appointmentRef, {
-          ...AppointmentStateTransitionPolicy.noShowFields(reason: reason),
-          FirestoreFields.cancelledAt: FieldValue.serverTimestamp(),
-          FirestoreFields.cancelledByUid: uid,
-          FirestoreFields.cancelledByName: staffName,
-          FirestoreFields.staffUid: uid,
-          FirestoreFields.linkedStaffId: staffId,
-          FirestoreFields.lastStaffActionByUid: uid,
-          FirestoreFields.lastStaffActionByName: staffName,
-          FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+      ...AppointmentStateTransitionPolicy.noShowFields(reason: reason),
+      FirestoreFields.cancelledAt: FieldValue.serverTimestamp(),
+      FirestoreFields.cancelledByUid: uid,
+      FirestoreFields.cancelledByName: staffName,
+      FirestoreFields.staffUid: uid,
+      FirestoreFields.linkedStaffId: staffId,
+      FirestoreFields.lastStaffActionByUid: uid,
+      FirestoreFields.lastStaffActionByName: staffName,
+      FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     for (final slotRef in AppointmentSlotLockRelease.refsForAppointment(
       firestore: _firestore,
       appointment: appointmentData,

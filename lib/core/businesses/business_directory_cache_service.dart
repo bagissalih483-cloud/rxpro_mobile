@@ -5,6 +5,7 @@ import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
 
 import 'data/business_directory_firestore_repository.dart';
 import 'business_category.dart';
+import 'business_directory_query_budget_policy.dart';
 import 'business_geo_index.dart';
 import 'business_location_data.dart';
 
@@ -24,8 +25,10 @@ class BusinessDirectoryCacheService {
 
   static const Duration cacheTtl = Duration(minutes: 5);
   static const Duration _firestoreTimeout = Duration(seconds: 5);
-  static const int _businessPageSize = 100;
-  static const int _businessPageCap = 1000;
+  static const int _businessPageSize =
+      BusinessDirectoryQueryBudgetPolicy.starterPageSize;
+  static const int _businessPageCap =
+      BusinessDirectoryQueryBudgetPolicy.starterPageCap;
 
   bool get _isFresh {
     final last = _lastLoadedAt;
@@ -72,6 +75,15 @@ class BusinessDirectoryCacheService {
       position: position,
       radiusKm: radiusKm,
     ).catchError((_) => <BusinessDirectoryItem>[]);
+    if (local.length >=
+        BusinessDirectoryQueryBudgetPolicy.nearbyFallbackMinLocalResults) {
+      debugPrint(
+        'FIX_EXPLORE_DIRECTORY_LOCAL_ONLY local=${local.length} '
+        'fallback=skipped merged=${local.length}',
+      );
+      return local;
+    }
+
     final fallback = await _loadNearbyFallbackBusinesses(
       position: position,
       radiusKm: radiusKm,
@@ -125,10 +137,10 @@ class BusinessDirectoryCacheService {
         timeout: _firestoreTimeout,
       );
       final list = docs
-          .map((doc) => BusinessDirectoryItem.fromMap(
-                doc.data,
-                fallbackId: doc.id,
-              ))
+          .map(
+            (doc) =>
+                BusinessDirectoryItem.fromMap(doc.data, fallbackId: doc.id),
+          )
           .toList();
 
       list.sort((a, b) => a.name.compareTo(b.name));
@@ -146,16 +158,20 @@ class BusinessDirectoryCacheService {
     required Position position,
     required double radiusKm,
   }) async {
-    final memberItems = await _loadNearbyCollection(
-      collection: FirestoreCollections.businesses,
-      position: position,
-      radiusKm: radiusKm,
-    ).catchError((_) => <BusinessDirectoryItem>[]);
-    final directoryItems = await _loadNearbyCollection(
-      collection: FirestoreCollections.businessPlaceIndex,
-      position: position,
-      radiusKm: radiusKm,
-    ).catchError((_) => <BusinessDirectoryItem>[]);
+    final results = await Future.wait<List<BusinessDirectoryItem>>([
+      _loadNearbyCollection(
+        collection: FirestoreCollections.businesses,
+        position: position,
+        radiusKm: radiusKm,
+      ).catchError((_) => <BusinessDirectoryItem>[]),
+      _loadNearbyCollection(
+        collection: FirestoreCollections.businessPlaceIndex,
+        position: position,
+        radiusKm: radiusKm,
+      ).catchError((_) => <BusinessDirectoryItem>[]),
+    ]);
+    final memberItems = results[0];
+    final directoryItems = results[1];
     final byKey = <String, BusinessDirectoryItem>{};
 
     for (final item in <BusinessDirectoryItem>[
@@ -218,16 +234,13 @@ class BusinessDirectoryCacheService {
       collection: collection,
       prefixField: prefixField,
       prefixes: prefixes,
-      limit: 300,
+      limit: BusinessDirectoryQueryBudgetPolicy.nearbyCollectionLimit,
       timeout: _firestoreTimeout,
     );
 
     final byId = <String, BusinessDirectoryItem>{};
     for (final doc in docs) {
-      final item = BusinessDirectoryItem.fromMap(
-        doc.data,
-        fallbackId: doc.id,
-      );
+      final item = BusinessDirectoryItem.fromMap(doc.data, fallbackId: doc.id);
       if (!item.visible || !item.hasCoordinate) continue;
       final distance = item.distanceKmFrom(position);
       if (distance.isFinite && distance <= radiusKm) {

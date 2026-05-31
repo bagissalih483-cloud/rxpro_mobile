@@ -8,15 +8,21 @@ class GuestMainShell extends StatefulWidget {
 }
 
 class _GuestMainShellState extends State<GuestMainShell> {
-  late int selectedIndex;
+  late final MainShellController _controller;
 
   @override
   void initState() {
     super.initState();
-    selectedIndex = FixShellNavState.guestIndex;
+    _controller = MainShellController(FixShellNavState.guestIndex);
   }
 
-  static const titles = ['Keşfet', 'Favori', 'Randevu', 'Kampanya', 'Giriş'];
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  static const titles = ['Keşfet', 'Randevu', 'Favoriler', 'Fırsatlar', 'Giriş'];
 
   @override
   Widget build(BuildContext context) {
@@ -24,17 +30,6 @@ class _GuestMainShellState extends State<GuestMainShell> {
 
     final pages = [
       HomeExplorePage(key: ValueKey('guest_home_$version')),
-      const GuestFeaturePreviewPage(
-        icon: Icons.favorite_rounded,
-        title: 'Favorilerini kaydetmek için giriş yap',
-        description:
-            'Beğendiğin kurumsal kullanıcıları takip edebilir, kampanya ve paylaşımlarını tek yerde görebilirsin.',
-        bullets: [
-          'Takip edilen kurumsal kullanıcıları kaydetme',
-          'Paylaşım ve kampanya akışını kişiselleştirme',
-          'Sonraki girişlerde kaldığın yerden devam etme',
-        ],
-      ),
       const GuestFeaturePreviewPage(
         icon: Icons.calendar_month_rounded,
         title: 'Randevu almak için bireysel hesap gerekli',
@@ -44,6 +39,17 @@ class _GuestMainShellState extends State<GuestMainShell> {
           'Randevu geçmişi ve aktif randevular',
           'Erteleme ve iptal bildirimleri',
           'Kurumsal kullanıcılarla güvenli işlem akışı',
+        ],
+      ),
+      const GuestFeaturePreviewPage(
+        icon: Icons.favorite_rounded,
+        title: 'Favorilerini kaydetmek için giriş yap',
+        description:
+            'Beğendiğin kurumsal kullanıcıları takip edebilir, fırsat ve paylaşımlarını tek yerde görebilirsin.',
+        bullets: [
+          'Takip edilen kurumsal kullanıcıları kaydetme',
+          'Paylaşım ve fırsat akışını kişiselleştirme',
+          'Sonraki girişlerde kaldığın yerden devam etme',
         ],
       ),
       CustomerCampaignsPage(key: ValueKey('guest_campaigns_$version')),
@@ -60,41 +66,46 @@ class _GuestMainShellState extends State<GuestMainShell> {
       ),
     ];
 
-    return _RxShellScaffold(
-      selectedIndex: selectedIndex,
-      titles: titles,
-      pages: pages,
-      onSelected: (index) {
-        FixShellNavState.guestIndex = index;
-        setState(() => selectedIndex = index);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return _RxShellScaffold(
+          selectedIndex: _controller.selectedIndex,
+          titles: titles,
+          pages: pages,
+          onSelected: (index) {
+            FixShellNavState.guestIndex = index;
+            _controller.selectIndex(index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore),
+              label: 'Keşfet',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month),
+              label: 'Randevu',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_border),
+              selectedIcon: Icon(Icons.favorite),
+              label: 'Favoriler',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.local_offer_outlined),
+              selectedIcon: Icon(Icons.local_offer),
+              label: 'Fırsatlar',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Giriş',
+            ),
+          ],
+        );
       },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.explore_outlined),
-          selectedIcon: Icon(Icons.explore),
-          label: 'Keşfet',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.favorite_border),
-          selectedIcon: Icon(Icons.favorite),
-          label: 'Favori',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: 'Randevu',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.local_offer_outlined),
-          selectedIcon: Icon(Icons.local_offer),
-          label: 'Kampanya',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Giriş',
-        ),
-      ],
     );
   }
 }
@@ -108,14 +119,16 @@ class CustomerMainShell extends StatefulWidget {
 
 class _CustomerMainShellState extends State<CustomerMainShell> {
   final AuthService _authService = AuthService();
-  late int selectedIndex;
+  late final MainShellController _controller;
 
   @override
   void initState() {
     super.initState();
-    selectedIndex = FixShellNavState.individualIndex;
-    if (FixShellNavState.individualIndexNotifier.value != selectedIndex) {
-      FixShellNavState.individualIndexNotifier.value = selectedIndex;
+    _controller = MainShellController(FixShellNavState.individualIndex);
+    if (FixShellNavState.individualIndexNotifier.value !=
+        _controller.selectedIndex) {
+      FixShellNavState.individualIndexNotifier.value =
+          _controller.selectedIndex;
     }
     FixShellNavState.individualIndexNotifier.addListener(
       _handleExternalTabChange,
@@ -127,17 +140,18 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
     FixShellNavState.individualIndexNotifier.removeListener(
       _handleExternalTabChange,
     );
+    _controller.dispose();
     super.dispose();
   }
 
   void _handleExternalTabChange() {
     final nextIndex = FixShellNavState.individualIndexNotifier.value;
-    if (!mounted || selectedIndex == nextIndex) return;
+    if (!mounted || _controller.selectedIndex == nextIndex) return;
 
-    setState(() => selectedIndex = nextIndex);
+    _controller.selectIndex(nextIndex);
   }
 
-  static const titles = ['Keşfet', 'Favori', 'Randevu', 'Kampanya', 'Hesap'];
+  static const titles = ['Keşfet', 'Randevu', 'Favoriler', 'Fırsatlar', 'Hesap'];
 
   @override
   Widget build(BuildContext context) {
@@ -145,14 +159,6 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
 
     final pages = [
       HomeExplorePage(key: ValueKey('individual_home_$userKey')),
-      SessionRoleGate(
-        key: ValueKey('individual_favorite_gate_$userKey'),
-        allowedRoles: const {AppRole.individual},
-        title: 'Favoriler bireysel kullanıcı alanıdır',
-        description:
-            'Favori ve takip akışı sadece bireysel kullanıcı hesabıyla kullanılabilir.',
-        child: FavoriteFeedPage(key: ValueKey('individual_favorite_$userKey')),
-      ),
       SessionRoleGate(
         key: ValueKey('individual_appointments_gate_$userKey'),
         allowedRoles: const {AppRole.individual},
@@ -164,11 +170,19 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
         ),
       ),
       SessionRoleGate(
+        key: ValueKey('individual_favorite_gate_$userKey'),
+        allowedRoles: const {AppRole.individual},
+        title: 'Favoriler bireysel kullanıcı alanıdır',
+        description:
+            'Favori ve takip akışı sadece bireysel kullanıcı hesabıyla kullanılabilir.',
+        child: FavoriteFeedPage(key: ValueKey('individual_favorite_$userKey')),
+      ),
+      SessionRoleGate(
         key: ValueKey('individual_campaigns_gate_$userKey'),
         allowedRoles: const {AppRole.individual},
-        title: 'Kampanyalar bireysel kullanıcı alanıdır',
+        title: 'Fırsatlar bireysel kullanıcı alanıdır',
         description:
-            'Kampanyaları hesabına bağlı takip etmek için bireysel kullanıcı olarak giriş yapmalısın.',
+            'Fırsatları hesabına bağlı takip etmek için bireysel kullanıcı olarak giriş yapmalısın.',
         child: CustomerCampaignsPage(
           key: ValueKey('individual_campaigns_$userKey'),
         ),
@@ -183,43 +197,46 @@ class _CustomerMainShellState extends State<CustomerMainShell> {
       ),
     ];
 
-    return _RxShellScaffold(
-      selectedIndex: selectedIndex,
-      titles: titles,
-      pages: pages,
-      onSelected: (index) {
-        FixShellNavState.setIndividualIndex(index);
-        if (selectedIndex != index) {
-          setState(() => selectedIndex = index);
-        }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return _RxShellScaffold(
+          selectedIndex: _controller.selectedIndex,
+          titles: titles,
+          pages: pages,
+          onSelected: (index) {
+            FixShellNavState.setIndividualIndex(index);
+            _controller.selectIndex(index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore),
+              label: 'Keşfet',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month),
+              label: 'Randevu',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_border),
+              selectedIcon: Icon(Icons.favorite),
+              label: 'Favoriler',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.local_offer_outlined),
+              selectedIcon: Icon(Icons.local_offer),
+              label: 'Fırsatlar',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Hesap',
+            ),
+          ],
+        );
       },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.explore_outlined),
-          selectedIcon: Icon(Icons.explore),
-          label: 'Keşfet',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.favorite_border),
-          selectedIcon: Icon(Icons.favorite),
-          label: 'Favori',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.calendar_month_outlined),
-          selectedIcon: Icon(Icons.calendar_month),
-          label: 'Randevu',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.local_offer_outlined),
-          selectedIcon: Icon(Icons.local_offer),
-          label: 'Kampanya',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Hesap',
-        ),
-      ],
     );
   }
 }
@@ -235,12 +252,36 @@ class BusinessMainShell extends StatefulWidget {
 
 class _BusinessMainShellState extends State<BusinessMainShell> {
   final AuthService _authService = AuthService();
-  late int selectedIndex;
+  late final MainShellController _controller;
 
   @override
   void initState() {
     super.initState();
-    selectedIndex = FixShellNavState.corporateIndex;
+    _controller = MainShellController(FixShellNavState.corporateIndex);
+    if (FixShellNavState.corporateIndexNotifier.value !=
+        _controller.selectedIndex) {
+      FixShellNavState.corporateIndexNotifier.value =
+          _controller.selectedIndex;
+    }
+    FixShellNavState.corporateIndexNotifier.addListener(
+      _handleExternalTabChange,
+    );
+  }
+
+  @override
+  void dispose() {
+    FixShellNavState.corporateIndexNotifier.removeListener(
+      _handleExternalTabChange,
+    );
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleExternalTabChange() {
+    final nextIndex = FixShellNavState.corporateIndexNotifier.value;
+    if (!mounted || _controller.selectedIndex == nextIndex) return;
+
+    _controller.selectIndex(nextIndex);
   }
 
   @override
@@ -248,8 +289,8 @@ class _BusinessMainShellState extends State<BusinessMainShell> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.role.businessId != widget.role.businessId) {
-      FixShellNavState.corporateIndex = 0;
-      selectedIndex = 0;
+      FixShellNavState.setCorporateIndex(0);
+      _controller.selectIndex(0);
     }
   }
 
@@ -260,36 +301,26 @@ class _BusinessMainShellState extends State<BusinessMainShell> {
 
     final pages = [
       SessionRoleGate(
-        key: ValueKey('corporate_preview_gate_$sessionKey'),
+        key: ValueKey('corporate_management_gate_$sessionKey'),
+        permissionKey: 'managementRead',
         allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
-        title: 'Kurumsal ön izleme alanı',
+        title: 'Kurumsal yönetim alanı',
         description:
-            'Bu alan sadece kurumsal kullanıcı veya yetkili kurumsal personel hesabıyla açılır.',
-        child: HomeExplorePage(
-          key: ValueKey('corporate_preview_$sessionKey'),
-          previewMode: true,
-          notificationBusinessId: widget.role.businessId,
-          notificationBusinessName: widget.role.businessName,
-        ),
-      ),
-      SessionRoleGate(
-        key: ValueKey('corporate_accounting_gate_$sessionKey'),
-        allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
-        permissionKey: 'financeRead',
-        title: 'Kurumsal muhasebe alan\u0131',
-        description:
-            'Muhasebe ekran\u0131 sadece kurumsal kullan\u0131c\u0131 ve finans yetkisi bulunan personel i\u00e7in a\u00e7\u0131l\u0131r.',
-        child: BusinessAccountingShell(
-          key: ValueKey('corporate_accounting_$sessionKey'),
+            'Bu alan müşteri keşfi değil; işletme düzeni, müşteri, personel, hizmet ve stok yönetimi için açılır.',
+        child: BusinessManagementHomePage(
+          key: ValueKey('corporate_management_$sessionKey'),
+          businessId: widget.role.businessId,
+          businessName: widget.role.businessName,
+          businessData: widget.role.businessData,
         ),
       ),
       SessionRoleGate(
         key: ValueKey('corporate_appointments_gate_$sessionKey'),
         allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
         permissionKey: 'appointmentsRead',
-        title: 'Kurumsal işlem yönetimi',
+        title: 'Kurumsal randevu alanı',
         description:
-            'Bu alan bireysel randevularım ekranı değildir; sadece kurumsal işlem yönetimi için açılır.',
+            'Mevcut randevu grid sistemi bu sekmenin ana akışı olarak korunur.',
         child: BusinessAppointmentDashboardPage(
           key: ValueKey('corporate_appointments_$sessionKey'),
           businessId: widget.role.businessId,
@@ -298,16 +329,28 @@ class _BusinessMainShellState extends State<BusinessMainShell> {
         ),
       ),
       SessionRoleGate(
-        key: ValueKey('corporate_campaigns_gate_$sessionKey'),
+        key: ValueKey('corporate_accounting_gate_$sessionKey'),
+        allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
+        permissionKey: 'financeRead',
+        title: 'Kurumsal muhasebe alanı',
+        description:
+            'Muhasebe ekranı sadece kurumsal kullanıcı ve finans yetkisi bulunan personel için açılır.',
+        child: BusinessAccountingShell(
+          key: ValueKey('corporate_accounting_$sessionKey'),
+        ),
+      ),
+      SessionRoleGate(
+        key: ValueKey('corporate_marketing_gate_$sessionKey'),
         allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
         permissionKey: 'campaignRead',
-        title: 'Kurumsal kampanya alanı',
+        title: 'Kurumsal pazarlama alanı',
         description:
-            'Kampanya yönetimi sadece kurumsal kullanıcı ve yetkili personel için açılır.',
-        child: BusinessCampaignsPage(
-          key: ValueKey('corporate_campaigns_$sessionKey'),
+            'Kampanya, toplu mesaj, AI kampanya ve vitrin yayınları tek pazarlama merkezinden açılır.',
+        child: BusinessMarketingHubPage(
+          key: ValueKey('corporate_marketing_$sessionKey'),
           businessId: widget.role.businessId,
           businessName: widget.role.businessName,
+          businessData: widget.role.businessData,
         ),
       ),
       SessionRoleGate(
@@ -315,65 +358,104 @@ class _BusinessMainShellState extends State<BusinessMainShell> {
         allowedRoles: const {AppRole.corporateOwner, AppRole.corporateStaff},
         title: 'Kurumsal hesap alanı',
         description:
-            'Bu hesap alanı sadece kurumsal kullanıcı veya yetkili personel oturumu için açılır.',
+            'Bu hesap alanı profil, müşteri gibi gör, bildirim, yasal metin ve oturum işlemleri için açılır.',
         child: AccountEntryPage(key: ValueKey('corporate_account_$sessionKey')),
       ),
     ];
 
     const titles = [
-      'Ön İzleme',
+      'Yönetim',
+      'Randevu',
       'Muhasebe',
-      'İşlemler',
-      'Kampanyalar',
+      'Pazarlama',
       'Hesap',
     ];
 
-    return _RxShellScaffold(
-      selectedIndex: selectedIndex,
-      titles: titles,
-      pages: pages,
-      onSelected: (index) {
-        FixShellNavState.corporateIndex = index;
-        setState(() => selectedIndex = index);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final session = AppSessionScope.maybeOf(context);
+        final visibleIndexes = <int>[
+          if (session == null ||
+              session.hasOwnerAuthority ||
+              session.hasPermission('managementRead'))
+            0,
+          if (session == null ||
+              session.hasOwnerAuthority ||
+              session.hasPermission('appointmentsRead'))
+            1,
+          if (session == null ||
+              session.hasOwnerAuthority ||
+              session.hasPermission('financeRead'))
+            2,
+          if (session == null ||
+              session.hasOwnerAuthority ||
+              session.hasPermission('campaignRead'))
+            3,
+          4,
+        ];
+        final visibleTitles = visibleIndexes
+            .map((index) => titles[index])
+            .toList(growable: false);
+        final visiblePages = visibleIndexes
+            .map((index) => pages[index])
+            .toList(growable: false);
+        final visibleDestinations = visibleIndexes
+            .map((index) => _businessDestinations[index])
+            .toList(growable: false);
+
+        return _RxShellScaffold(
+          selectedIndex: _controller.selectedIndex,
+          titles: visibleTitles,
+          pages: visiblePages,
+          onSelected: (index) {
+            FixShellNavState.setCorporateIndex(index);
+            _controller.selectIndex(index);
+          },
+          destinations: visibleDestinations,
+          tabletMiniDockHiddenTitles: const {'Muhasebe'},
+        );
       },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.storefront_outlined),
-          selectedIcon: Icon(Icons.storefront),
-          label: 'Ön İzleme',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.account_balance_wallet_outlined),
-          selectedIcon: Icon(Icons.account_balance_wallet),
-          label: 'Muhasebe',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.assignment_outlined),
-          selectedIcon: Icon(Icons.assignment),
-          label: 'İşlemler',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.campaign_outlined),
-          selectedIcon: Icon(Icons.campaign),
-          label: 'Kampanyalar',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Hesap',
-        ),
-      ],
     );
   }
 }
 
-class _RxShellScaffold extends StatelessWidget {
+const List<NavigationDestination> _businessDestinations = [
+  NavigationDestination(
+    icon: Icon(Icons.business_center_outlined),
+    selectedIcon: Icon(Icons.business_center),
+    label: 'Yönetim',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.calendar_month_outlined),
+    selectedIcon: Icon(Icons.calendar_month),
+    label: 'Randevu',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.account_balance_wallet_outlined),
+    selectedIcon: Icon(Icons.account_balance_wallet),
+    label: 'Muhasebe',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.campaign_outlined),
+    selectedIcon: Icon(Icons.campaign),
+    label: 'Pazarlama',
+  ),
+  NavigationDestination(
+    icon: Icon(Icons.person_outline),
+    selectedIcon: Icon(Icons.person),
+    label: 'Hesap',
+  ),
+];
+
+class _RxShellScaffold extends StatefulWidget {
   const _RxShellScaffold({
     required this.selectedIndex,
     required this.titles,
     required this.pages,
     required this.onSelected,
     required this.destinations,
+    this.tabletMiniDockHiddenTitles = const <String>{},
   });
 
   final int selectedIndex;
@@ -381,75 +463,50 @@ class _RxShellScaffold extends StatelessWidget {
   final List<Widget> pages;
   final ValueChanged<int> onSelected;
   final List<NavigationDestination> destinations;
+  final Set<String> tabletMiniDockHiddenTitles;
 
   @override
-  Widget build(BuildContext context) {
-    final safeIndex = selectedIndex.clamp(0, pages.length - 1);
+  State<_RxShellScaffold> createState() => _RxShellScaffoldState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          titles[safeIndex],
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        centerTitle: false,
-      ),
-      body: _LazyShellStack(index: safeIndex, pages: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: safeIndex,
-        onDestinationSelected: onSelected,
-        destinations: destinations,
+class _RxShellScaffoldState extends State<_RxShellScaffold> {
+  DateTime? _lastBackPressedAt;
+
+  Future<bool> _handleBackPressed(int safeIndex) async {
+    if (safeIndex != 0) {
+      widget.onSelected(0);
+      _lastBackPressedAt = null;
+      return false;
+    }
+
+    final now = DateTime.now();
+    final shouldExit =
+        _lastBackPressedAt != null &&
+        now.difference(_lastBackPressedAt!) < const Duration(seconds: 2);
+
+    if (shouldExit) return true;
+
+    _lastBackPressedAt = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Çıkmak için tekrar geri tuşuna basın.'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
       ),
     );
-  }
-}
-
-class _LazyShellStack extends StatefulWidget {
-  const _LazyShellStack({required this.index, required this.pages});
-
-  final int index;
-  final List<Widget> pages;
-
-  @override
-  State<_LazyShellStack> createState() => _LazyShellStackState();
-}
-
-class _LazyShellStackState extends State<_LazyShellStack> {
-  final Set<int> _visited = <int>{};
-
-  @override
-  void initState() {
-    super.initState();
-    _visited.add(widget.index);
-  }
-
-  @override
-  void didUpdateWidget(covariant _LazyShellStack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _visited
-      ..removeWhere((index) => index >= widget.pages.length)
-      ..add(widget.index);
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        for (final index in _visited)
-          Offstage(
-            offstage: index != widget.index,
-            child: TickerMode(
-              enabled: index == widget.index,
-              child: SizedBox.expand(
-                child: KeyedSubtree(
-                  key: PageStorageKey<String>('shell_page_$index'),
-                  child: widget.pages[index],
-                ),
-              ),
-            ),
-          ),
-      ],
+    return RxAdaptiveShellScaffold(
+      selectedIndex: widget.selectedIndex,
+      titles: widget.titles,
+      pages: widget.pages,
+      destinations: widget.destinations,
+      onSelected: widget.onSelected,
+      onBackPressed: _handleBackPressed,
+      tabletMiniDockHiddenTitles: widget.tabletMiniDockHiddenTitles,
     );
   }
 }

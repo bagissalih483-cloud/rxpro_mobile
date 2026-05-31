@@ -37,7 +37,10 @@ class FixLoginGateRepository {
     batch.set(userRef, <String, dynamic>{
       FirestoreFields.uid: user.uid,
       FirestoreFields.email: email,
+      FirestoreFields.emailLower: email.trim().toLowerCase(),
       FixLoginGateFieldNames.phone: phone,
+      FirestoreFields.phoneNumber: phone,
+      FixLoginGateFieldNames.phoneLoginEmail: _phoneLoginEmail(phone),
       FirestoreFields.displayName: displayName,
       FirestoreFields.city: city.trim(),
       FirestoreFields.district: district.trim(),
@@ -64,7 +67,8 @@ class FixLoginGateRepository {
           FixLoginGateFieldNames.sourceModule53uIndividual,
       FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
       FirestoreFields.createdAt: FieldValue.serverTimestamp(),
-      if (recordLegalAcceptance) ...FixLoginGateLegalAcceptanceFields.accepted(),
+      if (recordLegalAcceptance)
+        ...FixLoginGateLegalAcceptanceFields.accepted(),
     }, SetOptions(merge: true));
 
     batch.set(publicProfileRef, <String, dynamic>{
@@ -128,7 +132,10 @@ class FixLoginGateRepository {
     batch.set(userRef, <String, dynamic>{
       FirestoreFields.uid: user.uid,
       FirestoreFields.email: email,
+      FirestoreFields.emailLower: email.trim().toLowerCase(),
       FixLoginGateFieldNames.phone: phone,
+      FirestoreFields.phoneNumber: phone,
+      FixLoginGateFieldNames.phoneLoginEmail: _phoneLoginEmail(phone),
       FirestoreFields.displayName: safeOwnerName,
       FirestoreFields.city: city.trim(),
       FirestoreFields.district: district.trim(),
@@ -155,7 +162,8 @@ class FixLoginGateRepository {
           FixLoginGateFieldNames.sourceModule53uCorporate,
       FirestoreFields.updatedAt: FieldValue.serverTimestamp(),
       FirestoreFields.createdAt: FieldValue.serverTimestamp(),
-      if (recordLegalAcceptance) ...FixLoginGateLegalAcceptanceFields.accepted(),
+      if (recordLegalAcceptance)
+        ...FixLoginGateLegalAcceptanceFields.accepted(),
     }, SetOptions(merge: true));
 
     batch.set(publicProfileRef, <String, dynamic>{
@@ -174,7 +182,7 @@ class FixLoginGateRepository {
 
   Future<FixLoginGateBusinessContext> resolveCorporateBusinessContext({
     required User user,
-    String fallbackBusinessName = 'Kurumsal Kullanici',
+    String fallbackBusinessName = 'Kurumsal Kullanıcı',
   }) async {
     final fallbackId = 'business_${user.uid}';
     var userData = const <String, dynamic>{};
@@ -244,7 +252,7 @@ class FixLoginGateRepository {
   static String _resolvedBusinessName(
     Map<String, dynamic> primary, [
     Map<String, dynamic> secondary = const <String, dynamic>{},
-    String fallback = 'Kurumsal Kullanici',
+    String fallback = 'Kurumsal Kullanıcı',
   ]) {
     return _firstNonEmpty(<dynamic>[
       primary[FirestoreFields.businessName],
@@ -263,6 +271,12 @@ class FixLoginGateRepository {
     }
 
     return fallback;
+  }
+
+  static String _phoneLoginEmail(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    return 'tr_$digits@phone.rxpro.local';
   }
 }
 
@@ -291,6 +305,7 @@ class FixLoginGateFieldNames {
   const FixLoginGateFieldNames._();
 
   static const phone = 'phone';
+  static const phoneLoginEmail = 'phoneLoginEmail';
   static const displayName = 'displayName';
   static const phoneVerified = 'phoneVerified';
   static const ownerEmail = 'ownerEmail';

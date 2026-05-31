@@ -18,10 +18,7 @@ void main() {
     });
 
     test('keeps route label readable without duration', () {
-      final info = BusinessRouteInfo(
-        distanceMeters: 540,
-        durationSeconds: 0,
-      );
+      final info = BusinessRouteInfo(distanceMeters: 540, durationSeconds: 0);
 
       expect(info.distanceLabel, '540 m');
       expect(info.durationLabel, '');

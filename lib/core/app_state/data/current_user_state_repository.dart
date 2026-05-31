@@ -24,10 +24,7 @@ class CurrentUserAuthSnapshot {
 }
 
 class CurrentUserDocumentSnapshot {
-  const CurrentUserDocumentSnapshot({
-    required this.exists,
-    required this.data,
-  });
+  const CurrentUserDocumentSnapshot({required this.exists, required this.data});
 
   factory CurrentUserDocumentSnapshot.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
@@ -43,11 +40,9 @@ class CurrentUserDocumentSnapshot {
 }
 
 class CurrentUserStateRepository {
-  CurrentUserStateRepository({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance;
+  CurrentUserStateRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -59,13 +54,10 @@ class CurrentUserStateRepository {
   }
 
   Stream<CurrentUserAuthSnapshot?> watchAuthState() {
-    return _auth
-        .authStateChanges()
-        .map(
-          (user) => user == null
-              ? null
-              : CurrentUserAuthSnapshot.fromFirebaseUser(user),
-        );
+    return _auth.authStateChanges().map(
+      (user) =>
+          user == null ? null : CurrentUserAuthSnapshot.fromFirebaseUser(user),
+    );
   }
 
   Stream<CurrentUserDocumentSnapshot> watchUserDocument(String uid) {

@@ -6,6 +6,9 @@ import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/appointments/domain/appointment_booking_request.dart';
 import 'package:rxpro_mobile/features/appointments/service/appointment_booking_service.dart';
 import 'package:rxpro_mobile/features/businesses/domain/business_profile_booking_policy.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/business_profile_booking_controller.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/business_profile_controller.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/business_profile_reviews_controller.dart';
 
 import '../../core/app_cache/app_cache_service.dart';
 import '../../core/theme/rx_ui.dart';
@@ -14,10 +17,22 @@ import '../business/widgets/business_profile_post_interactive_card.dart';
 import 'package:rxpro_mobile/features/businesses/data/business_profile_repository.dart';
 
 part 'presentation/widgets/business_profile_header_part.dart';
+part 'presentation/widgets/business_profile_header_permissions_part.dart';
+part 'presentation/widgets/business_profile_hero_content_part.dart';
+part 'presentation/widgets/business_profile_hero_cover_part.dart';
+part 'presentation/widgets/business_profile_hero_actions_part.dart';
+part 'presentation/widgets/business_profile_header_widgets_part.dart';
 part 'presentation/widgets/business_profile_intro_part.dart';
+part 'presentation/widgets/business_profile_intro_posts_part.dart';
 part 'presentation/widgets/business_profile_booking_part.dart';
+part 'presentation/widgets/business_profile_booking_logic_part.dart';
+part 'presentation/widgets/business_profile_booking_models_part.dart';
 part 'presentation/widgets/business_profile_booking_widgets_part.dart';
+part 'presentation/widgets/business_profile_booking_tiles_part.dart';
 part 'presentation/widgets/business_profile_reviews_part.dart';
+part 'presentation/widgets/business_profile_reviews_models_part.dart';
+part 'presentation/widgets/business_profile_follow_button_part.dart';
+part 'presentation/widgets/business_profile_stable_booking_part.dart';
 
 bool _rxProfileIsCorporateSession(Map<String, dynamic>? data) {
   if (data == null) return false;
@@ -89,7 +104,13 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   final BusinessProfileRepository _businessProfileRepository =
       BusinessProfileRepository();
   final AuthService _authService = AuthService();
-  int selectedTab = 0;
+  final BusinessProfileController _controller = BusinessProfileController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>? _currentUserDocStream() {
     final uid = _authService.currentUser?.uid;
@@ -147,21 +168,25 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
   Widget build(BuildContext context) {
     final userStream = _currentUserDocStream();
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: userStream,
-      builder: (context, userSnapshot) {
-        final userData = userSnapshot.data?.data();
-        final disableAppointment = _rxProfileIsCorporateSession(userData);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: userStream,
+          builder: (context, userSnapshot) {
+            final userData = userSnapshot.data?.data();
+            final disableAppointment = _rxProfileIsCorporateSession(userData);
 
-        final effectiveSelectedTab = disableAppointment && selectedTab == 1
-            ? 0
-            : selectedTab;
+            final effectiveSelectedTab =
+                disableAppointment && _controller.selectedTab == 1
+                ? 0
+                : _controller.selectedTab;
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('Kurumsal Profil')),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
-            children: [
+            return Scaffold(
+              appBar: AppBar(title: const Text('Kurumsal Profil')),
+              body: ListView(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 90),
+                children: [
               _BusinessHeroCard(
                 businessId: widget.businessId,
                 businessName: widget.businessName,
@@ -175,12 +200,12 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                 ),
                 hideAppointment: disableAppointment,
                 onChanged: (index) {
-                  setState(() {
-                    selectedTab = _selectedTabFromDisplayIndex(
+                  _controller.selectTab(
+                    _selectedTabFromDisplayIndex(
                       displayIndex: index,
                       disableAppointment: disableAppointment,
-                    );
-                  });
+                    ),
+                  );
                 },
               ),
               if (disableAppointment) ...[
@@ -192,8 +217,10 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
                 selected: effectiveSelectedTab,
                 disableAppointment: disableAppointment,
               ),
-            ],
-          ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

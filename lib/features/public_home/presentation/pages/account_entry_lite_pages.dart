@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/core/uploads/app_image_upload_service.dart';
 import 'package:rxpro_mobile/features/public_home/data/account_user_profile_repository.dart';
 import 'package:rxpro_mobile/features/public_home/domain/account_user_profile_policy.dart';
+import 'package:rxpro_mobile/features/public_home/presentation/account_entry_lite_controller.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/widgets/account_entry_cards.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,16 +22,12 @@ class _AccountUserProfileLitePageState
   final _formKey = GlobalKey<FormState>();
   final AccountUserProfileRepository _repository =
       AccountUserProfileRepository();
+  final AccountUserProfileLiteController _controller =
+      AccountUserProfileLiteController();
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _districtController = TextEditingController();
-
-  bool _loading = true;
-  bool _saving = false;
-  bool _uploadingAvatar = false;
-  String _email = '';
-  String _photoUrl = '';
 
   @override
   void initState() {
@@ -43,28 +40,24 @@ class _AccountUserProfileLitePageState
       final data = await _repository.fetchProfile(widget.user);
       if (!mounted) return;
 
-      setState(() {
-        _displayNameController.text = data.displayName;
-        _phoneController.text = data.phone;
-        _cityController.text = data.city;
-        _districtController.text = data.district;
-        _email = data.email;
-        _photoUrl = data.photoUrl;
-        _loading = false;
-      });
+      _displayNameController.text = data.displayName;
+      _phoneController.text = data.phone;
+      _cityController.text = data.city;
+      _districtController.text = data.district;
+      _controller.applyLoaded(data);
     } catch (e) {
       if (!mounted) return;
 
-      setState(() => _loading = false);
+      _controller.completeLoading();
       _showSnack('Profil bilgileri alınamadı: $e');
     }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_saving) return;
+    if (_controller.saving) return;
 
-    setState(() => _saving = true);
+    _controller.setSaving(true);
 
     try {
       final input = AccountUserProfilePolicy.normalizeUpdate(
@@ -72,7 +65,7 @@ class _AccountUserProfileLitePageState
         phone: _phoneController.text,
         city: _cityController.text,
         district: _districtController.text,
-        photoUrl: _photoUrl,
+        photoUrl: _controller.photoUrl,
       );
 
       await _repository.updateProfile(
@@ -90,18 +83,18 @@ class _AccountUserProfileLitePageState
       if (!mounted) return;
       _showSnack('Profil kaydedilemedi: $e');
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) _controller.setSaving(false);
     }
   }
 
   Future<void> _pickAvatar() async {
-    if (_uploadingAvatar || _saving) return;
+    if (_controller.uploadingAvatar || _controller.saving) return;
 
     try {
       final file = await AppImageUploadService.pickFromGallery();
       if (file == null) return;
 
-      setState(() => _uploadingAvatar = true);
+      _controller.setUploadingAvatar(true);
 
       final url = await AppImageUploadService.uploadUserAvatar(
         uid: widget.user.uid,
@@ -127,30 +120,25 @@ class _AccountUserProfileLitePageState
 
       if (!mounted) return;
 
-      setState(() {
-        _photoUrl = url;
-        _uploadingAvatar = false;
-      });
+      _controller.applyAvatarUrl(url);
       _showSnack('Profil fotoğrafı güncellendi.');
     } catch (e) {
       if (!mounted) return;
 
-      setState(() => _uploadingAvatar = false);
+      _controller.setUploadingAvatar(false);
       _showSnack('Fotoğraf yüklenemedi: $e');
     }
   }
 
   void _showSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _displayNameController.dispose();
     _phoneController.dispose();
     _cityController.dispose();
@@ -160,9 +148,11 @@ class _AccountUserProfileLitePageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profilim')),
-      body: _loading
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(title: const Text('Profilim')),
+        body: _controller.loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: Form(
@@ -176,7 +166,7 @@ class _AccountUserProfileLitePageState
                       icon: Icons.verified_user_outlined,
                       title: 'Hesap doğrulama',
                       text: AccountUserProfilePolicy.verificationText(
-                        email: _email,
+                        email: _controller.email,
                         authPhoneNumber: widget.user.phoneNumber,
                         profilePhone: _phoneController.text,
                       ),
@@ -243,8 +233,8 @@ class _AccountUserProfileLitePageState
                     SizedBox(
                       height: 52,
                       child: FilledButton.icon(
-                        onPressed: _saving ? null : _save,
-                        icon: _saving
+                        onPressed: _controller.saving ? null : _save,
+                        icon: _controller.saving
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
@@ -254,7 +244,9 @@ class _AccountUserProfileLitePageState
                               )
                             : const Icon(Icons.save_rounded),
                         label: Text(
-                          _saving ? 'Kaydediliyor...' : 'Profili Kaydet',
+                          _controller.saving
+                              ? 'Kaydediliyor...'
+                              : 'Profili Kaydet',
                         ),
                       ),
                     ),
@@ -262,11 +254,15 @@ class _AccountUserProfileLitePageState
                 ),
               ),
             ),
+      ),
     );
   }
 
   Widget _profileHeader() {
-    final hasPhoto = _photoUrl.trim().isNotEmpty;
+    final photoUrl = _controller.photoUrl;
+    final hasPhoto = photoUrl.trim().isNotEmpty;
+    final uploadingAvatar = _controller.uploadingAvatar;
+    final avatarActionDisabled = uploadingAvatar || _controller.saving;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -285,13 +281,13 @@ class _AccountUserProfileLitePageState
       child: Row(
         children: [
           InkWell(
-            onTap: _pickAvatar,
+            onTap: avatarActionDisabled ? null : _pickAvatar,
             borderRadius: BorderRadius.circular(34),
             child: CircleAvatar(
               radius: 34,
               backgroundColor: const Color(0xFFE0F2FE),
-              backgroundImage: hasPhoto ? NetworkImage(_photoUrl) : null,
-              child: _uploadingAvatar
+              backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+              child: uploadingAvatar
                   ? const CircularProgressIndicator(strokeWidth: 2)
                   : hasPhoto
                   ? null
@@ -324,7 +320,7 @@ class _AccountUserProfileLitePageState
             ),
           ),
           IconButton.filledTonal(
-            onPressed: _pickAvatar,
+            onPressed: avatarActionDisabled ? null : _pickAvatar,
             icon: const Icon(Icons.photo_camera_outlined),
             tooltip: 'Fotoğraf değiştir',
           ),
@@ -374,10 +370,8 @@ class _AccountAppSettingsLitePageState
   static const _campaignKey = 'fix_settings_campaign_updates_enabled';
   static const _routeKey = 'fix_settings_route_distance_enabled';
 
-  bool _loading = true;
-  bool _notifications = true;
-  bool _campaigns = true;
-  bool _routeDistance = true;
+  final AccountAppSettingsLiteController _controller =
+      AccountAppSettingsLiteController();
 
   @override
   void initState() {
@@ -389,16 +383,15 @@ class _AccountAppSettingsLitePageState
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
-    setState(() {
-      _notifications = prefs.getBool(_notificationKey) ?? true;
-      _campaigns = prefs.getBool(_campaignKey) ?? true;
-      _routeDistance = prefs.getBool(_routeKey) ?? true;
-      _loading = false;
-    });
+    _controller.applyLoaded(
+      notifications: prefs.getBool(_notificationKey) ?? true,
+      campaigns: prefs.getBool(_campaignKey) ?? true,
+      routeDistance: prefs.getBool(_routeKey) ?? true,
+    );
   }
 
   Future<void> _set(String key, bool value, ValueChanged<bool> apply) async {
-    setState(() => apply(value));
+    apply(value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(key, value);
     if (!mounted) return;
@@ -412,8 +405,16 @@ class _AccountAppSettingsLitePageState
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => Scaffold(
       appBar: AppBar(title: const Text('Uygulama Ayarları')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -425,7 +426,7 @@ class _AccountAppSettingsLitePageState
                 'Bu tercihler cihazda saklanır ve uygulama deneyimini sadeleştirmek için kullanılır.',
           ),
           const SizedBox(height: 12),
-          if (_loading)
+          if (_controller.loading)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(18),
@@ -437,39 +438,34 @@ class _AccountAppSettingsLitePageState
               icon: Icons.notifications_none_rounded,
               title: 'Bildirimleri göster',
               subtitle: 'Randevu, mesaj ve sistem bildirimleri görünür kalsın.',
-              value: _notifications,
+              value: _controller.notifications,
               onChanged: (value) => _set(
                 _notificationKey,
                 value,
-                (next) => _notifications = next,
+                _controller.setNotifications,
               ),
             ),
             _SettingSwitchTile(
               icon: Icons.local_offer_outlined,
-              title: 'Kampanya güncellemeleri',
+              title: 'Fırsat güncellemeleri',
               subtitle:
-                  'Takip edilen işletmelerden kampanya ve duyuru almayı açık tut.',
-              value: _campaigns,
-              onChanged: (value) => _set(
-                _campaignKey,
-                value,
-                (next) => _campaigns = next,
-              ),
+                  'Takip edilen işletmelerden fırsat ve duyuru almayı açık tut.',
+              value: _controller.campaigns,
+              onChanged: (value) =>
+                  _set(_campaignKey, value, _controller.setCampaigns),
             ),
             _SettingSwitchTile(
               icon: Icons.route_outlined,
               title: 'Yol mesafesi göstergesi',
               subtitle:
                   'Keşfette uygun işletmeler için araçla mesafe bilgisini göster.',
-              value: _routeDistance,
-              onChanged: (value) => _set(
-                _routeKey,
-                value,
-                (next) => _routeDistance = next,
-              ),
+              value: _controller.routeDistance,
+              onChanged: (value) =>
+                  _set(_routeKey, value, _controller.setRouteDistance),
             ),
           ],
         ],
+      ),
       ),
     );
   }

@@ -146,7 +146,9 @@ class CurrentUserStateService {
 
             await emitInitialForUser(firebaseUser);
 
-            userDocSub = _repository.watchUserDocument(firebaseUser.uid).listen(
+            userDocSub = _repository
+                .watchUserDocument(firebaseUser.uid)
+                .listen(
                   (snapshot) async {
                     final data = snapshot.data;
 

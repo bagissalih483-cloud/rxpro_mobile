@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
+import 'package:rxpro_mobile/app/app_routes.dart';
+import 'package:rxpro_mobile/core/responsive/rx_adaptive_modal.dart';
+import 'package:rxpro_mobile/core/responsive/rx_breakpoints.dart';
+import 'package:rxpro_mobile/core/responsive/rx_keyboard_shortcuts.dart';
 import 'package:rxpro_mobile/core/session/app_role.dart';
 import 'package:rxpro_mobile/core/session/session_role_gate.dart';
 
 import 'package:rxpro_mobile/features/business_role/business_role_resolver.dart';
 import 'package:rxpro_mobile/features/appointments/domain/business_appointment_dashboard_policy.dart';
 import 'package:rxpro_mobile/features/appointments/domain/business_manual_appointment_policy.dart';
+import 'package:rxpro_mobile/features/appointments/presentation/business_appointment_dashboard_controller.dart';
+import 'package:rxpro_mobile/features/appointments/presentation/business_manual_appointment_sheet_controller.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/models/appointment_dashboard_models.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/widgets/appointment_dashboard_views.dart';
 
@@ -14,6 +20,7 @@ import 'package:rxpro_mobile/features/appointments/presentation/pages/customer_a
 import 'package:rxpro_mobile/features/appointments/service/business_manual_appointment_service.dart';
 
 part 'appointment_entry_manual_sheet.dart';
+part 'appointment_dashboard_layout_part.dart';
 
 /// 50C-H1: Appointment entry/dashboard UI behavior is unchanged.
 class AppointmentEntryPage extends StatefulWidget {
@@ -87,9 +94,8 @@ class _BusinessAppointmentDashboardPageState
       BusinessAppointmentDashboardRepository();
   final BusinessManualAppointmentService _manualAppointmentService =
       BusinessManualAppointmentService();
-  int selectedMode = 0;
-  DateTime selectedDay = DateTime.now();
-  late DateTime visibleMonth;
+  final BusinessAppointmentDashboardController _controller =
+      BusinessAppointmentDashboardController();
   String? _appointmentsStreamKey;
   Stream<List<Map<String, dynamic>>>? _appointmentsStreamCache;
   String? _staffStreamKey;
@@ -99,9 +105,9 @@ class _BusinessAppointmentDashboardPageState
   bool get wantKeepAlive => true;
 
   @override
-  void initState() {
-    super.initState();
-    visibleMonth = DateTime(selectedDay.year, selectedDay.month, 1);
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   int get openingHour {
@@ -200,30 +206,28 @@ class _BusinessAppointmentDashboardPageState
     AppointmentStaffLite? initialStaff,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
-    final created = await showModalBottomSheet<bool>(
+    final created = await showRxAdaptiveModal<bool>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      desktopMaxWidth: 720,
+      showDragHandle: false,
       builder: (_) {
-        return _BusinessManualAppointmentSheet(
-          service: _manualAppointmentService,
-          businessId: widget.businessId,
-          businessName: widget.businessName,
-          initialStartAt: slot,
-          initialStaff: initialStaff,
-          staff: staff,
+        return SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.86,
+          child: _BusinessManualAppointmentSheet(
+            service: _manualAppointmentService,
+            businessId: widget.businessId,
+            businessName: widget.businessName,
+            initialStartAt: slot,
+            initialStaff: initialStaff,
+            staff: staff,
+          ),
         );
       },
     );
 
     if (created != true || !mounted) return;
 
-    setState(() {
-      selectedDay = DateTime(slot.year, slot.month, slot.day);
-      visibleMonth = DateTime(slot.year, slot.month, 1);
-      selectedMode = 0;
-    });
+    _controller.syncAfterManualAppointment(slot);
 
     messenger.showSnackBar(
       const SnackBar(
@@ -233,12 +237,24 @@ class _BusinessAppointmentDashboardPageState
     );
   }
 
+  Future<void> _openLiveFlow() async {
+    await Navigator.of(context).pushNamed(
+      AppRoutes.businessLiveFlow,
+      arguments: BusinessPageRouteArgs(
+        businessId: widget.businessId,
+        businessName: widget.businessName,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _appointmentsStream(),
-      builder: (context, appointmentSnapshot) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _appointmentsStream(),
+        builder: (context, appointmentSnapshot) {
         if (appointmentSnapshot.hasError) {
           return AppointmentErrorCard(
             message: appointmentSnapshot.error.toString(),
@@ -251,28 +267,50 @@ class _BusinessAppointmentDashboardPageState
             final appointments =
                 BusinessAppointmentDashboardPolicy.activeAppointmentsForMonth(
                   appointments: appointmentSnapshot.data ?? const [],
-                  visibleMonth: visibleMonth,
+                  visibleMonth: _controller.visibleMonth,
                 );
 
-            final staff = BusinessAppointmentDashboardPolicy.staffOptions(
-              staffRows: staffSnapshot.data ?? const [],
-              appointments: appointments,
-            )
-                .map(
-                  (item) => AppointmentStaffLite(id: item.id, name: item.name),
-                )
-                .toList(growable: false);
+            final staff =
+                BusinessAppointmentDashboardPolicy.staffOptions(
+                      staffRows: staffSnapshot.data ?? const [],
+                      appointments: appointments,
+                    )
+                    .map(
+                      (item) =>
+                          AppointmentStaffLite(id: item.id, name: item.name),
+                    )
+                    .toList(growable: false);
 
             final loading =
                 appointmentSnapshot.connectionState ==
                     ConnectionState.waiting ||
                 staffSnapshot.connectionState == ConnectionState.waiting;
+            final quickManualSlot = DateTime(
+              _controller.selectedDay.year,
+              _controller.selectedDay.month,
+              _controller.selectedDay.day,
+              openingHour,
+            );
 
-            return Scaffold(
-              backgroundColor: const Color(0xFFF8FAFC),
-              body: SafeArea(
-                bottom: false,
-                child: Column(
+            return RxKeyboardShortcutScope(
+              onCreate: () {
+                _openManualAppointmentSheet(
+                  context: context,
+                  slot: quickManualSlot,
+                  staff: staff,
+                  initialStaff: staff.isEmpty ? null : staff.first,
+                );
+              },
+              child: Scaffold(
+                backgroundColor: const Color(0xFFF8FAFC),
+                body: SafeArea(
+                  bottom: false,
+                  child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final deviceClass = RxBreakpoints.fromWidth(
+                      constraints.maxWidth,
+                    );
+                    final mainContent = Column(
                   children: [
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -282,7 +320,13 @@ class _BusinessAppointmentDashboardPageState
                           SizedBox(
                             width: double.infinity,
                             child: Center(
-                              child: SegmentedButton<int>(
+                              child: Wrap(
+                                spacing: 10,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  SegmentedButton<int>(
                                 segments: const [
                                   ButtonSegment(
                                     value: 0,
@@ -295,7 +339,7 @@ class _BusinessAppointmentDashboardPageState
                                     icon: Icon(Icons.calendar_month_outlined),
                                   ),
                                 ],
-                                selected: {selectedMode},
+                                selected: {_controller.selectedMode},
                                 showSelectedIcon: false,
                                 style: ButtonStyle(
                                   minimumSize: WidgetStateProperty.all(
@@ -314,9 +358,18 @@ class _BusinessAppointmentDashboardPageState
                                     ),
                                   ),
                                 ),
-                                onSelectionChanged: (value) {
-                                  setState(() => selectedMode = value.first);
-                                },
+                                    onSelectionChanged: (value) {
+                                      _controller.selectMode(value.first);
+                                    },
+                                  ),
+                                  FilledButton.tonalIcon(
+                                    onPressed: _openLiveFlow,
+                                    icon: const Icon(
+                                      Icons.play_circle_outline_rounded,
+                                    ),
+                                    label: const Text('Canlı Akış'),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -329,9 +382,9 @@ class _BusinessAppointmentDashboardPageState
                       ),
                     ),
                     Expanded(
-                      child: selectedMode == 0
+                      child: _controller.selectedMode == 0
                           ? AppointmentDailyFlowView(
-                              selectedDay: selectedDay,
+                              selectedDay: _controller.selectedDay,
                               staff: staff,
                               appointments: appointments,
                               openingHour: openingHour,
@@ -346,38 +399,13 @@ class _BusinessAppointmentDashboardPageState
                               customerNameOf: _customerNameOf,
                               serviceNameOf: _serviceNameOf,
                               onPreviousDay: () {
-                                setState(() {
-                                  selectedDay = selectedDay.subtract(
-                                    const Duration(days: 1),
-                                  );
-                                  visibleMonth = DateTime(
-                                    selectedDay.year,
-                                    selectedDay.month,
-                                    1,
-                                  );
-                                });
+                                _controller.previousDay();
                               },
                               onNextDay: () {
-                                setState(() {
-                                  selectedDay = selectedDay.add(
-                                    const Duration(days: 1),
-                                  );
-                                  visibleMonth = DateTime(
-                                    selectedDay.year,
-                                    selectedDay.month,
-                                    1,
-                                  );
-                                });
+                                _controller.nextDay();
                               },
                               onToday: () {
-                                setState(() {
-                                  selectedDay = DateTime.now();
-                                  visibleMonth = DateTime(
-                                    selectedDay.year,
-                                    selectedDay.month,
-                                    1,
-                                  );
-                                });
+                                _controller.selectToday(DateTime.now());
                               },
                               onCreateAppointment: (slot, selectedStaff) {
                                 _openManualAppointmentSheet(
@@ -389,8 +417,8 @@ class _BusinessAppointmentDashboardPageState
                               },
                             )
                           : AppointmentMonthlyHeatView(
-                              visibleMonth: visibleMonth,
-                              selectedDay: selectedDay,
+                              visibleMonth: _controller.visibleMonth,
+                              selectedDay: _controller.selectedDay,
                               appointments: appointments,
                               staffCount: staff.length,
                               capacityForDay: _capacityForDay,
@@ -399,27 +427,13 @@ class _BusinessAppointmentDashboardPageState
                               sameDay: _sameDay,
                               dateOf: _dateOf,
                               onPreviousMonth: () {
-                                setState(() {
-                                  visibleMonth = DateTime(
-                                    visibleMonth.year,
-                                    visibleMonth.month - 1,
-                                    1,
-                                  );
-                                });
+                                _controller.previousMonth();
                               },
                               onNextMonth: () {
-                                setState(() {
-                                  visibleMonth = DateTime(
-                                    visibleMonth.year,
-                                    visibleMonth.month + 1,
-                                    1,
-                                  );
-                                });
+                                _controller.nextMonth();
                               },
                               onSelectDay: (day) {
-                                setState(() {
-                                  selectedDay = day;
-                                });
+                                _controller.selectDay(day);
                               },
                               onCreateAppointment: (day) {
                                 _openManualAppointmentSheet(
@@ -439,12 +453,52 @@ class _BusinessAppointmentDashboardPageState
                             ),
                     ),
                   ],
+                    );
+
+                    if (!deviceClass.usesWideNavigation) {
+                      return mainContent;
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(child: mainContent),
+                        _AppointmentWideSidePanel(
+                          businessName: widget.businessName,
+                          selectedDay: _controller.selectedDay,
+                          appointments: appointments,
+                          staff: staff,
+                          sameDay: _sameDay,
+                          dateOf: _dateOf,
+                          timeText: _timeText,
+                          dateTitle: _dateTitle,
+                          customerNameOf: _customerNameOf,
+                          serviceNameOf: _serviceNameOf,
+                          onOpenLiveFlow: _openLiveFlow,
+                          onCreateAppointment: () {
+                            _openManualAppointmentSheet(
+                              context: context,
+                              slot: DateTime(
+                                _controller.selectedDay.year,
+                                _controller.selectedDay.month,
+                                _controller.selectedDay.day,
+                                openingHour,
+                              ),
+                              staff: staff,
+                              initialStaff: staff.isEmpty ? null : staff.first,
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 ),
               ),
             );
           },
         );
       },
+      ),
     );
   }
 }

@@ -4,10 +4,7 @@ import '../../firestore/firestore_collections.dart';
 import '../../firestore/firestore_fields.dart';
 
 class AppSessionUserDocument {
-  const AppSessionUserDocument({
-    required this.exists,
-    required this.data,
-  });
+  const AppSessionUserDocument({required this.exists, required this.data});
 
   factory AppSessionUserDocument.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
@@ -23,10 +20,7 @@ class AppSessionUserDocument {
 }
 
 class AppSessionBusinessDocument {
-  const AppSessionBusinessDocument({
-    required this.id,
-    required this.data,
-  });
+  const AppSessionBusinessDocument({required this.id, required this.data});
 
   factory AppSessionBusinessDocument.fromFirestore(
     QueryDocumentSnapshot<Map<String, dynamic>> snapshot,

@@ -8,6 +8,7 @@ class HomeExploreBadgeRepository {
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
+  static const int _badgeCountLimit = 100;
 
   Stream<int> watchUnreadMessagesCount({
     required String uid,
@@ -20,6 +21,7 @@ class HomeExploreBadgeRepository {
       return col
           .where(FirestoreFields.businessId, isEqualTo: businessId)
           .where(FirestoreFields.unreadForBusiness, isEqualTo: true)
+          .limit(_badgeCountLimit)
           .snapshots()
           .map((snapshot) => snapshot.docs.length);
     }
@@ -27,6 +29,7 @@ class HomeExploreBadgeRepository {
     return col
         .where(FirestoreFields.customerUid, isEqualTo: uid)
         .where(FirestoreFields.unreadForCustomer, isEqualTo: true)
+        .limit(_badgeCountLimit)
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
@@ -42,6 +45,7 @@ class HomeExploreBadgeRepository {
       return col
           .where(FirestoreFields.targetScope, isEqualTo: 'business')
           .where(FirestoreFields.businessId, isEqualTo: businessId)
+          .limit(_badgeCountLimit)
           .snapshots()
           .map((snapshot) => _unreadCount(snapshot));
     }
@@ -49,6 +53,7 @@ class HomeExploreBadgeRepository {
     return col
         .where(FirestoreFields.targetScope, whereIn: _userTargetScopes)
         .where(FirestoreFields.recipientUid, isEqualTo: uid)
+        .limit(_badgeCountLimit)
         .snapshots()
         .map((snapshot) => _unreadCount(snapshot));
   }

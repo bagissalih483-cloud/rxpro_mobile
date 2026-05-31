@@ -28,7 +28,7 @@ class MainActivity : FlutterActivity() {
         ).setMethodCallHandler { call, result ->
             if (call.method == "showNotification") {
                 val notificationId = call.argument<String>("notificationId") ?: ""
-                val title = call.argument<String>("title") ?: "fix"
+                val title = call.argument<String>("title") ?: "Fix"
                 val body = call.argument<String>("body") ?: "Yeni bildiriminiz var."
                 val type = call.argument<String>("type") ?: ""
                 val route = call.argument<String>("route") ?: ""
@@ -60,7 +60,7 @@ class MainActivity : FlutterActivity() {
 
     private fun createFixNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channelName = "fix Bildirimleri"
+            val channelName = "Fix Bildirimleri"
             val descriptionText = "Randevu, erteleme, iptal ve kampanya bildirimleri"
             val importance = NotificationManager.IMPORTANCE_HIGH
 

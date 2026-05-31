@@ -7,7 +7,12 @@ import 'package:rxpro_mobile/core/services/auth_service.dart';
 import 'package:rxpro_mobile/features/appointments/services/customer_appointment_action_service.dart';
 import 'package:rxpro_mobile/features/appointments/data/customer_appointment_repository.dart';
 import 'package:rxpro_mobile/features/appointments/domain/customer_appointment_status_policy.dart';
+import 'package:rxpro_mobile/features/appointments/presentation/controllers/customer_appointments_controller.dart';
 import 'package:rxpro_mobile/features/appointments/presentation/widgets/customer_appointment_widgets.dart';
+
+part 'customer_appointment_card_part.dart';
+part 'customer_next_appointment_part.dart';
+part 'customer_appointment_item_part.dart';
 
 class CustomerAppointmentsPage extends StatefulWidget {
   const CustomerAppointmentsPage({super.key});
@@ -24,10 +29,17 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
   final CustomerAppointmentActionService _actionService =
       CustomerAppointmentActionService();
   final AuthService _authService = AuthService();
-  int selectedTab = 0;
+  final CustomerAppointmentsController _controller =
+      CustomerAppointmentsController();
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Stream<List<_AppointmentItem>> _appointmentsStream(String uid) {
     return _appointmentRepository.watchMergedCustomerAppointments(uid: uid).map(
@@ -81,8 +93,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
                   setDialogState(() {});
                 },
                 decoration: const InputDecoration(
-                  hintText:
-                      'Kurumsal kullanıcıya iletilecek gerekçeyi yazın.',
+                  hintText: 'İşletmeye iletmek istediğiniz not',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -121,7 +132,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Randevu iptal edildi ve kurumsal kullanıcıya bildirim kaydı oluşturuldu.',
+          'Randevu iptal edildi ve işletmeye bildirim kaydı oluşturuldu.',
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -187,11 +198,54 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
       arguments: BusinessProfileRouteArgs(
         businessId: bid,
         businessName: item.businessName.isEmpty
-              ? 'Kurumsal Kullanıcı'
-              : item.businessName,
+            ? 'Kurumsal Kullanıcı'
+            : item.businessName,
         category: item.serviceName.isEmpty ? 'Genel' : item.serviceName,
       ),
     );
+  }
+
+  void _messageBusiness(BuildContext context, _AppointmentItem item) {
+    if (item.businessId.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mesaj için işletme bilgisi bulunamadı.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).pushNamed(
+      AppRoutes.messagesNewCustomer,
+      arguments: NewCustomerMessageRouteArgs(
+        initialBusinessId: item.businessId,
+        initialBusinessName: item.businessName,
+        initialBusinessCategory: item.serviceName,
+      ),
+    );
+  }
+
+  void _showComingSoon(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  _AppointmentItem? _nextAppointment(List<_AppointmentItem> active) {
+    if (active.isEmpty) return null;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final upcoming = active
+        .where((item) => item.sortValue == 0 || item.sortValue >= now)
+        .toList()
+      ..sort((a, b) => a.sortValue.compareTo(b.sortValue));
+
+    if (upcoming.isNotEmpty) return upcoming.first;
+
+    final fallback = [...active]
+      ..sort((a, b) => a.sortValue.compareTo(b.sortValue));
+    return fallback.first;
   }
 
   @override
@@ -218,9 +272,17 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
 
     return Scaffold(
       appBar: AppBar(title: const Text('Randevularım')),
-      body: StreamBuilder<List<_AppointmentItem>>(
-        stream: _appointmentsStream(user.uid),
-        builder: (context, snapshot) {
+      body: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final selectedTab = _controller.selectedTab;
+
+          return StreamBuilder<List<_AppointmentItem>>(
+            key: ValueKey(
+              'customer_appointments_${_controller.refreshVersion}',
+            ),
+            stream: _appointmentsStream(user.uid),
+            builder: (context, snapshot) {
           final all = snapshot.data ?? [];
 
           final active = all
@@ -235,6 +297,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
               .toList();
           final past = all.where((item) => item.isPast).toList();
           final cancelled = all.where((item) => item.isCancelled).toList();
+          final nextAppointment = _nextAppointment(active);
 
           final selectedItems = selectedTab == 0
               ? active
@@ -245,7 +308,7 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
               : cancelled;
 
           return RefreshIndicator(
-            onRefresh: () async => setState(() {}),
+            onRefresh: _controller.refresh,
             child: ListView(
               padding: const EdgeInsets.all(18),
               children: [
@@ -261,21 +324,29 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
                       ),
                     ),
                     IconButton(
-                      onPressed: () => setState(() {}),
+                      onPressed: _controller.refresh,
                       icon: const Icon(Icons.refresh_rounded),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
+                if (nextAppointment != null) ...[
+                  _NextAppointmentCard(
+                    item: nextAppointment,
+                    onOpen: () => _openBusinessProfile(
+                      context,
+                      nextAppointment,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 CustomerAppointmentTabs(
                   selectedIndex: selectedTab,
                   activeCount: active.length,
                   postponedCount: postponed.length,
                   pastCount: past.length,
                   cancelledCount: cancelled.length,
-                  onChanged: (index) {
-                    setState(() => selectedTab = index);
-                  },
+                  onChanged: _controller.selectTab,
                 ),
                 const SizedBox(height: 14),
                 if (snapshot.connectionState == ConnectionState.waiting)
@@ -290,6 +361,17 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
                       child: _AppointmentCard(
                         item: item,
                         onCancel: () => _cancelByCustomer(context, item),
+                        onOpenBusiness: () =>
+                            _openBusinessProfile(context, item),
+                        onMessage: () => _messageBusiness(context, item),
+                        onAddToCalendar: () => _showComingSoon(
+                          context,
+                          'Takvime ekleme bu randevu için hazırlanıyor.',
+                        ),
+                        onReview: () => _showComingSoon(
+                          context,
+                          'DeĞerlendirme akıŞı yakında aÇılacak.',
+                        ),
                         onPostponeApprove: () => _acceptPostpone(context, item),
                         onPostponeReject: () =>
                             _rejectPostponeAndCancel(context, item),
@@ -299,408 +381,10 @@ class _CustomerAppointmentsPageState extends State<CustomerAppointmentsPage>
               ],
             ),
           );
+            },
+          );
         },
       ),
-    );
-  }
-}
-
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    required this.item,
-    required this.onCancel,
-    required this.onPostponeApprove,
-    required this.onPostponeReject,
-  });
-
-  final _AppointmentItem item;
-  final VoidCallback onCancel;
-  final VoidCallback onPostponeApprove;
-  final VoidCallback onPostponeReject;
-
-  Color get _bg {
-    if (item.isPostponeRequested) return const Color(0xFFFFF7D6);
-    if (item.isCancelled) return const Color(0xFFFFE4E6);
-    if (item.isCompleted) return const Color(0xFFDCFCE7);
-    return Colors.white;
-  }
-
-  Color get _accent {
-    if (item.isPostponeRequested) return const Color(0xFFD97706);
-    if (item.isCancelled) return const Color(0xFFDC2626);
-    if (item.isCompleted) return const Color(0xFF16A34A);
-    return const Color(0xFF2563EB);
-  }
-
-  String get _statusText {
-    if (item.isPostponeRequested) return 'Erteleme bekliyor';
-    if (item.isCancelled) return 'İptal edildi';
-    if (item.isCompleted) return 'Geçmiş randevu';
-    return 'Aktif randevu';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: _bg,
-      margin: const EdgeInsets.fromLTRB(16, 7, 16, 9),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: BorderSide(color: _accent.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: _accent.withValues(alpha: 0.12),
-                  child: Icon(Icons.event_available_rounded, color: _accent),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    item.businessName.isNotEmpty
-                        ? item.businessName
-                        : 'Randevu',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    _statusText,
-                    style: TextStyle(
-                      color: _accent,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              item.serviceName.isNotEmpty ? item.serviceName : 'Hizmet',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 7),
-            CustomerAppointmentInfoLine(
-              icon: Icons.calendar_month_rounded,
-              text: '${item.dateText} • ${item.timeText}',
-            ),
-            if (item.staffName.isNotEmpty)
-              CustomerAppointmentInfoLine(
-                icon: Icons.person_outline_rounded,
-                text: 'Personel: ${item.staffName}',
-              ),
-            if (item.appointmentNo.isNotEmpty)
-              CustomerAppointmentInfoLine(
-                icon: Icons.tag_rounded,
-                text: 'Randevu No: ${item.appointmentNo}',
-              ),
-            if (item.isPostponeRequested) ...[
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: const Text(
-                  'Kurumsal Kullanıcı bu randevu için erteleme talebi oluşturmuş. Uygunsa kabul edebilir veya reddedebilirsiniz.',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF92400E),
-                    height: 1.3,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            _ActionsRow(
-              item: item,
-              onCancel: onCancel,
-              onPostponeApprove: onPostponeApprove,
-              onPostponeReject: onPostponeReject,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AppointmentItem {
-  const _AppointmentItem({
-    required this.id,
-    required this.businessId,
-    required this.businessOwnerUid,
-    required this.businessName,
-    required this.serviceName,
-    required this.staffName,
-    required this.dateText,
-    required this.timeText,
-    required this.status,
-    required this.isActive,
-    required this.isPast,
-    required this.isCancelled,
-    required this.isPostponeRequested,
-    required this.customerApprovalStatus,
-    required this.postponeDateKey,
-    required this.postponeDateText,
-    required this.postponeTimeText,
-    required this.postponeStartAt,
-    required this.postponeStartAtIso,
-    required this.postponeRequestNote,
-    required this.cancellationReason,
-    required this.sortValue,
-  });
-
-  final String id;
-  final String businessId;
-  final String businessOwnerUid;
-  final String businessName;
-  final String serviceName;
-  final String staffName;
-  final String dateText;
-  final String timeText;
-  final String status;
-  final bool isActive;
-  final bool isPast;
-  final bool isCancelled;
-  final bool isPostponeRequested;
-  final String customerApprovalStatus;
-  final String postponeDateKey;
-  final String postponeDateText;
-  final String postponeTimeText;
-  final Timestamp? postponeStartAt;
-  final String postponeStartAtIso;
-  final String postponeRequestNote;
-  final String cancellationReason;
-  final int sortValue;
-
-  CustomerAppointmentActionTarget toActionTarget() {
-    return CustomerAppointmentActionTarget(
-      id: id,
-      businessId: businessId,
-      businessName: businessName,
-      businessOwnerUid: businessOwnerUid,
-      serviceName: serviceName,
-      dateText: dateText,
-      timeText: timeText,
-      postponeDateKey: postponeDateKey,
-      postponeDateText: postponeDateText,
-      postponeTimeText: postponeTimeText,
-      postponeStartAt: postponeStartAt,
-      postponeStartAtIso: postponeStartAtIso,
-    );
-  }
-
-  factory _AppointmentItem.fromCustomerDocument(
-    CustomerAppointmentDocument doc,
-  ) {
-    return _AppointmentItem.fromData(id: doc.id, data: doc.data);
-  }
-
-  factory _AppointmentItem.fromData({
-    required String id,
-    required Map<String, dynamic> data,
-  }) {
-    final cancelled = CustomerAppointmentStatusPolicy.isCancelled(data);
-    final active = CustomerAppointmentStatusPolicy.isActive(data);
-    final past = CustomerAppointmentStatusPolicy.isCompleted(data);
-    final postponed = CustomerAppointmentStatusPolicy.isPostponeRequested(data);
-    final startAt = data['startAt'];
-
-    int sort = 0;
-
-    if (startAt is Timestamp) {
-      sort = startAt.millisecondsSinceEpoch;
-    } else {
-      sort =
-          DateTime.tryParse(
-            CustomerAppointmentStatusPolicy.clean(data['startAtIso']),
-          )?.millisecondsSinceEpoch ??
-          DateTime.tryParse(
-            CustomerAppointmentStatusPolicy.clean(data['createdAtLocalIso']),
-          )?.millisecondsSinceEpoch ??
-          0;
-    }
-
-    final postponeStartAtRaw = data['postponeRequestedStartAt'];
-    final approval = CustomerAppointmentStatusPolicy.clean(
-      data['customerApprovalStatus'] ?? data['postponeRequestStatus'],
-    ).toLowerCase();
-
-    return _AppointmentItem(
-      id: id,
-      businessId: CustomerAppointmentStatusPolicy.clean(data['businessId']),
-      businessOwnerUid: CustomerAppointmentStatusPolicy.clean(
-        data['businessOwnerUid'] ?? data['ownerUid'] ?? data['providerUid'],
-      ),
-      businessName:
-          CustomerAppointmentStatusPolicy.clean(data['businessName']).isEmpty
-          ? 'Kurumsal Kullanıcı'
-          : CustomerAppointmentStatusPolicy.clean(data['businessName']),
-      serviceName:
-          CustomerAppointmentStatusPolicy.clean(data['serviceName']).isEmpty
-          ? 'Hizmet'
-          : CustomerAppointmentStatusPolicy.clean(data['serviceName']),
-      staffName:
-          CustomerAppointmentStatusPolicy.clean(data['staffName']).isEmpty
-          ? 'Personel'
-          : CustomerAppointmentStatusPolicy.clean(data['staffName']),
-      dateText:
-          CustomerAppointmentStatusPolicy.clean(
-            data['dateText'] ?? data['appointmentDate'],
-          ).isEmpty
-          ? '-'
-          : CustomerAppointmentStatusPolicy.clean(
-              data['dateText'] ?? data['appointmentDate'],
-            ),
-      timeText:
-          CustomerAppointmentStatusPolicy.clean(
-            data['timeText'] ?? data['appointmentTime'],
-          ).isEmpty
-          ? '-'
-          : CustomerAppointmentStatusPolicy.clean(
-              data['timeText'] ?? data['appointmentTime'],
-            ),
-      status: CustomerAppointmentStatusPolicy.statusOf(data),
-      isActive: active,
-      isPast: past,
-      isCancelled: cancelled,
-      isPostponeRequested: postponed,
-      customerApprovalStatus: approval.isEmpty ? '-' : approval,
-      postponeDateKey: CustomerAppointmentStatusPolicy.clean(
-        data['postponeRequestedDateKey'],
-      ),
-      postponeDateText: CustomerAppointmentStatusPolicy.clean(
-        data['postponeRequestedDateText'] ?? data['postponedDateText'],
-      ),
-      postponeTimeText: CustomerAppointmentStatusPolicy.clean(
-        data['postponeRequestedTimeText'] ?? data['postponedTimeText'],
-      ),
-      postponeStartAt: postponeStartAtRaw is Timestamp
-          ? postponeStartAtRaw
-          : null,
-      postponeStartAtIso: CustomerAppointmentStatusPolicy.clean(
-        data['postponeRequestedStartAtIso'],
-      ),
-      postponeRequestNote: CustomerAppointmentStatusPolicy.clean(
-        data['postponeRequestNote'] ?? data['postponedNote'],
-      ),
-      cancellationReason: CustomerAppointmentStatusPolicy.clean(
-        data['cancellationReason'] ?? data['postponeRejectedReason'],
-      ),
-      sortValue: sort,
-    );
-  }
-}
-
-extension _AppointmentItem37MDFix on _AppointmentItem {
-  bool get isCompleted {
-    final normalized = status.toLowerCase().trim();
-
-    return normalized == 'completed' ||
-        normalized == 'done' ||
-        normalized == 'finished' ||
-        normalized == 'tamamlandi' ||
-        normalized == 'tamamlandı' ||
-        normalized == 'sonuclandi' ||
-        normalized == 'sonuçlandı' ||
-        normalized == 'resulted' ||
-        isPast;
-  }
-
-  String get appointmentNo => '';
-}
-
-class _ActionsRow extends StatelessWidget {
-  const _ActionsRow({
-    required this.item,
-    required this.onCancel,
-    required this.onPostponeApprove,
-    required this.onPostponeReject,
-  });
-
-  final _AppointmentItem item;
-  final VoidCallback onCancel;
-  final VoidCallback onPostponeApprove;
-  final VoidCallback onPostponeReject;
-
-  @override
-  Widget build(BuildContext context) {
-    if (item.isCancelled) {
-      return const CustomerAppointmentStatusOnlyLine(
-        icon: Icons.cancel_outlined,
-        text: 'Bu randevu iptal edildi.',
-        color: Color(0xFFDC2626),
-      );
-    }
-
-    if (item.isCompleted) {
-      return const CustomerAppointmentStatusOnlyLine(
-        icon: Icons.history_rounded,
-        text: 'Bu randevu geçmiş randevular arasında.',
-        color: Color(0xFF64748B),
-      );
-    }
-
-    if (item.isPostponeRequested) {
-      return Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onPostponeReject,
-              icon: const Icon(Icons.close_rounded),
-              label: const Text('Reddet'),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: FilledButton.icon(
-              onPressed: onPostponeApprove,
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('Kabul Et'),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: onCancel,
-            icon: const Icon(Icons.cancel_outlined),
-            label: const Text('İptal Et'),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -150,7 +150,7 @@ class BusinessStaffGroup extends StatelessWidget {
               ),
               subtitle: Text(
                 '$email\n${active ? 'Aktif' : 'Pasif'} • Rol: $role'
-                '${invite.isEmpty ? '' : '\nDavet kodu: $invite'}'
+                '${invite.isEmpty ? '' : '\nKurumsal giriş kodu: $invite'}'
                 '\nHizmet eşleşmesi: ${serviceMatchMissing ? 'Eksik' : '$serviceMatchCount hizmet'}'
                 '\nBağlantı: ${linkStatus == 'linked' ? 'Bağlandı' : 'Bekliyor'} • Çalışma: ${workStatus == 'active' ? 'Aktif' : 'Pasif'}',
               ),
@@ -162,7 +162,9 @@ class BusinessStaffGroup extends StatelessWidget {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('$name davet kodu kopyalandı: $invite'),
+                          content: Text(
+                            '$name kurumsal giriş kodu kopyalandı: $invite',
+                          ),
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
@@ -178,7 +180,7 @@ class BusinessStaffGroup extends StatelessWidget {
                   if (invite.isNotEmpty)
                     const PopupMenuItem(
                       value: 'copyInvite',
-                      child: Text('Davet kodunu kopyala'),
+                      child: Text('Kurumsal giriş kodunu kopyala'),
                     ),
                   PopupMenuItem(
                     value: 'toggle',

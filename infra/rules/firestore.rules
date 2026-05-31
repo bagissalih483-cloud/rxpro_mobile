@@ -294,6 +294,148 @@ service cloud.firestore {
       ];
     }
 
+    function serverManagedAccountingCollection(collection) {
+      return collection in [
+        "accountingSales",
+        "accountingPayments",
+        "accountingReceivables",
+        "accountingInstallments",
+        "accountingExpenses",
+        "accountingReports",
+        "accountingRecurringExpenses",
+        "accountingRefunds"
+      ];
+    }
+
+    function canWriteAppointmentNestedCollection(collection) {
+      return collection in ["appointments", "appointmentSlots"]
+        && (
+          hasUserPermission("appointmentsWrite")
+          || hasUserPermission("appointmentsManage")
+          || hasUserPermission("createAppointments")
+          || hasUserPermission("updateAppointments")
+          || hasUserPermission("cancelAppointments")
+        );
+    }
+
+    function canWriteCustomerNestedCollection(collection) {
+      return collection in ["businessCustomers", "customers"]
+        && (
+          hasUserPermission("customersWrite")
+          || hasUserPermission("customersManage")
+          || hasUserPermission("viewCustomers")
+          || hasUserPermission("addCustomerNotes")
+        );
+    }
+
+    function canWriteOperationsNestedCollection(collection) {
+      return (
+          collection in ["businessServices", "services"]
+          && (
+            hasUserPermission("servicesManage")
+            || hasUserPermission("serviceWrite")
+            || hasUserPermission("manageServices")
+            || hasUserPermission("canManageServices")
+          )
+        )
+        || (
+          collection in [
+            "businessProducts",
+            "businessProductSales",
+            "businessProductPurchases",
+            "products",
+            "stock"
+          ]
+          && (
+            hasUserPermission("productsManage")
+            || hasUserPermission("productWrite")
+            || hasUserPermission("financeWrite")
+          )
+        );
+    }
+
+    function canWriteMarketingNestedCollection(collection) {
+      return collection in [
+          "businessCampaigns",
+          "campaigns",
+          "businessStories",
+          "businessProfilePosts",
+          "bulkMessageDrafts"
+        ]
+        && (
+          hasUserPermission("campaignWrite")
+          || hasUserPermission("campaignManage")
+          || hasUserPermission("manageCampaigns")
+          || hasUserPermission("createPosts")
+          || hasUserPermission("bulkMessage")
+        );
+    }
+
+    function canWriteStaffNestedCollection(collection) {
+      return collection in ["businessStaff", "staff", "members"]
+        && (
+          hasUserPermission("staffManage")
+          || hasUserPermission("staffWrite")
+          || hasUserPermission("manageStaff")
+          || hasUserPermission("managePermissions")
+        );
+    }
+
+    function canWriteFinanceNestedCollection(collection) {
+      return collection in [
+          "businessExpenses",
+          "businessFinanceRecords",
+          "financeRecords"
+        ]
+        && (
+          hasUserPermission("financeWrite")
+          || hasUserPermission("canManageFinance")
+          || hasUserPermission("expenseWrite")
+          || hasUserPermission("enterExpenses")
+          || hasUserPermission("paymentCollect")
+        );
+    }
+
+    function canWriteEngagementNestedCollection(collection) {
+      return collection in [
+          "businessReviews",
+          "businessRatings",
+          "businessFollowers",
+          "businessProfilePostLikes",
+          "businessProfilePostSaves",
+          "businessProfilePostReports"
+        ]
+        && signedIn();
+    }
+
+    function canWriteActivityNestedCollection(collection) {
+      return collection in ["businessActivityLogs", "activityLogs"]
+        && (
+          hasUserPermission("appointmentsWrite")
+          || hasUserPermission("financeWrite")
+          || hasUserPermission("campaignWrite")
+          || hasUserPermission("staffManage")
+          || hasUserPermission("managePermissions")
+        );
+    }
+
+    function canWriteBusinessNestedCollection(businessId, collection) {
+      return isBusinessMember(businessId)
+        && !serverManagedAccountingCollection(collection)
+        && (
+          isPlatformAdmin()
+          || isBusinessOwnerOnly(businessId)
+          || canWriteAppointmentNestedCollection(collection)
+          || canWriteCustomerNestedCollection(collection)
+          || canWriteOperationsNestedCollection(collection)
+          || canWriteMarketingNestedCollection(collection)
+          || canWriteStaffNestedCollection(collection)
+          || canWriteFinanceNestedCollection(collection)
+          || canWriteEngagementNestedCollection(collection)
+          || canWriteActivityNestedCollection(collection)
+        );
+    }
+
     function genericBusinessScopedCollection(collection) {
       return businessScopedCollection(collection) && !guardedRootCollection(collection);
     }
@@ -532,7 +674,8 @@ service cloud.firestore {
       allow delete: if false;
 
       match /{document}/{nested=**} {
-        allow read, write: if isBusinessMember(businessId);
+        allow read: if isBusinessMember(businessId);
+        allow write: if canWriteBusinessNestedCollection(businessId, document);
       }
     }
 

@@ -35,12 +35,11 @@ class _ModerationPlaybookCard extends StatelessWidget {
             ),
             _PlaybookLine(
               icon: Icons.visibility_off_outlined,
-              text: 'Icerik ihlalinde gizle/geri al aksiyonunu kullan.',
+              text: 'İçerik ihlalinde gizle/geri al aksiyonunu kullan.',
             ),
             _PlaybookLine(
               icon: Icons.block_outlined,
-              text:
-                  'Tekrarlayan kotu kullanimda kullanici engelleme kaydi ac.',
+              text: 'Tekrarlayan kötü kullanımda kullanıcı engelleme kaydı aç.',
             ),
           ],
         ),

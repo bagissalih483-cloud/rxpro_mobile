@@ -6,7 +6,10 @@ void main() {
   group('BusinessCustomerActionPolicy', () {
     test('allows direct message only when a linked customer uid exists', () {
       expect(BusinessCustomerActionPolicy.canDirectMessage('user_1'), isTrue);
-      expect(BusinessCustomerActionPolicy.canDirectMessage('  user_1  '), isTrue);
+      expect(
+        BusinessCustomerActionPolicy.canDirectMessage('  user_1  '),
+        isTrue,
+      );
       expect(BusinessCustomerActionPolicy.canDirectMessage(''), isFalse);
       expect(BusinessCustomerActionPolicy.canDirectMessage('-'), isFalse);
       expect(BusinessCustomerActionPolicy.canDirectMessage(null), isFalse);

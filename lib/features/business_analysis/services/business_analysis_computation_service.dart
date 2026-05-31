@@ -420,11 +420,7 @@ class BusinessAnalysisComputationService {
         ? totalRevenue
         : periodMode == 1
         ? totalRevenue / 7
-        : totalRevenue /
-              math.max(
-                1,
-                _daysInMonth(anchorDate),
-              );
+        : totalRevenue / math.max(1, _daysInMonth(anchorDate));
 
     final parts = <String>[
       '$periodLabel analizde ${data.services.length} hizmet işlemi, ${computed.soldProductCount} ürün satışı ve ${computed.purchasedProductCount} ürün alımı görünüyor.',
@@ -467,7 +463,6 @@ class BusinessAnalysisComputationService {
 
     return parts.join(' ');
   }
-
 
   int _daysInMonth(DateTime value) {
     return DateTime(value.year, value.month + 1, 0).day;

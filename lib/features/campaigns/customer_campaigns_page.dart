@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_routes.dart';
+import '../../core/responsive/rx_adaptive_modal.dart';
 import '../../core/services/app_observability_service.dart';
+import '../../core/theme/rx_ui.dart';
 import 'campaign_models.dart';
 import 'campaign_service.dart';
+import 'customer_campaigns_controller.dart';
 
 part 'customer_campaigns_widgets.dart';
+part 'customer_campaigns_card_widgets.dart';
+part 'customer_campaigns_poster_widgets.dart';
+part 'customer_campaigns_info_widgets.dart';
 
 class CustomerCampaignsPage extends StatefulWidget {
   const CustomerCampaignsPage({super.key});
@@ -16,10 +22,8 @@ class CustomerCampaignsPage extends StatefulWidget {
 
 class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
     with AutomaticKeepAliveClientMixin<CustomerCampaignsPage> {
-  late Future<List<_CampaignItem>> _future;
-  int _selectedTab = 0;
-  String _selectedCategory = 'Tümü';
   final CampaignService _campaignService = CampaignService();
+  late final CustomerCampaignsController<_CampaignItem> _controller;
 
   @override
   bool get wantKeepAlive => true;
@@ -27,13 +31,17 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _controller = CustomerCampaignsController<_CampaignItem>(load: _load);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
-    final next = _load();
-    setState(() => _future = next);
-    await next;
+    await _controller.refresh();
   }
 
   Future<List<_CampaignItem>> _load() async {
@@ -73,10 +81,10 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   }
 
   bool _matchesCategory(_CampaignItem item) {
-    if (_selectedCategory == 'Tümü') return true;
+    if (_controller.selectedCategory == 'Tümü') return true;
 
     final c = item.category.toLowerCase();
-    final selected = _selectedCategory.toLowerCase();
+    final selected = _controller.selectedCategory.toLowerCase();
 
     if (c == selected) return true;
     if (selected == 'genel') return true;
@@ -124,11 +132,11 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   List<_CampaignItem> _filtered(List<_CampaignItem> all) {
     Iterable<_CampaignItem> result;
 
-    if (_selectedTab == 0) {
+    if (_controller.selectedTab == 0) {
       result = all.where(_isFresh);
-    } else if (_selectedTab == 1) {
+    } else if (_controller.selectedTab == 1) {
       result = all.where(_isActiveNow);
-    } else if (_selectedTab == 2) {
+    } else if (_controller.selectedTab == 2) {
       result = all.where(_isUpcoming);
     } else {
       result = all.where(_isPast);
@@ -196,7 +204,7 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kampanya şikayeti alındı.')),
+        const SnackBar(content: Text('Fırsat şikayeti alındı.')),
       );
     } catch (_) {
       if (!mounted) return;
@@ -207,15 +215,15 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   }
 
   void _openReportSheet(_CampaignItem item) {
-    showModalBottomSheet<void>(
+    showRxAdaptiveModal<void>(
       context: context,
-      showDragHandle: true,
+      desktopMaxWidth: 480,
       builder: (context) {
         const reasons = <String, String>{
-          'spam': 'Spam veya yaniltici',
-          'inappropriate': 'Uygunsuz icerik',
-          'expired': 'Gecersiz veya bitmis kampanya',
-          'other': 'Diger',
+          'spam': 'Spam veya yanıltıcı',
+          'inappropriate': 'Uygunsuz içerik',
+          'expired': 'Geçersiz veya bitmiş fırsat',
+          'other': 'Diğer',
         };
 
         return SafeArea(
@@ -224,7 +232,7 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
             children: [
               const ListTile(
                 leading: Icon(Icons.flag_outlined),
-                title: Text('Kampanyayı şikayet et'),
+                title: Text('Fırsatı şikayet et'),
               ),
               ...reasons.entries.map(
                 (entry) => ListTile(
@@ -250,13 +258,9 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
       category: item.category,
       sourceCollection: item.sourceCollection,
     );
-    showModalBottomSheet<void>(
+    showRxAdaptiveModal<void>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
+      desktopMaxWidth: 640,
       builder: (context) {
         return SafeArea(
           child: ListView(
@@ -310,8 +314,8 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
                       Navigator.pop(context);
                       _openBusiness(item);
                     },
-                    icon: const Icon(Icons.storefront_rounded),
-                    label: const Text('Kurumsal Profile Git'),
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: const Text('Fırsattan Randevu Al'),
                   ),
                 ),
               ],
@@ -324,7 +328,7 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
                     _openReportSheet(item);
                   },
                   icon: const Icon(Icons.flag_outlined),
-                  label: const Text('Kampanyayı Şikayet Et'),
+                  label: const Text('Fırsatı Şikayet Et'),
                 ),
               ),
             ],
@@ -338,71 +342,76 @@ class _CustomerCampaignsPageState extends State<CustomerCampaignsPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: FutureBuilder<List<_CampaignItem>>(
-        future: _future,
-        builder: (context, snapshot) {
-          final all = snapshot.data ?? <_CampaignItem>[];
-          final visible = _filtered(all);
-          final categories = _categories(all);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          body: FutureBuilder<List<_CampaignItem>>(
+            future: _controller.future,
+            builder: (context, snapshot) {
+              final all = snapshot.data ?? <_CampaignItem>[];
+              final visible = _filtered(all);
+              final categories = _categories(all);
 
-          final freshCount = all.where(_isFresh).length;
-          final activeCount = all.where(_isActiveNow).length;
-          final upcomingCount = all.where(_isUpcoming).length;
-          final pastCount = all.where(_isPast).length;
+              final freshCount = all.where(_isFresh).length;
+              final activeCount = all.where(_isActiveNow).length;
+              final upcomingCount = all.where(_isUpcoming).length;
+              final pastCount = all.where(_isPast).length;
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
-              children: [
-                const _Header(),
-                const SizedBox(height: 12),
-                _Tabs(
-                  selected: _selectedTab,
-                  fresh: freshCount,
-                  active: activeCount,
-                  upcoming: upcomingCount,
-                  past: pastCount,
-                  onChanged: (v) => setState(() => _selectedTab = v),
-                ),
-                const SizedBox(height: 10),
-                _CategoryScroller(
-                  categories: categories,
-                  selected: _selectedCategory,
-                  onChanged: (v) => setState(() => _selectedCategory = v),
-                ),
-                const SizedBox(height: 12),
-                if (snapshot.connectionState == ConnectionState.waiting)
-                  const _InfoCard(
-                    icon: Icons.hourglass_empty_rounded,
-                    title: 'Kampanyalar hazırlanıyor',
-                    text: 'Kampanyalar yükleniyor.',
-                  )
-                else if (visible.isEmpty)
-                  const _InfoCard(
-                    icon: Icons.local_offer_outlined,
-                    title: 'Kampanya bulunamadı',
-                    text:
-                        'Bu filtrede kampanya yok. Farklı sekme veya kategori deneyin.',
-                  )
-                else
-                  ...visible.map(
-                    (item) => _CampaignCard(
-                      item: item,
-                      onTap: () => _openDetail(item),
-                      onOpenBusiness: item.businessId.trim().isEmpty
-                          ? null
-                          : () => _openBusiness(item),
-                      onReport: () => _openReportSheet(item),
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                  children: [
+                    const _Header(),
+                    const SizedBox(height: 12),
+                    _Tabs(
+                      selected: _controller.selectedTab,
+                      fresh: freshCount,
+                      active: activeCount,
+                      upcoming: upcomingCount,
+                      past: pastCount,
+                      onChanged: _controller.selectTab,
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+                    const SizedBox(height: 10),
+                    _CategoryScroller(
+                      categories: categories,
+                      selected: _controller.selectedCategory,
+                      onChanged: _controller.selectCategory,
+                    ),
+                    const SizedBox(height: 12),
+                    if (snapshot.connectionState == ConnectionState.waiting)
+                      const _InfoCard(
+                        icon: Icons.hourglass_empty_rounded,
+                        title: 'Fırsatlar hazırlanıyor',
+                        text: 'Fırsatlar yükleniyor.',
+                      )
+                    else if (visible.isEmpty)
+                      const _InfoCard(
+                        icon: Icons.local_offer_outlined,
+                        title: 'Fırsat bulunamadı',
+                        text:
+                            'Bu filtrede fırsat yok. Farklı sekme veya kategori deneyin.',
+                      )
+                    else
+                      ...visible.map(
+                        (item) => _CampaignCard(
+                          item: item,
+                          onTap: () => _openDetail(item),
+                          onOpenBusiness: item.businessId.trim().isEmpty
+                              ? null
+                              : () => _openBusiness(item),
+                          onReport: () => _openReportSheet(item),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -482,9 +491,9 @@ class _CampaignItem {
       businessId: record.businessId,
       businessName: businessName,
       category: record.category.trim().isEmpty ? 'Genel' : record.category,
-      title: record.title.trim().isEmpty ? 'Kampanya' : record.title,
+      title: record.title.trim().isEmpty ? 'Fırsat' : record.title,
       description: record.body.trim().isEmpty
-          ? 'Kampanya açıklaması henüz girilmedi.'
+          ? 'Fırsat açıklaması henüz girilmedi.'
           : record.body,
       discountText: _normalizeOffer(
         record.offer.trim().isEmpty ? 'Özel fırsat' : record.offer,

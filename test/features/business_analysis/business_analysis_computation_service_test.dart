@@ -21,10 +21,7 @@ void main() {
             'amount': 200,
             'status': 'cancelled',
           },
-          {
-            'startAtIso': '2026-05-02T10:00:00',
-            'amount': 300,
-          },
+          {'startAtIso': '2026-05-02T10:00:00', 'amount': 300},
         ],
         productSaleRows: const [
           {

@@ -65,17 +65,15 @@ void main() {
 
   group('BulkMessageSendResult', () {
     test('parses callable response counts safely', () {
-      final result = BulkMessageSendResult.fromMap(
-        const <String, dynamic>{
-          'ok': true,
-          'draftId': 'draft_1',
-          'attemptId': 'attempt_1',
-          'sendStatus': 'sent',
-          'targetCount': '12',
-          'deliveredNotificationCount': 11,
-          'alreadySent': true,
-        },
-      );
+      final result = BulkMessageSendResult.fromMap(const <String, dynamic>{
+        'ok': true,
+        'draftId': 'draft_1',
+        'attemptId': 'attempt_1',
+        'sendStatus': 'sent',
+        'targetCount': '12',
+        'deliveredNotificationCount': 11,
+        'alreadySent': true,
+      });
 
       expect(result.ok, isTrue);
       expect(result.sent, isTrue);
@@ -90,10 +88,7 @@ void main() {
   group('CampaignFieldReaders', () {
     test('reads first non-empty string by fallback order', () {
       final value = CampaignFieldReaders.firstString(
-        const <String, dynamic>{
-          'title': '  ',
-          'campaignTitle': 'Bakım Paketi',
-        },
+        const <String, dynamic>{'title': '  ', 'campaignTitle': 'Bakım Paketi'},
         const <String>['title', 'campaignTitle'],
       );
 

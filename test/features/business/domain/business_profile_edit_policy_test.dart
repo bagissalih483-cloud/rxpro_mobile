@@ -36,7 +36,10 @@ void main() {
       );
 
       expect(BusinessProfileEditPolicy.validateOptionalUrl(''), isNull);
-      expect(BusinessProfileEditPolicy.validateOptionalUrl('fix.com'), isNotNull);
+      expect(
+        BusinessProfileEditPolicy.validateOptionalUrl('fix.com'),
+        isNotNull,
+      );
       expect(
         BusinessProfileEditPolicy.validateOptionalUrl('https://fix.com'),
         isNull,

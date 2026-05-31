@@ -143,10 +143,7 @@ class AppObservabilityService {
   }) {
     return logEvent(
       AppAnalyticsEvents.businessClaimSubmitted,
-      parameters: <String, Object?>{
-        'place_id': placeId,
-        'category': category,
-      },
+      parameters: <String, Object?>{'place_id': placeId, 'category': category},
     );
   }
 
@@ -156,10 +153,7 @@ class AppObservabilityService {
   }) {
     return logEvent(
       AppAnalyticsEvents.locationPermissionResult,
-      parameters: <String, Object?>{
-        'status': status,
-        'source': source,
-      },
+      parameters: <String, Object?>{'status': status, 'source': source},
     );
   }
 

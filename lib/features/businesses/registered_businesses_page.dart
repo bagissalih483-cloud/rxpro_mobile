@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:rxpro_mobile/app/app_routes.dart';
 import 'package:rxpro_mobile/features/accounting/data/accounting_permission_bridge.dart';
-
 import 'package:rxpro_mobile/features/businesses/data/registered_business_gateway_repository.dart';
+import 'package:rxpro_mobile/features/businesses/registered_businesses_controller.dart';
 
 class RegisteredBusinessesPage extends StatefulWidget {
   const RegisteredBusinessesPage({super.key});
@@ -16,13 +16,20 @@ class RegisteredBusinessesPage extends StatefulWidget {
 class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
   final RegisteredBusinessGatewayRepository _gatewayRepository =
       RegisteredBusinessGatewayRepository();
-  late Future<List<_GatewayItem>> _future;
-  bool _openingStaff = false;
+  late final RegisteredBusinessesController<_GatewayItem> _controller;
 
   @override
   void initState() {
     super.initState();
-    _future = _loadItems();
+    _controller = RegisteredBusinessesController<_GatewayItem>(
+      load: _loadItems,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<List<_GatewayItem>> _loadItems() async {
@@ -77,7 +84,7 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
 
   Future<void> _openItem(_GatewayItem item) async {
     if (item.type == _GatewayItemType.staff) {
-      setState(() => _openingStaff = true);
+      _controller.setOpeningStaff(true);
 
       try {
         await _syncStaffSessionCache(item);
@@ -96,7 +103,9 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
           ),
         );
       } finally {
-        if (mounted) setState(() => _openingStaff = false);
+        if (mounted) {
+          _controller.setOpeningStaff(false);
+        }
       }
 
       return;
@@ -106,96 +115,100 @@ class _RegisteredBusinessesPageState extends State<RegisteredBusinessesPage> {
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _future = _loadItems();
-    });
-    await _future;
+    await _controller.refresh();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Kurumsal Yönetim Merkezi'),
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Görevlerim',
-            onPressed: _openTasksEntry,
-            icon: const Icon(Icons.task_alt_rounded),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: const Text('Kurumsal Yönetim Merkezi'),
+            backgroundColor: const Color(0xFFF8FAFC),
+            elevation: 0,
+            actions: [
+              IconButton(
+                tooltip: 'Görevlerim',
+                onPressed: _openTasksEntry,
+                icon: const Icon(Icons.task_alt_rounded),
+              ),
+              IconButton(
+                tooltip: 'Yenile',
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Yenile',
-            onPressed: _refresh,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          FutureBuilder<List<_GatewayItem>>(
-            future: _future,
-            builder: (context, snapshot) {
-              final items = snapshot.data ?? <_GatewayItem>[];
+          body: Stack(
+            children: [
+              FutureBuilder<List<_GatewayItem>>(
+                future: _controller.future,
+                builder: (context, snapshot) {
+                  final items = snapshot.data ?? <_GatewayItem>[];
 
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-                  children: [
-                    _GatewayHeader(count: items.length),
-                    const SizedBox(height: 12),
-                    _TasksGatewayShortcut(onTap: _openTasksEntry),
-                    const SizedBox(height: 12),
-                    if (items.isEmpty)
-                      const _EmptyGatewayCard()
-                    else
-                      ...items.map(
-                        (item) => _GatewayTile(
-                          item: item,
-                          onTap: () => _openItem(item),
+                  return RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                      children: [
+                        _GatewayHeader(count: items.length),
+                        const SizedBox(height: 12),
+                        _TasksGatewayShortcut(onTap: _openTasksEntry),
+                        const SizedBox(height: 12),
+                        if (items.isEmpty)
+                          const _EmptyGatewayCard()
+                        else
+                          ...items.map(
+                            (item) => _GatewayTile(
+                              item: item,
+                              onTap: () => _openItem(item),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              if (_controller.openingStaff)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  child: const Center(
+                    child: Card(
+                      elevation: 0,
+                      child: Padding(
+                        padding: EdgeInsets.all(18),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Text(
+                              'Personel yetkileri hazırlanıyor...',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ],
                         ),
                       ),
-                  ],
-                ),
-              );
-            },
-          ),
-          if (_openingStaff)
-            Container(
-              color: Colors.black.withValues(alpha: 0.08),
-              child: const Center(
-                child: Card(
-                  elevation: 0,
-                  child: Padding(
-                    padding: EdgeInsets.all(18),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.4),
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          'Personel yetkileri hazırlanıyor...',
-                          style: TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ],
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -390,7 +403,7 @@ class _EmptyGatewayCard extends StatelessWidget {
           Icon(Icons.info_outline_rounded, color: Color(0xFF2563EB)),
           SizedBox(height: 10),
           Text(
-            'Kurumsal Kullanıcı bağlantısı bulunamadı',
+            'Kurumsal kullanıcı bağlantısı bulunamadı',
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
           SizedBox(height: 6),

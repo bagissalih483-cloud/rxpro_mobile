@@ -21,6 +21,7 @@ import 'package:rxpro_mobile/features/businesses/business_live_flow_page.dart';
 import 'package:rxpro_mobile/features/businesses/business_appointment_management_page.dart';
 import 'package:rxpro_mobile/features/businesses/business_customers_page.dart';
 import 'package:rxpro_mobile/features/public_home/data/account_entry_repository.dart';
+import 'package:rxpro_mobile/features/public_home/presentation/account_entry_controller.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/models/account_entry_context.dart';
 import 'package:rxpro_mobile/features/public_home/presentation/widgets/account_entry_menu.dart';
 import 'package:rxpro_mobile/features/stories/business_story_create_page.dart';
@@ -34,11 +35,15 @@ class AccountEntryPage extends StatefulWidget {
 }
 
 class _AccountEntryPageState extends State<AccountEntryPage> {
-  final Set<int> _open = <int>{};
+  final AccountEntryController _controller = AccountEntryController();
   final AccountEntryRepository _repository = AccountEntryRepository();
   final AuthService _authService = AuthService();
-  Future<AccountEntryContext>? _contextFuture;
-  String? _loadedUid;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -49,26 +54,32 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
   // 45B_SESSION_SCOPE_PATCH
   // Hesabım sekmesinde AppSessionScope varsa onu ana kaynak kabul eder.
   // Böylece sekmeye her girişte yeniden Firestore context çözme hissi azalır.
-  void _refreshContextIfNeeded() {
+  void _refreshContextIfNeeded({bool notify = false}) {
     final currentUser = _authService.currentUser;
     final scoped = _scopedAccountSession(context);
 
     if (scoped != null && scoped.isAuthenticated && currentUser != null) {
       final scopedKey =
           '${scoped.uid}|${scoped.role.name}|${scoped.businessId}';
-      if (_contextFuture == null || _loadedUid != scopedKey) {
-        _loadedUid = scopedKey;
-        _contextFuture = Future<AccountEntryContext>.value(
-          _contextFromScopedSession(scoped),
+      if (_controller.needsContext(scopedKey)) {
+        _controller.setContextFuture(
+          loadedKey: scopedKey,
+          future: Future<AccountEntryContext>.value(
+            _contextFromScopedSession(scoped),
+          ),
+          notify: notify,
         );
       }
       return;
     }
 
     final uid = currentUser?.uid;
-    if (_contextFuture == null || _loadedUid != uid) {
-      _loadedUid = uid;
-      _contextFuture = _loadContext();
+    if (_controller.needsContext(uid)) {
+      _controller.setContextFuture(
+        loadedKey: uid,
+        future: _loadContext(),
+        notify: notify,
+      );
     }
   }
 
@@ -77,13 +88,7 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
   }
 
   void _toggle(int index) {
-    setState(() {
-      if (_open.contains(index)) {
-        _open.remove(index);
-      } else {
-        _open.add(index);
-      }
-    });
+    _controller.toggleSection(index);
   }
 
   Future<AccountEntryContext> _loadContext() async {
@@ -154,11 +159,8 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
   Future<void> _openPage(BuildContext context, Widget page) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     if (!mounted) return;
-    setState(() {
-      _contextFuture = null;
-      _loadedUid = null;
-      _refreshContextIfNeeded();
-    });
+    _controller.clearContext(notify: false);
+    _refreshContextIfNeeded(notify: true);
   }
 
   Future<void> _openRoute(
@@ -168,11 +170,8 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
   }) async {
     await Navigator.of(context).pushNamed(routeName, arguments: arguments);
     if (!mounted) return;
-    setState(() {
-      _contextFuture = null;
-      _loadedUid = null;
-      _refreshContextIfNeeded();
-    });
+    _controller.clearContext(notify: false);
+    _refreshContextIfNeeded(notify: true);
   }
 
   Future<void> _requireLoginRoute(
@@ -192,7 +191,7 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Kurumsal kullanıcı bağlantısı bulunamadı. Önce Uygulama Yönetimi > Kurumsal Profilimi Düzenle alanından hesabı eşitle.',
+          'Kurumsal bağlantı bulunamadı. Hesap > Kurumsal Profil alanından işletme bağlantını tamamlayabilirsin.',
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -340,12 +339,8 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
     FixSessionGate.refreshAfterAuthChange();
     if (!context.mounted) return;
 
-    setState(() {
-      _contextFuture = null;
-      _loadedUid = null;
-      _open.clear();
-      _refreshContextIfNeeded();
-    });
+    _controller.clearContext(clearOpenSections: true, notify: false);
+    _refreshContextIfNeeded(notify: true);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -368,47 +363,55 @@ class _AccountEntryPageState extends State<AccountEntryPage> {
     if (scopedSession != null && scopedSession.isAuthenticated) {
       final scopedKey =
           '${scopedSession.uid}|${scopedSession.role.name}|${scopedSession.businessId}';
-      if (_contextFuture == null || _loadedUid != scopedKey) {
-        _loadedUid = scopedKey;
-        _contextFuture = Future<AccountEntryContext>.value(
-          AccountEntryContext.fromSession(
-            scopedSession,
-            _authService.currentUser,
+      if (_controller.needsContext(scopedKey)) {
+        _controller.setContextFuture(
+          loadedKey: scopedKey,
+          future: Future<AccountEntryContext>.value(
+            AccountEntryContext.fromSession(
+              scopedSession,
+              _authService.currentUser,
+            ),
           ),
+          notify: false,
         );
       }
     } else {
       _refreshContextIfNeeded();
     }
 
-    return StreamBuilder<User?>(
-      stream: _authService.authStateChanges(),
-      initialData: _authService.currentUser,
-      builder: (context, authSnapshot) {
-        final liveUser = authSnapshot.data;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return StreamBuilder<User?>(
+          stream: _authService.authStateChanges(),
+          initialData: _authService.currentUser,
+          builder: (context, authSnapshot) {
+            final liveUser = authSnapshot.data;
 
-        if (liveUser == null && _loadedUid != null) {
-          _contextFuture = null;
-          _loadedUid = null;
-          _refreshContextIfNeeded();
-        }
+            if (liveUser == null && _controller.loadedKey != null) {
+              _controller.clearContext(notify: false);
+              _refreshContextIfNeeded();
+            }
 
-        return FutureBuilder<AccountEntryContext>(
-          future: _contextFuture,
-          builder: (context, contextSnapshot) {
-            final ctx =
-                contextSnapshot.data ?? AccountEntryContext.pending(user: liveUser);
+            return FutureBuilder<AccountEntryContext>(
+              future: _controller.contextFuture,
+              builder: (context, contextSnapshot) {
+                final ctx =
+                    contextSnapshot.data ??
+                    AccountEntryContext.pending(user: liveUser);
 
-            return AccountEntryMenu(
-              account: ctx,
-              openSections: _open,
-              onToggle: _toggle,
-              onOpenPage: _openPage,
-              onOpenRoute: _openRoute,
-              onRequireLoginRoute: _requireLoginRoute,
-              onOpenBusinessModule: _openBusinessModule,
-              onInfo: _info,
-              onSignOut: _signOut,
+                return AccountEntryMenu(
+                  account: ctx,
+                  openSections: _controller.openSections,
+                  onToggle: _toggle,
+                  onOpenPage: _openPage,
+                  onOpenRoute: _openRoute,
+                  onRequireLoginRoute: _requireLoginRoute,
+                  onOpenBusinessModule: _openBusinessModule,
+                  onInfo: _info,
+                  onSignOut: _signOut,
+                );
+              },
             );
           },
         );

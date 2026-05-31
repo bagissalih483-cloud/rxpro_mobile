@@ -104,7 +104,7 @@ class BusinessLiveFlowActivityLog {
       title:
           (data[FirestoreFields.title] ??
                   data[FirestoreFields.type] ??
-                  'Son hareket kaydi alindi.')
+                  'Son hareket kaydı alındı.')
               .toString(),
     );
   }

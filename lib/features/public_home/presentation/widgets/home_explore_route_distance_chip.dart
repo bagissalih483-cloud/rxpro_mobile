@@ -4,6 +4,8 @@ import 'package:rxpro_mobile/core/businesses/business_directory_cache_service.da
 import 'package:rxpro_mobile/core/businesses/business_route_distance_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'home_explore_route_distance_controller.dart';
+
 class HomeExploreRouteDistanceChip extends StatefulWidget {
   const HomeExploreRouteDistanceChip({
     super.key,
@@ -30,10 +32,8 @@ class _HomeExploreRouteDistanceChipState
   static const String _routeDistancePreferenceKey =
       'fix_settings_route_distance_enabled';
 
-  BusinessRouteInfo? _info;
-  bool _loading = false;
-  bool _attempted = false;
-  String _activeKey = '';
+  final HomeExploreRouteDistanceController _controller =
+      HomeExploreRouteDistanceController();
 
   @override
   void initState() {
@@ -44,14 +44,14 @@ class _HomeExploreRouteDistanceChipState
   @override
   void didUpdateWidget(HomeExploreRouteDistanceChip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nextKey = _routeKey();
-    if (nextKey != _activeKey) {
-      _info = null;
-      _loading = false;
-      _attempted = false;
-      _activeKey = '';
-    }
+    _controller.resetForKey(_routeKey());
     _startLoadIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -62,49 +62,53 @@ class _HomeExploreRouteDistanceChipState
       return const SizedBox.shrink();
     }
 
-    if (_info != null) {
-      return _RouteChip(
-        icon: Icons.route_outlined,
-        label: _info!.summaryLabel,
-        color: widget.color,
-      );
-    }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final info = _controller.info;
+        if (info != null) {
+          return _RouteChip(
+            icon: Icons.route_outlined,
+            label: info.summaryLabel,
+            color: widget.color,
+          );
+        }
 
-    if (_loading) {
-      return _RouteChip(
-        icon: Icons.sync_rounded,
-        label: 'Rota hesaplanıyor',
-        color: widget.color,
-      );
-    }
+        if (_controller.loading) {
+          return _RouteChip(
+            icon: Icons.sync_rounded,
+            label: 'Rota hesaplanıyor',
+            color: widget.color,
+          );
+        }
 
-    return const SizedBox.shrink();
+        return const SizedBox.shrink();
+      },
+    );
   }
 
   void _startLoadIfNeeded() {
     if (!widget.enabled ||
         widget.origin == null ||
         !widget.business.hasCoordinate ||
-        _loading ||
-        _attempted) {
+        _controller.loading ||
+        _controller.attempted) {
       return;
     }
 
     final key = _routeKey();
-    _activeKey = key;
-    _attempted = true;
-    _loading = true;
-
-    _calculateIfAllowed(key);
+    if (_controller.beginAttempt(key)) {
+      _calculateIfAllowed(key);
+    }
   }
 
   Future<void> _calculateIfAllowed(String key) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (!mounted || key != _activeKey) return;
+      if (!mounted || key != _controller.activeKey) return;
 
       if (prefs.getBool(_routeDistancePreferenceKey) == false) {
-        setState(() => _loading = false);
+        _controller.markSkipped();
         return;
       }
 
@@ -112,14 +116,11 @@ class _HomeExploreRouteDistanceChipState
         origin: widget.origin,
         business: widget.business,
       );
-      if (!mounted || key != _activeKey) return;
-      setState(() {
-        _info = info;
-        _loading = false;
-      });
+      if (!mounted || key != _controller.activeKey) return;
+      _controller.complete(info);
     } catch (_) {
-      if (!mounted || key != _activeKey) return;
-      setState(() => _loading = false);
+      if (!mounted || key != _controller.activeKey) return;
+      _controller.markSkipped();
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:rxpro_mobile/app/app_routes.dart';
+import 'package:rxpro_mobile/features/business_analysis/presentation/business_analysis_controller.dart';
 import 'package:rxpro_mobile/features/business_analysis/presentation/models/business_analysis_view_models.dart';
 import 'package:rxpro_mobile/features/business_analysis/presentation/widgets/business_analysis_widgets.dart';
 import 'package:rxpro_mobile/features/business_analysis/services/business_analysis_ai_service.dart';
@@ -27,73 +28,40 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
   final BusinessAnalysisAiService _aiService = BusinessAnalysisAiService();
   final BusinessAnalysisComputationService _computation =
       BusinessAnalysisComputationService();
-  int periodMode = 0;
-  DateTime anchorDate = DateTime.now();
+  late final BusinessAnalysisController _controller;
 
-  bool aiLoading = false;
-  String aiReport = '';
-
-  DateTime get rangeStart {
-    final d = DateTime(anchorDate.year, anchorDate.month, anchorDate.day);
-
-    if (periodMode == 0) return d;
-
-    if (periodMode == 1) {
-      final mondayOffset = d.weekday - DateTime.monday;
-      return d.subtract(Duration(days: mondayOffset));
-    }
-
-    return DateTime(anchorDate.year, anchorDate.month, 1);
+  @override
+  void initState() {
+    super.initState();
+    _controller = BusinessAnalysisController();
   }
 
-  DateTime get rangeEndExclusive {
-    if (periodMode == 0) return rangeStart.add(const Duration(days: 1));
-    if (periodMode == 1) return rangeStart.add(const Duration(days: 7));
-    return DateTime(anchorDate.year, anchorDate.month + 1, 1);
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
-  String get periodLabel {
-    if (periodMode == 0) return 'Günlük';
-    if (periodMode == 1) return 'Haftalık';
-    return 'Aylık';
-  }
+  DateTime get rangeStart => _controller.rangeStart;
+
+  DateTime get rangeEndExclusive => _controller.rangeEndExclusive;
+
+  String get periodLabel => _controller.periodLabel;
 
   String get periodTitle {
-    if (periodMode == 0) return _computation.dateText(rangeStart);
+    if (_controller.periodMode == 0) return _computation.dateText(rangeStart);
 
-    if (periodMode == 1) {
+    if (_controller.periodMode == 1) {
       final endInclusive = rangeEndExclusive.subtract(const Duration(days: 1));
       return '${_computation.dateText(rangeStart)} - ${_computation.dateText(endInclusive)}';
     }
 
-    return _computation.monthTitle(anchorDate);
+    return _computation.monthTitle(_controller.anchorDate);
   }
 
-  void _previousPeriod() {
-    setState(() {
-      aiReport = '';
-      if (periodMode == 0) {
-        anchorDate = anchorDate.subtract(const Duration(days: 1));
-      } else if (periodMode == 1) {
-        anchorDate = anchorDate.subtract(const Duration(days: 7));
-      } else {
-        anchorDate = DateTime(anchorDate.year, anchorDate.month - 1, 1);
-      }
-    });
-  }
+  void _previousPeriod() => _controller.previousPeriod();
 
-  void _nextPeriod() {
-    setState(() {
-      aiReport = '';
-      if (periodMode == 0) {
-        anchorDate = anchorDate.add(const Duration(days: 1));
-      } else if (periodMode == 1) {
-        anchorDate = anchorDate.add(const Duration(days: 7));
-      } else {
-        anchorDate = DateTime(anchorDate.year, anchorDate.month + 1, 1);
-      }
-    });
-  }
+  void _nextPeriod() => _controller.nextPeriod();
 
   Future<BusinessAnalysisData> _load() async {
     final appointmentRows = await _analysisRepository
@@ -124,14 +92,13 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
     BusinessAnalysisData data,
     ComputedBusinessAnalysis computed,
   ) async {
-    if (aiLoading) return;
+    if (_controller.aiLoading) return;
 
-    setState(() {
-      aiLoading = true;
-    });
+    _controller.setAiLoading(true);
 
     try {
-      var report = await _aiService.generateReport(_computation.aiPayload(
+      var report = await _aiService.generateReport(
+        _computation.aiPayload(
           businessId: widget.businessId,
           periodLabel: periodLabel,
           rangeStart: rangeStart,
@@ -139,23 +106,22 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
           periodTitle: periodTitle,
           data: data,
           computed: computed,
-        ));
+        ),
+      );
 
       if (report.isEmpty) {
         report = _computation.localAiReport(
-              data,
-              computed,
-              periodLabel: periodLabel,
-              periodMode: periodMode,
-              anchorDate: anchorDate,
-            );
+          data,
+          computed,
+          periodLabel: periodLabel,
+          periodMode: _controller.periodMode,
+          anchorDate: _controller.anchorDate,
+        );
       }
 
       if (!mounted) return;
 
-      setState(() {
-        aiReport = report;
-      });
+      _controller.setAiReport(report);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -166,46 +132,41 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        aiReport = '\n\nAI bağlantı notu: ';
-      });
+      _controller.setAiReport('\n\nAI bağlantı notu: ');
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'AI bağlantısı kurulamadı. Yerel analiz gösterildi.',
-          ),
+          content: Text('AI bağlantısı kurulamadı. Yerel analiz gösterildi.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          aiLoading = false;
-        });
-      }
+      if (mounted) _controller.setAiLoading(false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<BusinessAnalysisData>(
-      future: _load(),
-      builder: (context, snapshot) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return FutureBuilder<BusinessAnalysisData>(
+          future: _load(),
+          builder: (context, snapshot) {
         final data = snapshot.data ?? const BusinessAnalysisData.empty();
         final computed = _computation.compute(data);
         final totalRevenue = computed.serviceRevenue + computed.productRevenue;
         final loading = snapshot.connectionState == ConnectionState.waiting;
 
-        final activeReport = aiReport.trim().isEmpty
+        final activeReport = _controller.aiReport.trim().isEmpty
             ? _computation.localAiReport(
-              data,
-              computed,
-              periodLabel: periodLabel,
-              periodMode: periodMode,
-              anchorDate: anchorDate,
-            )
-            : aiReport.trim();
+                data,
+                computed,
+                periodLabel: periodLabel,
+                periodMode: _controller.periodMode,
+                anchorDate: _controller.anchorDate,
+              )
+            : _controller.aiReport.trim();
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -250,12 +211,9 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
                         icon: Icon(Icons.calendar_month_outlined),
                       ),
                     ],
-                    selected: {periodMode},
+                    selected: {_controller.periodMode},
                     onSelectionChanged: (value) {
-                      setState(() {
-                        aiReport = '';
-                        periodMode = value.first;
-                      });
+                      _controller.selectPeriod(value.first);
                     },
                   ),
                 ),
@@ -320,7 +278,7 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
                 const SizedBox(height: 14),
                 BusinessAnalysisAiInsightCard(
                   text: activeReport,
-                  loading: aiLoading,
+                  loading: _controller.aiLoading,
                   onRefresh: loading
                       ? null
                       : () => _requestAiAnalysis(data, computed),
@@ -378,6 +336,8 @@ class _BusinessAnalysisPageState extends State<BusinessAnalysisPage> {
               ],
             ),
           ),
+        );
+          },
         );
       },
     );

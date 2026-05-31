@@ -34,13 +34,21 @@ void main() {
     test('routes customer appointment notifications only', () {
       expect(
         NotificationCenterViewPolicy.opensCustomerAppointments(
-          const _TestItem(id: 'n1', type: 'appointment', route: 'customerAppointments'),
+          const _TestItem(
+            id: 'n1',
+            type: 'appointment',
+            route: 'customerAppointments',
+          ),
         ),
         isTrue,
       );
       expect(
         NotificationCenterViewPolicy.opensCustomerAppointments(
-          const _TestItem(id: 'n2', type: 'appointment', route: 'businessAppointments'),
+          const _TestItem(
+            id: 'n2',
+            type: 'appointment',
+            route: 'businessAppointments',
+          ),
         ),
         isFalse,
       );

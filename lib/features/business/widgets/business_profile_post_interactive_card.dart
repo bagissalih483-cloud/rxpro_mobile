@@ -1,7 +1,10 @@
 import '../data/business_profile_post_interaction_repository.dart';
 import '../data/business_profile_post_session_repository.dart';
+import '../presentation/business_profile_post_interaction_controller.dart';
 import 'package:flutter/material.dart';
 
+part 'business_profile_post_interactions_part.dart';
+part 'business_profile_post_counter_part.dart';
 class BusinessProfilePostInteractiveCard extends StatefulWidget {
   const BusinessProfilePostInteractiveCard({
     super.key,
@@ -33,132 +36,13 @@ class _BusinessProfilePostInteractiveCardState
       BusinessProfilePostInteractionRepository();
   final BusinessProfilePostSessionRepository _sessionRepository =
       BusinessProfilePostSessionRepository();
-  bool busy = false;
+  final BusinessProfilePostInteractionController _controller =
+      BusinessProfilePostInteractionController();
 
-  String get _uid => _sessionRepository.currentUid() ?? '';
-  Stream<bool> _likeStream() {
-    return _interactionRepository.watchLikeActive(
-      postId: widget.postId,
-      uid: _uid,
-    );
-  }
-
-  Stream<bool> _saveStream() {
-    return _interactionRepository.watchSaveActive(
-      postId: widget.postId,
-      uid: _uid,
-    );
-  }
-
-  Future<void> _toggleLike() async {
-    final uid = _sessionRepository.currentUid();
-
-    if (uid == null) {
-      _snack('Beğenmek için giriş yapın.');
-      return;
-    }
-
-    if (busy) return;
-    setState(() => busy = true);
-
-    try {
-      final result = await _interactionRepository.toggleLike(
-        postId: widget.postId,
-        uid: uid,
-      );
-
-      _snack(result.wasActive ? 'Beğeni kaldırıldı.' : 'Beğenildi.');
-    } catch (e) {
-      _snack('Beğeni işlemi yapılamadı: $e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> _toggleSave() async {
-    final uid = _sessionRepository.currentUid();
-
-    if (uid == null) {
-      _snack('Kaydetmek için giriş yapın.');
-      return;
-    }
-
-    if (busy) return;
-    setState(() => busy = true);
-
-    try {
-      final result = await _interactionRepository.toggleSave(
-        postId: widget.postId,
-        uid: uid,
-      );
-
-      _snack(
-        result.wasActive ? 'Kaydetme kaldırıldı.' : 'Paylaşım kaydedildi.',
-      );
-    } catch (e) {
-      _snack('Kaydetme işlemi yapılamadı: $e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  Future<void> _reportPost() async {
-    final uid = _sessionRepository.currentUid();
-
-    if (uid == null) {
-      _snack('Raporlamak için giriş yapın.');
-      return;
-    }
-
-    final approved = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Paylaşımı raporla'),
-          content: const Text(
-            'Bu paylaşımı uygunsuz içerik olarak raporlamak istiyor musunuz?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Vazgeç'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Raporla'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (approved != true) return;
-    if (busy) return;
-
-    setState(() => busy = true);
-
-    try {
-      final created = await _interactionRepository.reportPost(
-        postId: widget.postId,
-        uid: uid,
-      );
-
-      _snack(
-        created ? 'Raporunuz alındı.' : 'Bu paylaşımı zaten raporladınız.',
-      );
-    } catch (e) {
-      _snack('Raporlama yapılamadı: $e');
-    } finally {
-      if (mounted) setState(() => busy = false);
-    }
-  }
-
-  void _snack(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
@@ -283,61 +167,5 @@ class _BusinessProfilePostInteractiveCardState
     final month = parsed.month.toString().padLeft(2, '0');
 
     return '$day.$month.${parsed.year}';
-  }
-}
-
-class _RoundIconCounter extends StatelessWidget {
-  const _RoundIconCounter({
-    required this.icon,
-    required this.count,
-    required this.active,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final int count;
-  final bool active;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF18B7C9) : const Color(0xFF6B7280);
-    final bg = active ? const Color(0xFFE0F7FA) : const Color(0xFFF9FAFB);
-    final border = active ? const Color(0xFF18B7C9) : const Color(0xFFE5E7EB);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Tooltip(
-        message: tooltip,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: color),
-              if (count > 0) ...[
-                const SizedBox(width: 4),
-                Text(
-                  count.toString(),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

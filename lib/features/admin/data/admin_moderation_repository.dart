@@ -3,11 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 
 class AdminModerationRepository {
-  AdminModerationRepository({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance;
+  AdminModerationRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -116,10 +114,7 @@ class AdminModerationRepository {
     );
   }
 
-  Future<void> blockUser({
-    required String uid,
-    required String reason,
-  }) async {
+  Future<void> blockUser({required String uid, required String reason}) async {
     final cleanUid = uid.trim();
     if (cleanUid.isEmpty || cleanUid == '-') return;
 
@@ -298,23 +293,24 @@ class AdminModerationRepository {
   }) async {
     final cleanCampaignId = campaignId.trim();
     final requestedCollection = sourceCollection.trim();
-    final cleanCollection = requestedCollection == FirestoreCollections.campaigns
+    final cleanCollection =
+        requestedCollection == FirestoreCollections.campaigns
         ? FirestoreCollections.campaigns
         : FirestoreCollections.businessCampaigns;
     if (cleanCampaignId.isEmpty || cleanCampaignId == '-') return;
 
-    await _firestore.collection(cleanCollection).doc(cleanCampaignId).set(
-      <String, dynamic>{
-        'moderationStatus': hidden ? 'hidden' : 'active',
-        'moderationReason': reason.trim().isEmpty ? 'moderation' : reason,
-        'hidden': hidden,
-        'isHidden': hidden,
-        'moderatedBy': _auth.currentUser?.uid ?? '',
-        'moderatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _firestore
+        .collection(cleanCollection)
+        .doc(cleanCampaignId)
+        .set(<String, dynamic>{
+          'moderationStatus': hidden ? 'hidden' : 'active',
+          'moderationReason': reason.trim().isEmpty ? 'moderation' : reason,
+          'hidden': hidden,
+          'isHidden': hidden,
+          'moderatedBy': _auth.currentUser?.uid ?? '',
+          'moderatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
     await _writeAuditLog(
       action: hidden ? 'campaign_hidden' : 'campaign_restored',

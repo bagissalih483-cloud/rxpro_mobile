@@ -51,14 +51,17 @@ class FirestoreAppointmentRepository implements AppointmentRepository {
   }
 
   @override
-  Future<DocumentReference<Map<String, dynamic>>> createAppointmentWithSlotLock({
+  Future<DocumentReference<Map<String, dynamic>>>
+  createAppointmentWithSlotLock({
     required Map<String, dynamic> payload,
     required DateTime startAt,
     required DateTime endAt,
     required String businessId,
     required String businessStaffId,
   }) async {
-    final appointmentRef = _db.collection(FirestoreCollections.appointments).doc();
+    final appointmentRef = _db
+        .collection(FirestoreCollections.appointments)
+        .doc();
     final slotRefs = _slotRefsForRange(
       businessId: businessId,
       businessStaffId: businessStaffId,
@@ -105,15 +108,14 @@ class FirestoreAppointmentRepository implements AppointmentRepository {
     required DateTime endAt,
   }) {
     return AppointmentSlotLockPolicy.slotIdsForRange(
-      businessId: businessId,
-      businessStaffId: businessStaffId,
-      startAt: startAt,
-      endAt: endAt,
-    )
+          businessId: businessId,
+          businessStaffId: businessStaffId,
+          startAt: startAt,
+          endAt: endAt,
+        )
         .map(
-          (slotId) => _db
-              .collection(FirestoreCollections.appointmentSlots)
-              .doc(slotId),
+          (slotId) =>
+              _db.collection(FirestoreCollections.appointmentSlots).doc(slotId),
         )
         .toList();
   }

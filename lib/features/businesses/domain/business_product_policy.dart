@@ -76,7 +76,9 @@ class BusinessProductPolicy {
   }
 
   static String nameOf(Map<String, dynamic> data) {
-    final name = clean(data[FirestoreFields.name] ?? data[FirestoreFields.productName]);
+    final name = clean(
+      data[FirestoreFields.name] ?? data[FirestoreFields.productName],
+    );
     return name.isEmpty ? 'Ürün' : name;
   }
 

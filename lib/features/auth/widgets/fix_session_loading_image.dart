@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class FixSessionLoadingImage extends StatelessWidget {
   const FixSessionLoadingImage({
     super.key,
-    this.message = 'Oturum hazirlaniyor...',
+    this.message = 'Hesabın yükleniyor...',
   });
 
   final String message;
@@ -38,6 +38,27 @@ class FixSessionLoadingImage extends StatelessWidget {
                   width: 28,
                   height: 28,
                   child: CircularProgressIndicator(strokeWidth: 2.6),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Fix',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Yakındaki güvenilir işletmeleri keşfet. Randevunu kolayca al.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 13,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(

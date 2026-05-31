@@ -78,7 +78,8 @@ class HomeExploreCategoryStyles {
 
   static HomeExploreCategoryStyle forLabel(String? label) {
     final normalized = BusinessCategories.normalize(label);
-    if (normalized == BusinessCategories.normalize(BusinessCategories.allLabel)) {
+    if (normalized ==
+        BusinessCategories.normalize(BusinessCategories.allLabel)) {
       return all;
     }
 

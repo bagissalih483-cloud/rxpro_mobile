@@ -70,10 +70,7 @@ class ExploreHomeHeader extends StatelessWidget {
 }
 
 class _ExploreProfileAvatar extends StatelessWidget {
-  const _ExploreProfileAvatar({
-    required this.name,
-    required this.photoUrl,
-  });
+  const _ExploreProfileAvatar({required this.name, required this.photoUrl});
 
   final String name;
   final String photoUrl;

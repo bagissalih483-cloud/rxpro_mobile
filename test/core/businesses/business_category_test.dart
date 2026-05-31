@@ -8,7 +8,10 @@ void main() {
         BusinessCategories.normalize('  Güzellik & Bakım  '),
         'guzellik & bakim',
       );
-      expect(BusinessCategories.normalize('Sağlık & Klinik'), 'saglik & klinik');
+      expect(
+        BusinessCategories.normalize('Sağlık & Klinik'),
+        'saglik & klinik',
+      );
       expect(
         BusinessCategories.normalize('GÃƒÂ¼zellik & BakÃ„Â±m'),
         'guzellik & bakim',
@@ -22,8 +25,9 @@ void main() {
         'beauty_care',
       );
       expect(
-        BusinessCategories.fallbackFromDynamic(categoryLabel: 'Sağlık & Klinik')
-            .id,
+        BusinessCategories.fallbackFromDynamic(
+          categoryLabel: 'Sağlık & Klinik',
+        ).id,
         'health_clinic',
       );
       expect(

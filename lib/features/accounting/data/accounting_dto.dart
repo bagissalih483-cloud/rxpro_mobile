@@ -18,6 +18,7 @@ class AccountingDtoCodec {
       'remainingAmountKurus': sale.remainingAmountKurus,
       'discountAmountKurus': sale.discountAmountKurus,
       'depositAmountKurus': sale.depositAmountKurus,
+      'processStatus': sale.processStatus.name,
       'paymentStatus': sale.paymentStatus.name,
       'paymentMethod': sale.paymentMethod.name,
       'dueDate': sale.dueDate?.toIso8601String(),

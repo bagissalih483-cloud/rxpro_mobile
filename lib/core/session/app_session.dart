@@ -89,6 +89,178 @@ class AppSession {
 
   bool hasPermission(String key) {
     if (hasOwnerAuthority) return true;
-    return permissions[key] == true;
+    if (permissions[key] == true) return true;
+
+    final aliases = _permissionAliases[key] ?? const <String>[];
+    for (final alias in aliases) {
+      if (permissions[alias] == true || userData[alias] == true) return true;
+    }
+
+    return false;
   }
+
+  static const Map<String, List<String>> _permissionAliases = {
+    'managementRead': [
+      'customersRead',
+      'customersManage',
+      'customerManage',
+      'staffManage',
+      'manageStaff',
+      'servicesManage',
+      'manageServices',
+      'productsManage',
+      'manageProducts',
+      'durationRead',
+      'activityRead',
+    ],
+    'customersRead': [
+      'customersManage',
+      'customerManage',
+      'viewCustomers',
+      'canViewCustomers',
+      'manageCustomers',
+      'customerRead',
+    ],
+    'customersWrite': [
+      'customersManage',
+      'customerManage',
+      'manageCustomers',
+      'createCustomers',
+      'updateCustomers',
+      'canManageCustomers',
+    ],
+    'appointmentsRead': [
+      'viewAppointments',
+      'canViewAppointments',
+      'workAssignedAppointments',
+      'completeAssignedAppointments',
+      'appointmentWork',
+      'appointmentStartFinish',
+    ],
+    'appointmentsWrite': [
+      'createAppointments',
+      'updateAppointments',
+      'cancelAppointments',
+      'canManageAppointments',
+      'canManageAppointmentChanges',
+      'manageAppointmentChanges',
+      'appointmentManage',
+    ],
+    'financeRead': [
+      'viewFinance',
+      'canViewFinance',
+      'analysisRead',
+      'canViewAnalysis',
+      'adisyon.view',
+      'adisyon.report',
+    ],
+    'financeWrite': [
+      'enterFinance',
+      'canManageFinance',
+      'canManageSales',
+      'saleProcess',
+      'paymentCollect',
+      'adisyon.create',
+      'adisyon.edit',
+      'adisyon.collectPayment',
+    ],
+    'adisyon.view': [
+      'financeRead',
+      'viewFinance',
+      'canViewFinance',
+    ],
+    'adisyon.create': [
+      'financeWrite',
+      'canManageFinance',
+      'canManageSales',
+    ],
+    'adisyon.edit': [
+      'financeWrite',
+      'canManageFinance',
+      'canManageSales',
+      'saleProcess',
+    ],
+    'adisyon.cancel': [
+      'financeWrite',
+      'saleCancel',
+      'canManageFinance',
+      'canCancelSales',
+    ],
+    'adisyon.collectPayment': [
+      'financeWrite',
+      'paymentCollect',
+      'receivableManage',
+    ],
+    'adisyon.refund': [
+      'financeWrite',
+      'paymentRefund',
+      'canRefundPayments',
+      'refundPayments',
+    ],
+    'adisyon.report': [
+      'financeRead',
+      'reportsRead',
+      'reportExport',
+      'canViewFinance',
+    ],
+    'saleProcess': [
+      'financeWrite',
+      'adisyon.edit',
+      'canManageFinance',
+    ],
+    'saleCancel': [
+      'financeWrite',
+      'adisyon.cancel',
+      'canCancelSales',
+    ],
+    'paymentCollect': [
+      'financeWrite',
+      'adisyon.collectPayment',
+      'receivableManage',
+    ],
+    'paymentRefund': [
+      'financeWrite',
+      'adisyon.refund',
+      'canRefundPayments',
+    ],
+    'reportsRead': [
+      'financeRead',
+      'adisyon.report',
+      'reportExport',
+    ],
+    'campaignRead': [
+      'canManageCampaigns',
+      'manageCampaigns',
+      'campaignManage',
+      'createPosts',
+    ],
+    'campaignWrite': [
+      'canManageCampaigns',
+      'manageCampaigns',
+      'campaignManage',
+      'createPosts',
+    ],
+    'bulkMessage': [
+      'canManageCampaigns',
+      'manageCampaigns',
+      'campaignManage',
+      'bulkMessageWrite',
+      'bulkMessages',
+    ],
+    'staffManage': [
+      'manageStaff',
+      'canManageStaff',
+      'managePermissions',
+    ],
+    'servicesManage': [
+      'manageServices',
+      'canManageServices',
+    ],
+    'productsManage': [
+      'manageProducts',
+      'canManageProducts',
+      'inventoryManage',
+      'stockManage',
+    ],
+  };
 }

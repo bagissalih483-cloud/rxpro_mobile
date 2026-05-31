@@ -29,7 +29,10 @@ class BusinessLocationData {
     return address.trim();
   }
 
-  double distanceKmFrom({required double? latitude, required double? longitude}) {
+  double distanceKmFrom({
+    required double? latitude,
+    required double? longitude,
+  }) {
     if (latitude == null || longitude == null || lat == null || lng == null) {
       return double.infinity;
     }

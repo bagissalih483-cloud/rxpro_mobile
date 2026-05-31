@@ -3,6 +3,7 @@ param(
   [switch]$SkipFunctions,
   [switch]$SkipRules,
   [switch]$SkipBuild,
+  [switch]$SkipStateScaleBudget,
   [switch]$EnforceFormat
 )
 
@@ -36,6 +37,11 @@ Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\secret_scan
 
 Write-Host "Checking public data matrix..."
 Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\public_data_matrix_check.ps1
+
+if (-not $SkipStateScaleBudget) {
+  Write-Host "Checking state and scalability budgets..."
+  Invoke-CheckedCommand powershell -ExecutionPolicy Bypass -File tools\state_scalability_budget_check.ps1
+}
 
 if (-not $SkipFunctions) {
   Write-Host "Checking Cloud Functions syntax..."

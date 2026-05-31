@@ -121,7 +121,8 @@ class CampaignRecord {
       raw,
       const <String>['moderationStatus', 'reviewStatus'],
     ).toLowerCase();
-    final hidden = raw['hidden'] == true ||
+    final hidden =
+        raw['hidden'] == true ||
         raw['isHidden'] == true ||
         moderationStatus == 'hidden' ||
         moderationStatus == 'blocked' ||
@@ -407,9 +408,7 @@ class BulkMessageSendResult {
       attemptId: data['attemptId']?.toString().trim() ?? '',
       sendStatus: data['sendStatus']?.toString().trim() ?? '',
       targetCount: _intValue(data['targetCount']),
-      deliveredNotificationCount: _intValue(
-        data['deliveredNotificationCount'],
-      ),
+      deliveredNotificationCount: _intValue(data['deliveredNotificationCount']),
       alreadySent: data['alreadySent'] == true,
       alreadySending: data['alreadySending'] == true,
     );

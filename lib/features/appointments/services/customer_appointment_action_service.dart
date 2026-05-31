@@ -199,7 +199,7 @@ class CustomerAppointmentActionService {
     await RxNotificationService.createBusinessNotification(
       businessId: resolvedBusinessId,
       businessName: resolvedBusinessName.isEmpty
-          ? 'Kurumsal Kullanici'
+          ? 'Kurumsal Kullanıcı'
           : resolvedBusinessName,
       recipientUid: resolvedOwnerUid,
       actorUid: actorUid,

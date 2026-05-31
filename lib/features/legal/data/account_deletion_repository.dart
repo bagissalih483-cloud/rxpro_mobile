@@ -4,11 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/firestore/firestore_collections.dart';
 
 class AccountDeletionRepository {
-  AccountDeletionRepository({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-       _firestore = firestore ?? FirebaseFirestore.instance;
+  AccountDeletionRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -31,4 +29,3 @@ class AccountDeletionRepository {
         }, SetOptions(merge: true));
   }
 }
-

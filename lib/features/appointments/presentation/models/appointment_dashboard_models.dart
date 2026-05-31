@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppointmentRoleContext {
-  const AppointmentRoleContext.customer()
-    : isBusiness = false,
-      business = null;
+  const AppointmentRoleContext.customer() : isBusiness = false, business = null;
 
   const AppointmentRoleContext.business(this.business) : isBusiness = true;
 

@@ -9,11 +9,10 @@ class RoleGateShell extends StatefulWidget {
 
 class _RoleGateShellState extends State<RoleGateShell> {
   final AuthService _authService = AuthService();
+  final RoleGateController _controller = RoleGateController();
   AppSession? _lastSession;
   String? _observedUserId;
-  bool _allowRoleRepair = false;
   Timer? _roleRepairTimer;
-  bool _startupTimedOut = false;
   String _startupPhase = '';
   Timer? _startupTimer;
 
@@ -32,38 +31,32 @@ class _RoleGateShellState extends State<RoleGateShell> {
   }
 
   void _armRoleRepairDelay() {
-    if (_allowRoleRepair || _roleRepairTimer != null) return;
+    if (_controller.allowRoleRepair || _roleRepairTimer != null) return;
     _roleRepairTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
-      setState(() {
-        _allowRoleRepair = true;
-      });
+      _controller.setAllowRoleRepair(true);
     });
   }
 
   void _resetRoleRepairDelay() {
     _roleRepairTimer?.cancel();
     _roleRepairTimer = null;
-    if (_allowRoleRepair) {
-      _allowRoleRepair = false;
-    }
+    _controller.setAllowRoleRepair(false, notify: false);
   }
 
   void _armStartupTimeout(String phase) {
     if (_startupPhase != phase) {
       _startupTimer?.cancel();
       _startupTimer = null;
-      _startupTimedOut = false;
+      _controller.setStartupTimedOut(false, notify: false);
       _startupPhase = phase;
     }
 
-    if (_startupTimer != null || _startupTimedOut) return;
+    if (_startupTimer != null || _controller.startupTimedOut) return;
 
     _startupTimer = Timer(_startupTimeout, () {
       if (!mounted) return;
-      setState(() {
-        _startupTimedOut = true;
-      });
+      _controller.setStartupTimedOut(true);
     });
   }
 
@@ -71,17 +64,17 @@ class _RoleGateShellState extends State<RoleGateShell> {
     _startupTimer?.cancel();
     _startupTimer = null;
     _startupPhase = '';
-    _startupTimedOut = false;
+    _controller.setStartupTimedOut(false, notify: false);
   }
 
   void _retryStartup() {
     _startupTimer?.cancel();
     _startupTimer = null;
-    _startupTimedOut = false;
+    _controller.setStartupTimedOut(false, notify: false);
     _startupPhase = '';
     _resetRoleRepairDelay();
     FixSessionGate.refreshAfterAuthChange();
-    if (mounted) setState(() {});
+    if (mounted) _controller.requestRefresh();
   }
 
   Future<void> _signOutForRecovery() async {
@@ -110,15 +103,19 @@ class _RoleGateShellState extends State<RoleGateShell> {
   void dispose() {
     _roleRepairTimer?.cancel();
     _startupTimer?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: FixSessionGate.sessionVersion,
-      builder: (context, sessionVersion, _) {
-        return StreamBuilder<User?>(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: FixSessionGate.sessionVersion,
+          builder: (context, sessionVersion, _) {
+            return StreamBuilder<User?>(
           key: ValueKey('auth_stream_$sessionVersion'),
           stream: _authService.idTokenChanges(),
           builder: (context, authSnapshot) {
@@ -129,7 +126,7 @@ class _RoleGateShellState extends State<RoleGateShell> {
                 _lastSession == null) {
               _armStartupTimeout('auth');
 
-              if (_startupTimedOut) {
+              if (_controller.startupTimedOut) {
                 return _StartupRecoveryPage(
                   message:
                       'Oturum kontrolü beklenenden uzun sürdü. Bağlantı yavaş olabilir.',
@@ -189,7 +186,7 @@ class _RoleGateShellState extends State<RoleGateShell> {
                       freshSession.isInvalid) {
                     _armRoleRepairDelay();
 
-                    if (!_allowRoleRepair) {
+                    if (!_controller.allowRoleRepair) {
                       return const _FixSessionLoadingPromo(
                         message: 'Hesap rolü kontrol ediliyor...',
                       );
@@ -203,10 +200,10 @@ class _RoleGateShellState extends State<RoleGateShell> {
 
                   _armStartupTimeout('session_${user.uid}');
 
-                  if (_startupTimedOut) {
+                  if (_controller.startupTimedOut) {
                     return _StartupRecoveryPage(
                       message:
-                          'Hesap bilgileri beklenenden uzun sürdü. Uygulama kilitlenmedi; oturum servisi bekliyor.',
+                          'Hesap bilgileri beklenenden uzun sürdü. Bağlantını kontrol edip tekrar deneyebilirsin.',
                       onRetry: _retryStartup,
                       onSignOut: _signOutForRecovery,
                     );
@@ -260,6 +257,8 @@ class _RoleGateShellState extends State<RoleGateShell> {
                       'Bu hesap için geçerli bir uygulama rolü bulunamadı.',
                 );
               },
+            );
+          },
             );
           },
         );

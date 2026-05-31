@@ -32,10 +32,7 @@ class BusinessProfileBookingPolicy {
     return const <String>[];
   }
 
-  static List<DateTime> upcomingDays({
-    required DateTime now,
-    int count = 21,
-  }) {
+  static List<DateTime> upcomingDays({required DateTime now, int count = 21}) {
     final today = DateTime(now.year, now.month, now.day);
     return List.generate(count, (index) => today.add(Duration(days: index)));
   }
@@ -47,7 +44,15 @@ class BusinessProfileBookingPolicy {
   }
 
   static String shortDay(DateTime date) {
-    const names = <String>['Pzt', 'Sal', '\u00c7ar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    const names = <String>[
+      'Pzt',
+      'Sal',
+      '\u00c7ar',
+      'Per',
+      'Cum',
+      'Cmt',
+      'Paz',
+    ];
     return names[date.weekday - 1];
   }
 

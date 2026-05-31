@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/businesses/business_category.dart';
+import 'business_category_required_controller.dart';
 import 'data/registered_business_gateway_repository.dart';
 
 class BusinessCategoryRequiredPage extends StatefulWidget {
@@ -22,13 +23,19 @@ class BusinessCategoryRequiredPage extends StatefulWidget {
 
 class _BusinessCategoryRequiredPageState
     extends State<BusinessCategoryRequiredPage> {
-  BusinessCategoryOption? selected;
-  bool saving = false;
   final RegisteredBusinessGatewayRepository _gatewayRepository =
       RegisteredBusinessGatewayRepository();
+  final BusinessCategoryRequiredController _controller =
+      BusinessCategoryRequiredController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
-    final category = selected;
+    final category = _controller.selected;
 
     if (category == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -54,7 +61,7 @@ class _BusinessCategoryRequiredPageState
       return;
     }
 
-    setState(() => saving = true);
+    _controller.setSaving(true);
 
     try {
       final collection = widget.sourceCollection.trim().isEmpty
@@ -88,7 +95,7 @@ class _BusinessCategoryRequiredPageState
       );
     } finally {
       if (mounted) {
-        setState(() => saving = false);
+        _controller.setSaving(false);
       }
     }
   }
@@ -99,80 +106,87 @@ class _BusinessCategoryRequiredPageState
         ? 'Kurumsal Profiliniz'
         : widget.businessName.trim();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Kurumsal Kategori')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.category_outlined,
-                    color: Color(0xFF216A6D),
-                    size: 34,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '$businessName için kategori seçin',
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Kategori bilgisi Keşfet filtreleri, sıralama, kampanya hedefleme ve ileride eklenecek öneri sistemleri için zorunludur.',
-                    style: TextStyle(color: Color(0xFF60727A), height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...BusinessCategories.values.map((item) {
-            final active = selected?.id == item.id;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final selected = _controller.selected;
+        final saving = _controller.saving;
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Card(
-                color: active ? const Color(0xFFE8FAF4) : null,
-                child: RadioListTile<BusinessCategoryOption>(
-                  value: item,
-                  // ignore: deprecated_member_use
-                  groupValue: selected,
-                  // ignore: deprecated_member_use
-                  onChanged: saving
-                      ? null
-                      : (value) {
-                          setState(() => selected = value);
-                        },
-                  title: Text(
-                    item.label,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+        return Scaffold(
+          appBar: AppBar(title: const Text('Kurumsal Kategori')),
+          body: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.category_outlined,
+                        color: Color(0xFF216A6D),
+                        size: 34,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '$businessName için kategori seçin',
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Kategori bilgisi Keşfet filtreleri, sıralama, fırsat hedefleme ve işletme önerileri için kullanılır.',
+                        style: TextStyle(
+                          color: Color(0xFF60727A),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ),
-                  subtitle: Text(item.keywords.take(4).join(' • ')),
                 ),
               ),
-            );
-          }),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: saving ? null : _save,
-            icon: saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.check_circle_outline),
-            label: Text(saving ? 'Kaydediliyor' : 'Kategoriyi Kaydet'),
+              const SizedBox(height: 14),
+              ...BusinessCategories.values.map((item) {
+                final active = selected?.id == item.id;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Card(
+                    color: active ? const Color(0xFFE8FAF4) : null,
+                    child: RadioListTile<BusinessCategoryOption>(
+                      value: item,
+                      // ignore: deprecated_member_use
+                      groupValue: selected,
+                      // ignore: deprecated_member_use
+                      onChanged: saving ? null : _controller.select,
+                      title: Text(
+                        item.label,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      subtitle: Text(item.keywords.take(4).join(' • ')),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: saving ? null : _save,
+                icon: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(saving ? 'Kaydediliyor' : 'Kategoriyi Kaydet'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

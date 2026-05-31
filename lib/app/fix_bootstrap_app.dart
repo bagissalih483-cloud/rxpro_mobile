@@ -8,25 +8,30 @@ class FixBootstrapApp extends StatefulWidget {
 }
 
 class _FixBootstrapAppState extends State<FixBootstrapApp> {
-  late Future<void> _bootstrapFuture;
-  String _bootstrapMessage = 'fix başlatılıyor...';
+  final FixBootstrapController _controller = FixBootstrapController();
 
   @override
   void initState() {
     super.initState();
-    _bootstrapFuture = _bootstrap();
+    _controller.setBootstrapFuture(_bootstrap());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
     debugPrint('FIX_BOOTSTRAP_START');
-    _setBootstrapMessage('Firebase bağlantısı hazırlanıyor...');
+    _setBootstrapMessage('Fix hazırlanıyor...');
 
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     ).timeout(const Duration(seconds: 10));
 
     debugPrint('FIX_BOOTSTRAP_FIREBASE_READY');
-    _setBootstrapMessage('Servisler hazırlanıyor...');
+    _setBootstrapMessage('Yakındaki güvenilir işletmeleri keşfet.');
 
     try {
       await FirebaseAppCheckBootstrap.activate().timeout(
@@ -71,44 +76,47 @@ class _FixBootstrapAppState extends State<FixBootstrapApp> {
     }
 
     debugPrint('FIX_BOOTSTRAP_DONE');
-    _setBootstrapMessage('Oturum açılıyor...');
+    _setBootstrapMessage('Hesabın yükleniyor...');
   }
 
   void _setBootstrapMessage(String message) {
-    if (!mounted || _bootstrapMessage == message) return;
-    setState(() {
-      _bootstrapMessage = message;
-    });
+    if (!mounted) return;
+    _controller.setBootstrapMessage(message);
   }
 
   void _retryBootstrap() {
-    setState(() {
-      _bootstrapFuture = _bootstrap();
-    });
+    _controller.setBootstrapFuture(_bootstrap());
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<void>(
-      future: _bootstrapFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            !snapshot.hasError) {
-          return const FixApp();
-        }
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return FutureBuilder<void>(
+          future: _controller.bootstrapFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done &&
+                !snapshot.hasError) {
+              return const FixApp();
+            }
 
-        if (snapshot.hasError) {
-          return _BootstrapMaterialShell(
-            child: _StartupRecoveryPage(
-              message:
-                  'Uygulama servisleri başlatılamadı. İnternet bağlantısını kontrol edip tekrar deneyin.',
-              onRetry: _retryBootstrap,
-            ),
-          );
-        }
+            if (snapshot.hasError) {
+              return _BootstrapMaterialShell(
+                child: _StartupRecoveryPage(
+                  message:
+                      'Fix şu anda açılamadı. İnternet bağlantını kontrol edip tekrar deneyebilirsin.',
+                  onRetry: _retryBootstrap,
+                ),
+              );
+            }
 
-        return _BootstrapMaterialShell(
-          child: FixSessionLoadingImage(message: _bootstrapMessage),
+            return _BootstrapMaterialShell(
+              child: FixSessionLoadingImage(
+                message: _controller.bootstrapMessage,
+              ),
+            );
+          },
         );
       },
     );
@@ -123,15 +131,21 @@ class _BootstrapMaterialShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'fix',
+      title: 'Fix',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const RxAdaptiveScrollBehavior(),
+      builder: (context, child) {
+        return RxAdaptiveAppFrame(child: child ?? const SizedBox.shrink());
+      },
       theme: ThemeData(
         useMaterial3: true,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: RxColors.background,
         colorScheme: ColorScheme.fromSeed(
           seedColor: RxColors.primary,
           brightness: Brightness.light,
         ),
+        snackBarTheme: _fixSnackBarTheme(),
       ),
       home: child,
     );
@@ -190,10 +204,24 @@ class FixApp extends StatelessWidget {
       navigatorObservers: AppObservabilityService.instance.navigatorObservers,
       onGenerateRoute: AppRouteCatalog.onGenerateRoute,
       onUnknownRoute: AppRouteCatalog.onUnknownRoute,
-      title: 'fix',
+      title: 'Fix',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const RxAdaptiveScrollBehavior(),
+      builder: (context, child) {
+        return RxAdaptiveAppFrame(
+          onDismiss: () {
+            final navigator =
+                RxPushNotificationService.navigatorKey.currentState;
+            if (navigator != null && navigator.canPop()) {
+              navigator.maybePop();
+            }
+          },
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
         scaffoldBackgroundColor: RxColors.background,
         colorScheme: ColorScheme.fromSeed(
           seedColor: RxColors.primary,
@@ -216,6 +244,21 @@ class FixApp extends StatelessWidget {
             TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
           iconTheme: WidgetStatePropertyAll(IconThemeData(size: 22)),
+        ),
+        navigationRailTheme: const NavigationRailThemeData(
+          backgroundColor: RxColors.surface,
+          selectedIconTheme: IconThemeData(color: RxColors.primary, size: 24),
+          unselectedIconTheme: IconThemeData(color: RxColors.muted, size: 22),
+          selectedLabelTextStyle: TextStyle(
+            color: RxColors.text,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+          unselectedLabelTextStyle: TextStyle(
+            color: RxColors.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
@@ -240,6 +283,7 @@ class FixApp extends StatelessWidget {
             ),
           ),
         ),
+        snackBarTheme: _fixSnackBarTheme(),
       ),
       home: RxRuntimeDiagnostics.safeBoot
           ? const _RuntimeDiagnosticHome()
@@ -253,6 +297,21 @@ class FixApp extends StatelessWidget {
   }
 }
 
+SnackBarThemeData _fixSnackBarTheme() {
+  return SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    backgroundColor: const Color(0xFF0F172A),
+    contentTextStyle: const TextStyle(
+      color: Colors.white,
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+    ),
+    elevation: 8,
+    insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  );
+}
+
 class _RuntimeDiagnosticHome extends StatelessWidget {
   const _RuntimeDiagnosticHome();
 
@@ -264,7 +323,7 @@ class _RuntimeDiagnosticHome extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RxColors.background,
-      appBar: AppBar(title: const Text('Tanı modu')),
+      appBar: AppBar(title: const Text('Sistem tanılama')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(18),
@@ -276,7 +335,7 @@ class _RuntimeDiagnosticHome extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             const Text(
-              'Uygulama izole modda açıldı.',
+              'Uygulama tanılama modunda açıldı.',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
@@ -285,7 +344,7 @@ class _RuntimeDiagnosticHome extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Bu ekran normal oturum akışını, push servislerini ve otomatik Keşfet yüklemesini ayırmak için kullanılır.',
+              'Bu ekran oturum, bildirim ve Keşfet yükleme adımlarını ayrı ayrı kontrol etmek için kullanılır.',
               style: TextStyle(
                 fontSize: 14,
                 height: 1.35,
@@ -306,7 +365,7 @@ class _RuntimeDiagnosticHome extends StatelessWidget {
               enabled: RxRuntimeDiagnostics.disableExploreAutoLoad,
             ),
             _DiagnosticFlagTile(
-              label: 'Keşfet render logları',
+              label: 'Keşfet teknik günlükleri',
               enabled: RxRuntimeDiagnostics.verboseExploreRender,
             ),
             const SizedBox(height: 20),

@@ -18,7 +18,8 @@ abstract class AppointmentRepository {
     Map<String, dynamic> payload,
   );
 
-  Future<DocumentReference<Map<String, dynamic>>> createAppointmentWithSlotLock({
+  Future<DocumentReference<Map<String, dynamic>>>
+  createAppointmentWithSlotLock({
     required Map<String, dynamic> payload,
     required DateTime startAt,
     required DateTime endAt,

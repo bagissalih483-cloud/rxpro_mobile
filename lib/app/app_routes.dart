@@ -13,8 +13,7 @@ abstract final class AppRoutes {
   static const String businessProductForm = '/business/products/form';
   static const String businessProfile = '/business/profile';
   static const String businessProfileEdit = '/business/profile/edit';
-  static const String businessProfileEditEntry =
-      '/business/profile/edit-entry';
+  static const String businessProfileEditEntry = '/business/profile/edit-entry';
   static const String businessProfilePostCreate =
       '/business/profile/post-create';
   static const String businessServiceForm = '/business/services/form';
@@ -35,6 +34,7 @@ abstract final class AppRoutes {
   static const String businessCustomers = '/business/customers';
   static const String businessCampaigns = '/business/campaigns';
   static const String businessFinance = '/business/finance';
+  static const String businessLiveFlow = '/business/live-flow';
   static const String businessStoryCreate = '/business/stories/create';
   static const String notificationCenter = '/notifications';
   static const String notificationPreferences = '/notifications/preferences';
@@ -220,7 +220,7 @@ class BusinessStoryViewerRouteArgs {
 class StaffWorkspaceRouteArgs {
   const StaffWorkspaceRouteArgs({
     required this.memberData,
-    this.title = 'Gorevlerim',
+    this.title = 'Görevlerim',
     this.tasksOnly = false,
   });
 

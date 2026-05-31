@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/core/responsive/rx_adaptive_modal.dart';
 import 'package:rxpro_mobile/core/session/app_session_scope.dart';
 
 import '../data/accounting_repository.dart';
 import '../data/accounting_validators.dart';
 import '../data/callable_accounting_repository.dart';
 import '../models/accounting_models.dart';
+import '../presentation/accounting_expense_entry_controller.dart';
 
 class AccountingExpenseEntryForm extends StatefulWidget {
   const AccountingExpenseEntryForm({super.key});
@@ -14,11 +16,10 @@ class AccountingExpenseEntryForm extends StatefulWidget {
       _AccountingExpenseEntryFormState();
 }
 
-class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm> {
-  String _category = 'supplies';
-  String _paymentMethod = 'cash';
-  bool _isPaid = true;
-  bool _isRecurring = false;
+class _AccountingExpenseEntryFormState
+    extends State<AccountingExpenseEntryForm> {
+  final AccountingExpenseEntryController _controller =
+      AccountingExpenseEntryController();
 
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
@@ -28,6 +29,7 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
 
   @override
   void dispose() {
+    _controller.dispose();
     _titleController.dispose();
     _amountController.dispose();
     _vendorController.dispose();
@@ -51,14 +53,14 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
 
   void _validateDraft() {
     final title = _titleController.text.trim().isEmpty
-        ? _categoryLabelForExpense(_category)
+        ? _categoryLabelForExpense(_controller.category)
         : _titleController.text.trim();
 
     final result = AccountingDraftValidator.validateExpense(
-      category: _category,
+      category: _controller.category,
       title: title,
       amountKurus: AccountingMoneyParser.parseKurus(_amountController.text),
-      recurring: _isRecurring,
+      recurring: _controller.isRecurring,
       recurrencePeriod: 'monthly',
     );
 
@@ -75,16 +77,19 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      children: [
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
         const Text(
           'Gider ekle',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          initialValue: _category,
+          initialValue: _controller.category,
           decoration: const InputDecoration(
             labelText: 'Kategori',
             border: OutlineInputBorder(),
@@ -99,7 +104,7 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
             DropdownMenuItem(value: 'other', child: Text('Diğer')),
           ],
           onChanged: (value) {
-            if (value != null) setState(() => _category = value);
+            if (value != null) _controller.selectCategory(value);
           },
         ),
         const SizedBox(height: 10),
@@ -107,7 +112,7 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
           controller: _titleController,
           decoration: InputDecoration(
             labelText: 'Gider başlığı',
-            hintText: _categoryLabelForExpense(_category),
+            hintText: _categoryLabelForExpense(_controller.category),
             border: const OutlineInputBorder(),
           ),
         ),
@@ -150,34 +155,34 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
           runSpacing: 8,
           children: [
             _ChoicePill(
-              selected: _paymentMethod == 'cash',
+              selected: _controller.paymentMethod == 'cash',
               label: 'Nakit',
-              onTap: () => setState(() => _paymentMethod = 'cash'),
+              onTap: () => _controller.selectPaymentMethod('cash'),
             ),
             _ChoicePill(
-              selected: _paymentMethod == 'bank',
+              selected: _controller.paymentMethod == 'bank',
               label: 'Havale',
-              onTap: () => setState(() => _paymentMethod = 'bank'),
+              onTap: () => _controller.selectPaymentMethod('bank'),
             ),
             _ChoicePill(
-              selected: _paymentMethod == 'card',
+              selected: _controller.paymentMethod == 'card',
               label: 'Kart',
-              onTap: () => setState(() => _paymentMethod = 'card'),
+              onTap: () => _controller.selectPaymentMethod('card'),
             ),
           ],
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          value: _isPaid,
+          value: _controller.isPaid,
           title: const Text('Bu gider ödendi'),
-          onChanged: (value) => setState(() => _isPaid = value),
+          onChanged: _controller.setPaid,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          value: _isRecurring,
+          value: _controller.isRecurring,
           title: const Text('Tekrarlayan gider'),
           subtitle: const Text('Kira, abonelik veya düzenli giderler için.'),
-          onChanged: (value) => setState(() => _isRecurring = value),
+          onChanged: _controller.setRecurring,
         ),
         TextField(
           controller: _noteController,
@@ -194,7 +199,9 @@ class _AccountingExpenseEntryFormState extends State<AccountingExpenseEntryForm>
           icon: const Icon(Icons.fact_check_rounded),
           label: const Text('Kayda uygunluğu kontrol et'),
         ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -224,9 +231,9 @@ class _AccountingExpensesPageState extends State<AccountingExpensesPage>
   bool get wantKeepAlive => true;
 
   void _showEditPreview(_ExpenseDemo expense) {
-    showModalBottomSheet<void>(
+    showRxAdaptiveModal<void>(
       context: context,
-      showDragHandle: true,
+      desktopMaxWidth: 560,
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
@@ -247,13 +254,13 @@ class _AccountingExpensesPageState extends State<AccountingExpensesPage>
                 enabled: false,
                 decoration: InputDecoration(
                   labelText: 'Yeni tutar / not / periyot',
-                  hintText: 'Düzenleme servisiyle aktifleşecek',
+                  hintText: 'Düzenleme hazır olduğunda aktif olacak',
                   border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               const Text(
-                'Gider düzenleme servisi açıldığında tek kayıt veya bundan sonraki tekrarlar ayrı seçenek olarak yönetilecek.',
+                'Düzenleme hazır olduğunda tek kayıt veya sonraki tekrarlar ayrı seçenek olarak yönetilecek.',
                 style: TextStyle(color: Color(0xFF64748B), height: 1.35),
               ),
             ],
@@ -499,7 +506,11 @@ class _EmptyExpenses extends StatelessWidget {
         padding: EdgeInsets.all(22),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_rounded, color: Color(0xFF10B981), size: 38),
+            Icon(
+              Icons.receipt_long_rounded,
+              color: Color(0xFF10B981),
+              size: 38,
+            ),
             SizedBox(height: 10),
             Text(
               'Seçili dönemde gider yok',

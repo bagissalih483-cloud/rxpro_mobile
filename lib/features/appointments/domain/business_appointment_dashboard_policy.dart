@@ -182,13 +182,15 @@ class BusinessAppointmentDashboardPolicy {
     required Iterable<Map<String, dynamic>> appointments,
     required DateTime visibleMonth,
   }) {
-    return appointments.where((data) {
-      if (isCancelledOrPassive(data)) return false;
-      final dt = dateOf(data);
-      return dt != null &&
-          dt.year == visibleMonth.year &&
-          dt.month == visibleMonth.month;
-    }).toList(growable: false);
+    return appointments
+        .where((data) {
+          if (isCancelledOrPassive(data)) return false;
+          final dt = dateOf(data);
+          return dt != null &&
+              dt.year == visibleMonth.year &&
+              dt.month == visibleMonth.month;
+        })
+        .toList(growable: false);
   }
 
   static List<BusinessAppointmentDashboardStaffOption> staffOptions({
@@ -236,11 +238,11 @@ class BusinessAppointmentDashboardPolicy {
       }
     }
 
-    if (staff.isEmpty) {
+    if (!seen.contains('default')) {
       staff.add(
         const BusinessAppointmentDashboardStaffOption(
           id: 'default',
-          name: 'Genel',
+          name: 'Yönetim / Manuel',
         ),
       );
     }

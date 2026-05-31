@@ -19,8 +19,38 @@ class AccountingPermissionsPage extends StatelessWidget {
       ),
       _PermissionRowData(
         keyName: AccountingPermissionKeys.financeWrite,
-        description: 'Manuel sat\u0131\u015f ve tahsilat i\u015flemi yapar.',
+        description:
+            'Geçiş dönemi uyumluluk anahtarıdır; yeni adisyon ve tahsilat yetkileriyle birlikte değerlendirilir.',
         roleHint: 'Kasa / y\u00f6netici',
+      ),
+      _PermissionRowData(
+        keyName: AccountingPermissionKeys.saleProcess,
+        description:
+            'Bekleyen adisyonu işler; ödendi, kısmi, açık hesap, taksitli veya ücretsiz sonucu seçer.',
+        roleHint: 'Kasa / yönetici',
+      ),
+      _PermissionRowData(
+        keyName: AccountingPermissionKeys.paymentCollect,
+        description:
+            'Adisyon veya alacak üzerinden tahsilat alır; kasa hareketi oluşturur.',
+        roleHint: 'Kasa',
+      ),
+      _PermissionRowData(
+        keyName: AccountingPermissionKeys.saleCancel,
+        description:
+            'Tahsilat alınmamış bekleyen adisyonu gerekçesiyle iptal eder.',
+        roleHint: 'Yönetici',
+      ),
+      _PermissionRowData(
+        keyName: AccountingPermissionKeys.paymentRefund,
+        description:
+            'Tahsilatı olan adisyonda iade/düzeltme işlemi yapar.',
+        roleHint: 'Owner / yönetici',
+      ),
+      _PermissionRowData(
+        keyName: AccountingPermissionKeys.reportsRead,
+        description: 'Finans raporlarını ve kasa özetlerini görüntüler.',
+        roleHint: 'Owner / muhasebe',
       ),
       _PermissionRowData(
         keyName: AccountingPermissionKeys.expenseWrite,
@@ -404,7 +434,7 @@ class _IntegrationNoteCard extends StatelessWidget {
               'Owner t\u00fcm muhasebe yetkilerine sahip say\u0131l\u0131r.',
             ),
             _Bullet(
-              'Personel i\u00e7in permissions map i\u00e7inde financeRead, financeWrite, expenseWrite, receivableManage ve reportExport tutulur.',
+              'Personel için permissions map içinde financeRead, saleProcess, paymentCollect, saleCancel, paymentRefund, expenseWrite, receivableManage, reportsRead ve reportExport tutulur.',
             ),
             _Bullet(
               'Personel paneli açılırken işletme yetkileri aktif oturuma güvenli şekilde taşınır.',

@@ -124,10 +124,9 @@ class BusinessCampaignItemViewModel {
       record.raw,
       const <String>['audience', 'target'],
     );
-    final channel = CampaignFieldReaders.firstString(
-      record.raw,
-      const <String>['channel'],
-    );
+    final channel = CampaignFieldReaders.firstString(record.raw, const <String>[
+      'channel',
+    ]);
     final sendStatus = CampaignFieldReaders.firstString(
       record.raw,
       const <String>['sendStatus'],

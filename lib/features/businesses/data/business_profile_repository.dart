@@ -76,10 +76,12 @@ class BusinessProfileRepository {
         .where(FirestoreFields.businessId, isEqualTo: businessId)
         .snapshots()
         .map((snapshot) {
-          return _withDocumentIds(snapshot).where((data) {
-            final status = _clean(data['moderationStatus']).toLowerCase();
-            return status != 'hidden' && status != 'removed';
-          }).toList(growable: false);
+          return _withDocumentIds(snapshot)
+              .where((data) {
+                final status = _clean(data['moderationStatus']).toLowerCase();
+                return status != 'hidden' && status != 'removed';
+              })
+              .toList(growable: false);
         });
   }
 

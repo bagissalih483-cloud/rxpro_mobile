@@ -38,4 +38,3 @@ class ComputedBusinessAnalysis {
   final List<MapEntry<String, int>> topStaff;
   final List<MapEntry<String, int>> topProfiles;
 }
-

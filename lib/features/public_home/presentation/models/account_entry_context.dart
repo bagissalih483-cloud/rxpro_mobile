@@ -118,7 +118,9 @@ class AccountEntryBusinessContext {
     required this.source,
   });
 
-  factory AccountEntryBusinessContext.fromRepository(AccountEntryBusinessData business) {
+  factory AccountEntryBusinessContext.fromRepository(
+    AccountEntryBusinessData business,
+  ) {
     return AccountEntryBusinessContext(
       id: business.id,
       name: business.name,

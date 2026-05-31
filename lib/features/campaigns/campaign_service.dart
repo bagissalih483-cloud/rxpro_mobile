@@ -237,9 +237,7 @@ class CampaignService {
     if (cleanBusinessId.isNotEmpty) {
       return _CampaignBusinessValues(
         businessId: cleanBusinessId,
-        businessName: cleanBusinessName.isEmpty
-            ? 'İşletme'
-            : cleanBusinessName,
+        businessName: cleanBusinessName.isEmpty ? 'İşletme' : cleanBusinessName,
       );
     }
 

@@ -6,45 +6,51 @@ import 'package:rxpro_mobile/features/public_home/domain/home_explore_filter_pol
 
 void main() {
   group('HomeExploreFilterPolicy', () {
-    test('keeps nearest visible businesses first after location is available', () {
-      final origin = _position(37.1901, 38.7937);
-      final items = <BusinessDirectoryItem>[
-        _item(
-          id: 'far_member',
-          name: 'Far Member',
-          category: BusinessCategories.values.first.label,
-          lat: 37.2600,
-          lng: 38.8800,
-          membership: BusinessDirectoryMembership.member,
-        ),
-        _item(
-          id: 'near_directory',
-          name: 'Near Directory',
-          category: BusinessCategories.values.first.label,
-          lat: 37.1910,
-          lng: 38.7940,
-        ),
-        _item(
-          id: 'hidden',
-          name: 'Hidden',
-          category: BusinessCategories.values.first.label,
-          lat: 37.1902,
-          lng: 38.7938,
-          visible: false,
-        ),
-      ];
+    test(
+      'keeps nearest visible businesses first after location is available',
+      () {
+        final origin = _position(37.1901, 38.7937);
+        final items = <BusinessDirectoryItem>[
+          _item(
+            id: 'far_member',
+            name: 'Far Member',
+            category: BusinessCategories.values.first.label,
+            lat: 37.2600,
+            lng: 38.8800,
+            membership: BusinessDirectoryMembership.member,
+          ),
+          _item(
+            id: 'near_directory',
+            name: 'Near Directory',
+            category: BusinessCategories.values.first.label,
+            lat: 37.1910,
+            lng: 38.7940,
+          ),
+          _item(
+            id: 'hidden',
+            name: 'Hidden',
+            category: BusinessCategories.values.first.label,
+            lat: 37.1902,
+            lng: 38.7938,
+            visible: false,
+          ),
+        ];
 
-      final filtered = HomeExploreFilterPolicy.filterAndSort(
-        items: items,
-        queryText: '',
-        selectedCategory: BusinessCategories.allLabel,
-        currentPosition: origin,
-        radiusKm: 20,
-        sortMode: HomeExploreSortMode.recommended,
-      );
+        final filtered = HomeExploreFilterPolicy.filterAndSort(
+          items: items,
+          queryText: '',
+          selectedCategory: BusinessCategories.allLabel,
+          currentPosition: origin,
+          radiusKm: 20,
+          sortMode: HomeExploreSortMode.recommended,
+        );
 
-      expect(filtered.map((item) => item.id), ['near_directory', 'far_member']);
-    });
+        expect(filtered.map((item) => item.id), [
+          'near_directory',
+          'far_member',
+        ]);
+      },
+    );
 
     test('applies category, search, and radius filters together', () {
       final origin = _position(37.1901, 38.7937);

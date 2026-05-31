@@ -31,29 +31,28 @@ class _BusinessManualAppointmentSheetState
   final _serviceNameController = TextEditingController();
   final _durationController = TextEditingController(text: '30');
   final _noteController = TextEditingController();
+  final BusinessManualAppointmentSheetController _controller =
+      BusinessManualAppointmentSheetController();
 
   late Future<List<BusinessManualAppointmentServiceOption>> _servicesFuture;
-  late DateTime _selectedDate;
-  late TimeOfDay _selectedTime;
-  String _selectedStaffId = '';
-  String _selectedServiceId = '';
-  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = BusinessManualAppointmentPolicy.dayOnly(
-      widget.initialStartAt,
-    );
-    _selectedTime = TimeOfDay.fromDateTime(widget.initialStartAt);
-    _selectedStaffId = BusinessManualAppointmentPolicy.initialStaffId(
-      initialStaff: widget.initialStaff == null
-          ? null
-          : BusinessManualAppointmentStaffOption(
-              id: widget.initialStaff!.id,
-              name: widget.initialStaff!.name,
-            ),
-      staffOptions: _staffOptions,
+    _controller.applyInitial(
+      selectedDate: BusinessManualAppointmentPolicy.dayOnly(
+        widget.initialStartAt,
+      ),
+      selectedTime: TimeOfDay.fromDateTime(widget.initialStartAt),
+      selectedStaffId: BusinessManualAppointmentPolicy.initialStaffId(
+        initialStaff: widget.initialStaff == null
+            ? null
+            : BusinessManualAppointmentStaffOption(
+                id: widget.initialStaff!.id,
+                name: widget.initialStaff!.name,
+              ),
+        staffOptions: _staffOptions,
+      ),
     );
     _servicesFuture = widget.service.loadServices(widget.businessId);
     _servicesFuture.then((items) {
@@ -61,16 +60,15 @@ class _BusinessManualAppointmentSheetState
         return;
       }
       final first = items.first;
-      setState(() {
-        _selectedServiceId = first.id;
-        _serviceNameController.text = first.name;
-        _durationController.text = first.durationMinutes.toString();
-      });
+      _serviceNameController.text = first.name;
+      _durationController.text = first.durationMinutes.toString();
+      _controller.applyService(first.id);
     });
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     _customerNameController.dispose();
     _customerPhoneController.dispose();
     _customerEmailController.dispose();
@@ -83,10 +81,8 @@ class _BusinessManualAppointmentSheetState
   List<BusinessManualAppointmentStaffOption> get _staffOptions {
     return BusinessManualAppointmentPolicy.staffOptions(
       widget.staff.map(
-        (item) => BusinessManualAppointmentStaffOption(
-          id: item.id,
-          name: item.name,
-        ),
+        (item) =>
+            BusinessManualAppointmentStaffOption(id: item.id, name: item.name),
       ),
     );
   }
@@ -94,7 +90,7 @@ class _BusinessManualAppointmentSheetState
   BusinessManualAppointmentStaffOption get _selectedStaff {
     return BusinessManualAppointmentPolicy.selectedStaff(
       staffOptions: _staffOptions,
-      selectedStaffId: _selectedStaffId,
+      selectedStaffId: _controller.selectedStaffId,
     );
   }
 
@@ -106,9 +102,9 @@ class _BusinessManualAppointmentSheetState
 
   DateTime get _startAt {
     return BusinessManualAppointmentPolicy.startAt(
-      date: _selectedDate,
-      hour: _selectedTime.hour,
-      minute: _selectedTime.minute,
+      date: _controller.selectedDate,
+      hour: _controller.selectedTime.hour,
+      minute: _controller.selectedTime.minute,
     );
   }
 
@@ -127,29 +123,28 @@ class _BusinessManualAppointmentSheetState
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
+      initialDate: _controller.selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 730)),
     );
     if (picked == null || !mounted) return;
-    setState(() {
-      _selectedDate = BusinessManualAppointmentPolicy.dayOnly(picked);
-    });
+    _controller.selectDate(BusinessManualAppointmentPolicy.dayOnly(picked));
   }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime,
+      initialTime: _controller.selectedTime,
     );
     if (picked == null || !mounted) return;
-    setState(() => _selectedTime = picked);
+    _controller.selectTime(picked);
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_controller.saving) return;
 
-    setState(() => _saving = true);
+    _controller.setSaving(true);
 
     final staff = _selectedStaff;
     final startAt = _startAt;
@@ -160,7 +155,7 @@ class _BusinessManualAppointmentSheetState
         customerName: _customerNameController.text.trim(),
         customerPhone: _customerPhoneController.text.trim(),
         customerEmail: _customerEmailController.text.trim(),
-        serviceId: _selectedServiceId,
+        serviceId: _controller.selectedServiceId,
         serviceName: _serviceNameController.text.trim(),
         staffId: staff.id,
         staffName: staff.name,
@@ -175,7 +170,7 @@ class _BusinessManualAppointmentSheetState
 
     if (!mounted) return;
 
-    setState(() => _saving = false);
+    _controller.setSaving(false);
 
     if (result.ok) {
       Navigator.of(context).pop(true);
@@ -195,9 +190,11 @@ class _BusinessManualAppointmentSheetState
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     final staffOptions = _staffOptions;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: DraggableScrollableSheet(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => Padding(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: DraggableScrollableSheet(
         initialChildSize: 0.86,
         minChildSize: 0.52,
         maxChildSize: 0.94,
@@ -313,8 +310,10 @@ class _BusinessManualAppointmentSheetState
                       }
 
                       final validValue =
-                          services.any((item) => item.id == _selectedServiceId)
-                          ? _selectedServiceId
+                          services.any(
+                            (item) => item.id == _controller.selectedServiceId,
+                          )
+                          ? _controller.selectedServiceId
                           : null;
 
                       return Padding(
@@ -338,13 +337,10 @@ class _BusinessManualAppointmentSheetState
                             final selected = services.firstWhere(
                               (item) => item.id == value,
                             );
-                            setState(() {
-                              _selectedServiceId = selected.id;
-                              _serviceNameController.text = selected.name;
-                              _durationController.text = selected
-                                  .durationMinutes
-                                  .toString();
-                            });
+                            _serviceNameController.text = selected.name;
+                            _durationController.text = selected.durationMinutes
+                                .toString();
+                            _controller.applyService(selected.id);
                           },
                         ),
                       );
@@ -387,9 +383,10 @@ class _BusinessManualAppointmentSheetState
                         child: DropdownButtonFormField<String>(
                           initialValue:
                               staffOptions.any(
-                                (item) => item.id == _selectedStaffId,
+                                (item) =>
+                                    item.id == _controller.selectedStaffId,
                               )
-                              ? _selectedStaffId
+                              ? _controller.selectedStaffId
                               : (staffOptions.isEmpty
                                     ? null
                                     : staffOptions.first.id),
@@ -407,7 +404,7 @@ class _BusinessManualAppointmentSheetState
                               .toList(),
                           onChanged: (value) {
                             if (value == null) return;
-                            setState(() => _selectedStaffId = value);
+                            _controller.selectStaff(value);
                           },
                         ),
                       ),
@@ -438,8 +435,8 @@ class _BusinessManualAppointmentSheetState
                   ),
                   const SizedBox(height: 18),
                   FilledButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
+                    onPressed: _controller.saving ? null : _save,
+                    icon: _controller.saving
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -447,7 +444,9 @@ class _BusinessManualAppointmentSheetState
                           )
                         : const Icon(Icons.check_circle_outline),
                     label: Text(
-                      _saving ? 'Kaydediliyor...' : 'Randevuyu kaydet',
+                      _controller.saving
+                          ? 'Kaydediliyor...'
+                          : 'Randevuyu kaydet',
                     ),
                   ),
                 ],
@@ -455,6 +454,7 @@ class _BusinessManualAppointmentSheetState
             ),
           );
         },
+        ),
       ),
     );
   }

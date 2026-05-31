@@ -15,7 +15,8 @@ class AccountOwnerOverviewModel {
     Map<String, dynamic> data,
   ) {
     final score = _profileCompletionPercent(data);
-    final active = _truthy(data[FirestoreFields.isActive]) ||
+    final active =
+        _truthy(data[FirestoreFields.isActive]) ||
         _truthy(data[FirestoreFields.active]) ||
         _text(data[FirestoreFields.status]) == 'active' ||
         _text(data[FirestoreFields.accountStatus]) == 'active' ||
@@ -59,12 +60,7 @@ class AccountOwnerOverviewModel {
         FirestoreFields.longitude,
         FirestoreFields.location,
       ]),
-      _hasAny(data, const [
-        'logoUrl',
-        'photoUrl',
-        'imageUrl',
-        'coverUrl',
-      ]),
+      _hasAny(data, const ['logoUrl', 'photoUrl', 'imageUrl', 'coverUrl']),
       _hasAny(data, const [
         FirestoreFields.openingHour,
         FirestoreFields.closingHour,
@@ -93,5 +89,6 @@ class AccountOwnerOverviewModel {
     return text == 'true' || text == '1' || text == 'yes' || text == 'active';
   }
 
-  static String _text(dynamic value) => value?.toString().trim().toLowerCase() ?? '';
+  static String _text(dynamic value) =>
+      value?.toString().trim().toLowerCase() ?? '';
 }

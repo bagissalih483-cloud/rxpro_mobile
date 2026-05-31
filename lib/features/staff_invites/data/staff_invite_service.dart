@@ -139,7 +139,8 @@ class StaffInviteService {
     if (user == null) {
       return const StaffInviteAcceptResult(
         success: false,
-        message: 'Davet kodunu kullanmak için önce bireysel hesaba giriş yap.',
+        message:
+            'Kurumsal giriş kodunu kullanmak için önce bireysel hesaba giriş yap.',
       );
     }
 
@@ -147,7 +148,7 @@ class StaffInviteService {
     if (code.length < 4) {
       return const StaffInviteAcceptResult(
         success: false,
-        message: 'Geçerli bir davet kodu gir.',
+        message: 'Geçerli bir kurumsal giriş kodu gir.',
       );
     }
 
@@ -160,7 +161,8 @@ class StaffInviteService {
     if (snap.docs.isEmpty) {
       return const StaffInviteAcceptResult(
         success: false,
-        message: 'Bu davet koduna ait aktif personel kaydı bulunamadı.',
+        message:
+            'Bu kurumsal giriş koduna ait aktif personel kaydı bulunamadı.',
       );
     }
 
@@ -171,7 +173,7 @@ class StaffInviteService {
     if (!active) {
       return const StaffInviteAcceptResult(
         success: false,
-        message: 'Bu davet koduna ait personel kaydı pasif durumda.',
+        message: 'Bu kurumsal giriş koduna ait personel kaydı pasif durumda.',
       );
     }
 
@@ -185,7 +187,8 @@ class StaffInviteService {
     if (existingLinkedUid.isNotEmpty && existingLinkedUid != user.uid) {
       return const StaffInviteAcceptResult(
         success: false,
-        message: 'Bu davet kodu başka bir kullanıcı hesabına bağlanmış.',
+        message:
+            'Bu kurumsal giriş kodu başka bir kullanıcı hesabına bağlanmış.',
       );
     }
 
@@ -214,7 +217,7 @@ class StaffInviteService {
         return const StaffInviteAcceptResult(
           success: false,
           message:
-              'Bu davet kodu e-posta ile doğrulanmalı. Lütfen e-posta hesabıyla giriş yap.',
+              'Bu kurumsal giriş kodu e-posta ile doğrulanmalı. Lütfen e-posta hesabıyla giriş yap.',
         );
       }
 
@@ -235,7 +238,7 @@ class StaffInviteService {
       return const StaffInviteAcceptResult(
         success: false,
         message:
-            'Bu davet kodu için e-posta doğrulaması gerekli. E-postanı doğrulayıp tekrar dene.',
+            'Bu kurumsal giriş kodu için e-posta doğrulaması gerekli. E-postanı doğrulayıp tekrar dene.',
       );
     }
 
@@ -265,8 +268,8 @@ class StaffInviteService {
     await _db.collection(FirestoreCollections.users).doc(user.uid).set({
       'uid': user.uid,
 
-      // Davet kodu baglantiyi kurar ama kurumsal gorev akisini otomatik acmaz.
-      // Kullanici "Aktif Et" butonuna basinca linkedStaff shell aktif olur.
+      // Kurumsal giriş kodu bağlantıyı kurar ama görev akışını otomatik açmaz.
+      // Kullanıcı "Aktif Et" butonuna basınca linkedStaff shell aktif olur.
       FirestoreFields.accountKind: 'individual',
       'userType': 'individual',
       'accountType': 'individual',
@@ -303,7 +306,7 @@ class StaffInviteService {
     await _db.collection('businessActivityLogs').add({
       FirestoreFields.businessId: businessId,
       'type': 'staff_invite_accepted',
-      'title': 'Personel davet kodu kabul edildi',
+      'title': 'Kurumsal giriş kodu kabul edildi',
       FirestoreFields.staffName: staffName,
       'staffDocId': doc.id,
       FirestoreFields.linkedUid: user.uid,
@@ -312,7 +315,7 @@ class StaffInviteService {
 
     return StaffInviteAcceptResult(
       success: true,
-      message: 'Kurumsal role bağlantı tamamlandı.',
+      message: 'Kurumsal giriş bağlantısı tamamlandı.',
       businessId: businessId,
       businessName: businessName,
       staffDocId: doc.id,

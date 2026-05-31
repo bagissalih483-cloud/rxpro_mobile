@@ -9,8 +9,10 @@ class AdminModerationFilterPolicy {
   }) {
     final cleanStatus = statusFilter.trim().toLowerCase();
     if (cleanStatus.isNotEmpty && cleanStatus != 'all') {
-      final status = _text(data['status'], _text(data['reviewStatus']))
-          .toLowerCase();
+      final status = _text(
+        data['status'],
+        _text(data['reviewStatus']),
+      ).toLowerCase();
       if (status != cleanStatus) return false;
     }
 

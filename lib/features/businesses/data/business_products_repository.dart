@@ -22,7 +22,7 @@ class BusinessProductsRepository {
     if (uid.isEmpty) {
       return const BusinessProductContext(
         businessId: '',
-        businessName: 'Kurumsal Kullanici',
+        businessName: 'Kurumsal Kullanıcı',
       );
     }
 
@@ -46,7 +46,7 @@ class BusinessProductsRepository {
                 data[FirestoreFields.name] ??
                 data[FirestoreFields.title] ??
                 data[FirestoreFields.companyName] ??
-                'Kurumsal Kullanici',
+                'Kurumsal Kullanıcı',
           ),
         );
       } catch (_) {
@@ -71,7 +71,7 @@ class BusinessProductsRepository {
       businessId: uid,
       businessName: user?.displayName?.trim().isNotEmpty == true
           ? user!.displayName!.trim()
-          : 'Kurumsal Kullanici',
+          : 'Kurumsal Kullanıcı',
     );
   }
 

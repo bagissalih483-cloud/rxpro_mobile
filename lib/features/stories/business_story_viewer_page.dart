@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_routes.dart';
 import 'business_story_model.dart';
 import 'business_story_service.dart';
+import 'business_story_viewer_controller.dart';
 
 class BusinessStoryViewerPage extends StatefulWidget {
   const BusinessStoryViewerPage({
@@ -21,25 +22,28 @@ class BusinessStoryViewerPage extends StatefulWidget {
 
 class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
   late PageController controller;
-  late int index;
+  late final BusinessStoryViewerController _controller;
 
   @override
   void initState() {
     super.initState();
-    index = widget.initialIndex.clamp(0, widget.stories.length - 1);
-    controller = PageController(initialPage: index);
+    _controller = BusinessStoryViewerController(
+      initialIndex: widget.initialIndex.clamp(0, widget.stories.length - 1),
+    );
+    controller = PageController(initialPage: _controller.index);
     _markCurrentViewed();
   }
 
   @override
   void dispose() {
+    _controller.dispose();
     controller.dispose();
     super.dispose();
   }
 
   void _markCurrentViewed() {
     if (widget.stories.isEmpty) return;
-    BusinessStoryService.markViewed(widget.stories[index].id);
+    BusinessStoryService.markViewed(widget.stories[_controller.index].id);
   }
 
   void _openBusiness(BusinessStoryModel story) {
@@ -74,7 +78,7 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
           controller: controller,
           itemCount: widget.stories.length,
           onPageChanged: (value) {
-            setState(() => index = value);
+            _controller.setIndex(value);
             _markCurrentViewed();
           },
           itemBuilder: (context, i) {
@@ -205,7 +209,7 @@ class _BusinessStoryViewerPageState extends State<BusinessStoryViewerPage> {
                   child: FilledButton.icon(
                     onPressed: () => _openBusiness(story),
                     icon: const Icon(Icons.storefront_rounded),
-                    label: const Text('Kurumsal Profili Gor'),
+                    label: const Text('Kurumsal Profili Gör'),
                   ),
                 ),
               ],

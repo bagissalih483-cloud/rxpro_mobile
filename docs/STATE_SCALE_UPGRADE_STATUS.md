@@ -1,0 +1,170 @@
+# RxPro State and Scalability Upgrade Status
+
+Date: 2026-05-30
+
+## Completed in this package
+
+- Home Explore filter, radius, sort, query, and current location state moved into `HomeExploreController`.
+- `HomeExplorePage` no longer owns mutable explore UI state through `setState`.
+- Home Explore is now rebuilt through a controller listener boundary.
+- Business profile edit loading, saving, media upload, category, and location state moved into `BusinessProfileEditController`.
+- `BusinessProfileEditPage` no longer owns mutable profile edit state through `setState`.
+- Staff invite code loading, linked-account status, work activation, and result state moved into `StaffInviteCodeController`.
+- `StaffInviteCodePage` no longer owns mutable invite flow state through `setState`.
+- Business staff form role, active status, appointment permissions, campaign permissions, finance permissions, service matching, and saving state moved into `BusinessStaffFormController`.
+- `BusinessStaffFormPage` no longer owns mutable staff form state through `setState`.
+- Business finance report period, loading, error, totals, PDF generation, and expense form state moved into `BusinessFinanceController` and `ExpenseFormController`.
+- `BusinessFinancePage` no longer owns mutable finance/report/form state through `setState`.
+- Campaign AI create business context, date range, category, tone, generation, generated preview, duplicate publish guard, and publish state moved into `CampaignAiCreateController`.
+- `CampaignAiCreateSafePage` no longer owns mutable campaign create state through `setState`.
+- Business profile booking service, staff, date, time, active accordion section, and saving state moved into `BusinessProfileBookingController`.
+- `BusinessProfileBookingPart` no longer owns mutable booking flow state through `setState`.
+- Business customer search, segment filter, manual customer form, and classification sheet state moved into `BusinessCustomersController`, `ManualCustomerFormController`, and `CustomerClassificationController`.
+- `BusinessCustomersPage` no longer owns mutable customer/filter/form state through `setState`.
+- Accounting sales entry wizard step, sale type, customer type, catalog, payment, due date, installment, and finalize state moved into `AccountingSalesEntryController`.
+- `AccountingSalesPage` no longer owns mutable sales-entry state through `setState`.
+- Account lite profile loading, saving, avatar upload, and app preference switches moved into `AccountUserProfileLiteController` and `AccountAppSettingsLiteController`.
+- `AccountEntryLitePages` no longer owns mutable profile/settings state through `setState`.
+- Login gate mode, action, selected category, password visibility, loading, remember-password, and legal acceptance state moved into `_FixLoginGateController`.
+- `FixLoginGatePage` no longer owns mutable auth form state through `setState`.
+- Business profile review rating/submission and follow-button optimistic state moved into `BusinessProfileReviewsController` and `BusinessProfileFollowController`.
+- `BusinessProfileReviewsPart` no longer owns mutable review/follow state through `setState`.
+- Bulk message target, channel, consent, saving, and text-input refresh state moved into `BulkMessageCreateController`.
+- `BulkMessageCreatePage` no longer owns mutable bulk-message form state through `setState`.
+- Business analysis period, date navigation, AI loading, and AI report state moved into `BusinessAnalysisController`.
+- `BusinessAnalysisPage` no longer owns mutable analysis period/report state through `setState`.
+- Accounting expense category, payment method, paid, and recurring form state moved into `AccountingExpenseEntryController`.
+- `AccountingExpensesPage` no longer owns mutable expense-entry form state through `setState`.
+- Business profile post like/save/report busy guard moved into `BusinessProfilePostInteractionController`.
+- `BusinessProfilePostInteractiveCard` no longer owns mutable post interaction state through `setState`.
+- Business appointment dashboard selected mode, selected day, visible month, day/month navigation, and manual appointment sync state moved into `BusinessAppointmentDashboardController`.
+- `AppointmentEntryPage` no longer owns mutable appointment dashboard state through `setState`.
+- Manual appointment sheet date, time, staff, service, and saving state moved into `BusinessManualAppointmentSheetController`.
+- `AppointmentEntryManualSheet` no longer owns mutable manual appointment form state through `setState`.
+- Business products context refresh plus product form category, public visibility, active status, and saving state moved into `BusinessProductsController` and `BusinessProductFormController`.
+- `BusinessProductsPage` no longer owns mutable product/form state through `setState`.
+- Business product movement mode, product-name save guard, and saving state moved into `BusinessProductMovementController`.
+- `BusinessProductMovementPage` no longer owns mutable movement-form state through `setState`.
+- Business service form type, active status, and saving state moved into `BusinessServiceFormController`.
+- `BusinessServicesManagePage` no longer owns mutable service-form state through `setState`.
+- Business campaign refresh future, selected tab, and bulk-send busy state moved into `BusinessCampaignsController`.
+- `BusinessCampaignsPage` no longer owns mutable campaign-list state through `setState`.
+- Account entry open sections, context future, and loaded-session key moved into `AccountEntryController`.
+- `AccountEntryPage` no longer owns mutable account menu/context state through `setState`.
+- Guest, individual, and corporate shell selected-tab state moved into `MainShellController`.
+- `main_shells.dart` no longer owns shell-tab state through `setState`.
+- Business accounting shell selected tab, period mode, period anchor, period navigation, and current-period reset moved into `BusinessAccountingShellController`.
+- `BusinessAccountingShell` no longer owns mutable accounting shell state through `setState`.
+- Customer campaign list refresh future, selected tab, and category filter moved into `CustomerCampaignsController`.
+- `CustomerCampaignsPage` no longer owns mutable customer campaign state through `setState`.
+- Account deletion confirmation and submit busy state moved into `AccountDeletionRequestController`.
+- `AccountDeletionRequestPage` no longer owns mutable deletion request state through `setState`.
+- Phone password reset step and password visibility state moved into `PhonePasswordResetFlowController`.
+- `PhonePasswordResetFlowPage` no longer owns mutable reset-flow state through `setState`.
+- Business story selected image and publishing state moved into `BusinessStoryCreateController`.
+- `BusinessStoryCreatePage` no longer owns mutable story-publish state through `setState`.
+- Business category selection and saving state moved into `BusinessCategoryRequiredController`.
+- `BusinessCategoryRequiredPage` no longer owns mutable category-pick state through `setState`.
+- Registered business gateway refresh future and staff-opening overlay state moved into `RegisteredBusinessesController`.
+- `RegisteredBusinessesPage` no longer owns mutable gateway state through `setState`.
+- Business profile edit entry loading, resolved business id, and lookup error state moved into `BusinessProfileEditEntryController`.
+- `BusinessProfileEditEntryPage` no longer owns mutable lookup state through `setState`.
+- Business profile post selected image and saving state moved into `BusinessProfilePostCreateController`.
+- `BusinessProfilePostCreatePage` no longer owns mutable post-create state through `setState`.
+- Customer appointment selected tab and manual refresh trigger moved into `CustomerAppointmentsController`.
+- `CustomerAppointmentsPage` no longer owns mutable appointment-list state through `setState`.
+- Home Explore route distance loading, attempt, active route key, and result state moved into `HomeExploreRouteDistanceController`.
+- `HomeExploreRouteDistanceChip` no longer owns mutable route-distance state through `setState`.
+- Notification preference email, push, SMS, marketing, appointment, campaign, and saving state moved into `NotificationPreferencesController`.
+- `NotificationPreferencesPage` no longer owns mutable preference-toggle state through `setState`.
+- Favorite feed selected tab and user-scoped feed/saved futures moved into `FavoriteFeedController`.
+- `FavoriteFeedPage` no longer owns mutable favorite-feed state through `setState`.
+- Message compose and thread refresh are rebuilt through existing message controllers instead of local `setState` listeners.
+- `MessagesInboxPage` no longer owns mutable compose/thread refresh state through `setState`.
+- Business customer direct-message sending state moved into `BusinessCustomerDirectMessageController`.
+- `BusinessCustomerDirectMessagePage` no longer owns mutable send-button state through `setState`.
+- Admin moderation query and status filter state moved into `AdminModerationController`.
+- `AdminModerationPage` no longer owns mutable moderation-filter state through `setState`.
+- Accounting report-type selection moved into `AccountingReportsController`.
+- `AccountingReportsPage` no longer owns mutable report-filter state through `setState`.
+- Accounting receivables filter state moved into `AccountingReceivablesController`.
+- `AccountingReceivablesPage` no longer owns mutable receivables-filter state through `setState`.
+- Accounting overview summary expansion state moved into `AccountingOverviewPanelController`.
+- `AccountingOverviewPanel` no longer owns mutable expansion state through `setState`.
+- Business story viewer current-index state moved into `BusinessStoryViewerController`.
+- `BusinessStoryViewerPage` no longer owns mutable story-index state through `setState`.
+- Bootstrap future and loading message state moved into `FixBootstrapController`.
+- `FixBootstrapApp` no longer owns mutable bootstrap state through `setState`.
+- Role repair and startup-timeout state moved into `RoleGateController`.
+- `RoleGateShell` no longer owns mutable role-gate timeout state through `setState`.
+- Staff workspace accordion expansion state moved into `StaffWorkspaceController`.
+- `StaffWorkspacePage` no longer owns mutable accordion state through `setState`.
+- Business profile selected-tab state moved into `BusinessProfileController`.
+- `BusinessProfilePage` no longer owns mutable profile-tab state through `setState`.
+- Business directory Firestore scan limits moved to `BusinessDirectoryQueryBudgetPolicy`.
+- Starter directory scan is capped at 300 documents.
+- Nearby per-collection geohash query is capped at 120 documents.
+- Firestore `whereIn` geohash prefixes are deduplicated and capped at 10.
+- CI now runs `tools/state_scalability_budget_check.ps1`.
+
+## Current measurable budget
+
+- Total `setState` calls in `lib`: 0 / 0
+- `main_shells.dart` `setState` calls: 0 / 0
+- `HomeExplorePage` `setState` calls: 0 / 0
+- `BusinessProfileEditPage` `setState` calls: 0 / 0
+- `StaffInviteCodePage` `setState` calls: 0 / 0
+- `BusinessStaffFormPage` `setState` calls: 0 / 0
+- `BusinessFinancePage` `setState` calls: 0 / 0
+- `CampaignAiCreateSafePage` `setState` calls: 0 / 0
+- `BusinessCampaignsPage` `setState` calls: 0 / 0
+- `CustomerCampaignsPage` `setState` calls: 0 / 0
+- `BulkMessageCreatePage` `setState` calls: 0 / 0
+- `BusinessAnalysisPage` `setState` calls: 0 / 0
+- `BusinessProductMovementPage` `setState` calls: 0 / 0
+- `BusinessProfileBookingPart` `setState` calls: 0 / 0
+- `BusinessCustomersPage` `setState` calls: 0 / 0
+- `BusinessProductsPage` `setState` calls: 0 / 0
+- `BusinessServicesManagePage` `setState` calls: 0 / 0
+- `BusinessCategoryRequiredPage` `setState` calls: 0 / 0
+- `RegisteredBusinessesPage` `setState` calls: 0 / 0
+- `BusinessProfileEditEntryPage` `setState` calls: 0 / 0
+- `BusinessProfilePostCreatePage` `setState` calls: 0 / 0
+- `BusinessAccountingShell` `setState` calls: 0 / 0
+- `AccountingSalesPage` `setState` calls: 0 / 0
+- `AccountingExpensesPage` `setState` calls: 0 / 0
+- `AccountEntryLitePages` `setState` calls: 0 / 0
+- `AccountEntryPage` `setState` calls: 0 / 0
+- `AccountDeletionRequestPage` `setState` calls: 0 / 0
+- `PhonePasswordResetFlowPage` `setState` calls: 0 / 0
+- `BusinessStoryCreatePage` `setState` calls: 0 / 0
+- `CustomerAppointmentsPage` `setState` calls: 0 / 0
+- `HomeExploreRouteDistanceChip` `setState` calls: 0 / 0
+- `NotificationPreferencesPage` `setState` calls: 0 / 0
+- `FavoriteFeedPage` `setState` calls: 0 / 0
+- `MessagesInboxPage` `setState` calls: 0 / 0
+- `BusinessCustomerDirectMessagePage` `setState` calls: 0 / 0
+- `AdminModerationPage` `setState` calls: 0 / 0
+- `AccountingReportsPage` `setState` calls: 0 / 0
+- `AccountingReceivablesPage` `setState` calls: 0 / 0
+- `AccountingOverviewPanel` `setState` calls: 0 / 0
+- `BusinessStoryViewerPage` `setState` calls: 0 / 0
+- `FixBootstrapApp` `setState` calls: 0 / 0
+- `RoleGateShell` `setState` calls: 0 / 0
+- `StaffWorkspacePage` `setState` calls: 0 / 0
+- `BusinessProfilePage` `setState` calls: 0 / 0
+- `FixLoginGatePage` `setState` calls: 0 / 0
+- `BusinessProfileReviewsPart` `setState` calls: 0 / 0
+- `BusinessProfilePostInteractiveCard` `setState` calls: 0 / 0
+- `AppointmentEntryPage` `setState` calls: 0 / 0
+- `AppointmentEntryManualSheet` `setState` calls: 0 / 0
+- `HomeExplorePage` async builders: 2 / 2
+- Starter directory page cap: 300 / 300
+- Nearby directory per-collection limit: 120 / 120
+
+## Next score-lifting targets
+
+- Move customer campaign widgets or account/legal forms to controller-owned state.
+- Move one customer feed/favorites feature away from `FutureBuilder`-heavy UI loading.
+- Add query-budget tests for high-volume repositories such as favorites and business profile posts.
+- Add a CI report that lists the top files by `setState`, `StreamBuilder`, and `FutureBuilder` count.

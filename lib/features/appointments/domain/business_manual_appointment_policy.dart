@@ -55,6 +55,15 @@ class BusinessManualAppointmentPolicy {
       );
     }
 
+    if (!seen.contains('default')) {
+      options.add(
+        const BusinessManualAppointmentStaffOption(
+          id: 'default',
+          name: 'Yönetim / Manuel',
+        ),
+      );
+    }
+
     return List.unmodifiable(options);
   }
 
@@ -83,7 +92,7 @@ class BusinessManualAppointmentPolicy {
     return options.isEmpty
         ? const BusinessManualAppointmentStaffOption(
             id: 'default',
-            name: 'Genel',
+            name: 'Yönetim / Manuel',
           )
         : options.first;
   }

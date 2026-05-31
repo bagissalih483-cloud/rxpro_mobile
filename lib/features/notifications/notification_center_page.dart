@@ -145,8 +145,9 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
 
                             if (!context.mounted) return;
 
-                            if (NotificationCenterViewPolicy
-                                .opensCustomerAppointments(item)) {
+                            if (NotificationCenterViewPolicy.opensCustomerAppointments(
+                              item,
+                            )) {
                               Navigator.of(
                                 context,
                               ).pushNamed(AppRoutes.customerAppointments);

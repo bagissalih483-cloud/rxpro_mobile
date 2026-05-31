@@ -61,8 +61,8 @@ class BusinessRouteInfo {
 
 class BusinessRouteDistanceService {
   BusinessRouteDistanceService({FirebaseFunctions? functions})
-      : _functions =
-            functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
+    : _functions =
+          functions ?? FirebaseFunctions.instanceFor(region: 'europe-west1');
 
   static const _functionName = 'calculateBusinessRouteInfo';
   static const _callTimeout = Duration(seconds: 9);
@@ -130,10 +130,7 @@ class BusinessRouteDistanceService {
 }
 
 class _BusinessRouteCacheEntry {
-  const _BusinessRouteCacheEntry({
-    required this.loadedAt,
-    required this.info,
-  });
+  const _BusinessRouteCacheEntry({required this.loadedAt, required this.info});
 
   final DateTime loadedAt;
   final BusinessRouteInfo info;

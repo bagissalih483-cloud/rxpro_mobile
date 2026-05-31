@@ -31,14 +31,12 @@ void main() {
     });
 
     test('normalizes staff options and removes duplicate ids', () {
-      final options = BusinessManualAppointmentPolicy.staffOptions(
-        const [
-          BusinessManualAppointmentStaffOption(id: ' s1 ', name: ' Ayse '),
-          BusinessManualAppointmentStaffOption(id: 's1', name: 'Duplicate'),
-          BusinessManualAppointmentStaffOption(id: '', name: ' Mehmet '),
-          BusinessManualAppointmentStaffOption(id: '', name: '   '),
-        ],
-      );
+      final options = BusinessManualAppointmentPolicy.staffOptions(const [
+        BusinessManualAppointmentStaffOption(id: ' s1 ', name: ' Ayse '),
+        BusinessManualAppointmentStaffOption(id: 's1', name: 'Duplicate'),
+        BusinessManualAppointmentStaffOption(id: '', name: ' Mehmet '),
+        BusinessManualAppointmentStaffOption(id: '', name: '   '),
+      ]);
 
       expect(options.length, 2);
       expect(options.first.id, 's1');

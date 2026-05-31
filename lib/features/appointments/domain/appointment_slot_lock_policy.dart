@@ -20,11 +20,13 @@ class AppointmentSlotLockPolicy {
         : startAt.add(const Duration(minutes: 30));
 
     while (cursor.isBefore(safeEnd)) {
-      ids.add(slotId(
-        businessId: businessId,
-        businessStaffId: businessStaffId,
-        time: cursor,
-      ));
+      ids.add(
+        slotId(
+          businessId: businessId,
+          businessStaffId: businessStaffId,
+          time: cursor,
+        ),
+      );
       cursor = cursor.add(const Duration(minutes: 5));
     }
 

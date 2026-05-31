@@ -53,7 +53,8 @@ void main() {
   });
 }
 
-class _FakeNotificationCenterDataSource implements NotificationCenterDataSource {
+class _FakeNotificationCenterDataSource
+    implements NotificationCenterDataSource {
   _FakeNotificationCenterDataSource({required this.uid});
 
   String? uid;

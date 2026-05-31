@@ -141,7 +141,9 @@ class BusinessServiceFormPolicy {
       FirestoreFields.serviceTypeLabel: typeLabel(normalized),
       'isPackage': isPackage,
       'isSessionPackage': isSessionPackage,
-      FirestoreFields.sessionCount: isSessionPackage ? parsedSessionCount : null,
+      FirestoreFields.sessionCount: isSessionPackage
+          ? parsedSessionCount
+          : null,
       'remainingSessionDefault': isSessionPackage ? parsedSessionCount : null,
       FirestoreFields.bookingEnabled: active,
       FirestoreFields.isActive: active,

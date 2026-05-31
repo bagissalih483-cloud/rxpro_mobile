@@ -2,9 +2,8 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_fields.dart';
-import 'package:rxpro_mobile/features/accounting/data/accounting_permission_bridge.dart';
-import 'package:rxpro_mobile/features/accounting/data/accounting_permissions.dart';
 import 'package:rxpro_mobile/features/businesses/data/business_staff_repository.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/business_staff_form_controller.dart';
 import 'package:rxpro_mobile/features/businesses/presentation/widgets/business_staff_manage_widgets.dart';
 
 class StaffFormPage extends StatefulWidget {
@@ -27,27 +26,12 @@ class _StaffFormPageState extends State<StaffFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _email;
-  final Set<String> _assignedServiceIds = <String>{};
+  late final BusinessStaffFormController _controller;
   late final Future<List<BusinessStaffServiceOption>> _serviceOptionsFuture;
-
-  String _role = 'staff';
-  bool _active = true;
 
   // Randevu yetkileri ikiye ayrıldı:
   // 1) İşlerim: kendisine atanan randevuyu başlatma/bitirme.
   // 2) Randevu yönetimi: erteleme/iptal gibi akış değişiklikleri.
-  bool _canWorkAssignedAppointments = true;
-  bool _canManageAppointmentChanges = false;
-
-  bool _canManageCampaigns = false;
-
-  bool _financeRead = false;
-  bool _financeWrite = false;
-  bool _expenseWrite = false;
-  bool _receivableManage = false;
-  bool _reportExport = false;
-
-  bool _saving = false;
   final BusinessStaffRepository _staffFormRepository =
       BusinessStaffRepository();
 
@@ -56,6 +40,10 @@ class _StaffFormPageState extends State<StaffFormPage> {
     super.initState();
     _serviceOptionsFuture = _loadServiceOptions();
     final d = widget.initialData ?? <String, dynamic>{};
+    _controller = BusinessStaffFormController(
+      staffId: widget.staffId,
+      initialData: d,
+    );
 
     _name = TextEditingController(
       text: (d[FirestoreFields.staffName] ?? d[FirestoreFields.name] ?? '')
@@ -66,105 +54,16 @@ class _StaffFormPageState extends State<StaffFormPage> {
           .toString(),
     );
 
-    final rawServiceIds =
-        d[FirestoreFields.serviceIds] ??
-        d[FirestoreFields.staffServiceIds] ??
-        d[FirestoreFields.allowedServiceIds];
-    if (rawServiceIds is Iterable) {
-      _assignedServiceIds.addAll(
-        rawServiceIds
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty),
-      );
-    }
-
-    _role = (d[FirestoreFields.role] ?? 'staff').toString();
-    _active = d['isActive'] != false;
-
-    final rawPermissions = d[FirestoreFields.permissions];
-    final permissions = rawPermissions is Map
-        ? Map<String, dynamic>.from(rawPermissions)
-        : Map<String, dynamic>.from(d);
-
-    bool hasAny(List<String> keys) {
-      for (final key in keys) {
-        if (permissions[key] == true || d[key] == true) return true;
-      }
-      return false;
-    }
-
-    final legacyCanManageAppointments =
-        d['canManageAppointments'] == true ||
-        permissions['canManageAppointments'] == true;
-
-    _canWorkAssignedAppointments = hasAny([
-      'workAssignedAppointments',
-      'completeAssignedAppointments',
-      'appointmentWork',
-      'appointmentStartFinish',
-      'canWorkAssignedAppointments',
-      'viewAppointments',
-    ]);
-
     // Eski kayıtlar için randevu yetkisi varsa iş başlat/bitir kapalı kalmasın.
-    if (!_canWorkAssignedAppointments && legacyCanManageAppointments) {
-      _canWorkAssignedAppointments = true;
-    }
-
     // Yeni personelde varsayılan olarak kendi işini başlat/bitir açık olsun.
-    if (widget.staffId == null) {
-      _canWorkAssignedAppointments = true;
-    }
-
-    _canManageAppointmentChanges = hasAny([
-      'manageAppointmentChanges',
-      'canManageAppointmentChanges',
-      'appointmentManage',
-      'appointmentReschedule',
-      'appointmentCancel',
-      'canRescheduleAppointments',
-      'canCancelAppointments',
-      'updateAppointments',
-      'cancelAppointments',
-    ]);
-
     // Eski canManageAppointments artık erteleme/iptal anlamına da gelebilir; mevcut kayıtta açık ise koru.
-    if (!_canManageAppointmentChanges && legacyCanManageAppointments) {
-      _canManageAppointmentChanges = true;
-    }
-
-    _canManageCampaigns =
-        d['canManageCampaigns'] == true ||
-        permissions['canManageCampaigns'] == true;
-
-    final accountingPermissions = AccountingPermissionBridge.normalize(
-      permissions,
-    );
-
-    final preset = _role == 'finance'
-        ? AccountingPermissionBridge.accountingDefaults()
-        : const <String, bool>{};
-
-    bool readAccounting(String key) {
-      return accountingPermissions[key] == true || preset[key] == true;
-    }
-
-    _financeRead = readAccounting(AccountingPermissionKeys.financeRead);
-    _financeWrite = readAccounting(AccountingPermissionKeys.financeWrite);
-    _expenseWrite =
-        readAccounting(AccountingPermissionKeys.expenseWrite) ||
-        d['canManageExpenses'] == true ||
-        permissions['canManageExpenses'] == true;
-    _receivableManage = readAccounting(
-      AccountingPermissionKeys.receivableManage,
-    );
-    _reportExport = readAccounting(AccountingPermissionKeys.reportExport);
   }
 
   @override
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -174,35 +73,13 @@ class _StaffFormPageState extends State<StaffFormPage> {
     return List.generate(6, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
 
-  Map<String, bool> _accountingPermissionsPayload() {
-    return <String, bool>{
-      AccountingPermissionKeys.financeRead: _financeRead,
-      AccountingPermissionKeys.financeWrite: _financeWrite,
-      AccountingPermissionKeys.expenseWrite: _expenseWrite,
-      AccountingPermissionKeys.receivableManage: _receivableManage,
-      AccountingPermissionKeys.reportExport: _reportExport,
-    };
-  }
-
-  void _applyFinanceRoleDefaultsIfNeeded(String role) {
-    if (role != 'finance') return;
-
-    final values = AccountingPermissionBridge.accountingDefaults();
-    _financeRead = values[AccountingPermissionKeys.financeRead] == true;
-    _financeWrite = values[AccountingPermissionKeys.financeWrite] == true;
-    _expenseWrite = values[AccountingPermissionKeys.expenseWrite] == true;
-    _receivableManage =
-        values[AccountingPermissionKeys.receivableManage] == true;
-    _reportExport = values[AccountingPermissionKeys.reportExport] == true;
-  }
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
     // 48F-C empty service match warning.
     // Randevu iş akışında kullanılacak personel için boş hizmet eşleşmesi risklidir.
-    if (_canWorkAssignedAppointments && _assignedServiceIds.isEmpty) {
+    if (_controller.requiresServiceMatchWarning) {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
@@ -225,7 +102,7 @@ class _StaffFormPageState extends State<StaffFormPage> {
       if (proceed != true) return;
     }
 
-    setState(() => _saving = true);
+    _controller.setSaving(true);
 
     try {
       final invite = (widget.initialData?['inviteCode'] ?? _inviteCode())
@@ -234,7 +111,7 @@ class _StaffFormPageState extends State<StaffFormPage> {
 
       final existingPermissions =
           widget.initialData?[FirestoreFields.permissions];
-      final accountingPermissions = _accountingPermissionsPayload();
+      final accountingPermissions = _controller.accountingPermissionsPayload();
 
       final payload = <String, dynamic>{
         FirestoreFields.businessId: widget.businessId,
@@ -246,17 +123,14 @@ class _StaffFormPageState extends State<StaffFormPage> {
         FirestoreFields.targetEmail: normalizedEmail,
         FirestoreFields.staffEmailLower: normalizedEmail,
         'emailLower': normalizedEmail,
-        FirestoreFields.serviceIds: (_assignedServiceIds.toList()..sort()),
-        FirestoreFields.staffServiceIds: (_assignedServiceIds.toList()..sort()),
-        'allowedServiceIds': (_assignedServiceIds.toList()..sort()),
-        'serviceMatchMode': _assignedServiceIds.isEmpty
-            ? 'all_legacy'
-            : 'selected',
-        'serviceMatchWarning':
-            _canWorkAssignedAppointments && _assignedServiceIds.isEmpty,
-        FirestoreFields.role: _role,
+        FirestoreFields.serviceIds: _controller.sortedAssignedServiceIds,
+        FirestoreFields.staffServiceIds: _controller.sortedAssignedServiceIds,
+        'allowedServiceIds': _controller.sortedAssignedServiceIds,
+        'serviceMatchMode': _controller.serviceMatchMode,
+        'serviceMatchWarning': _controller.requiresServiceMatchWarning,
+        FirestoreFields.role: _controller.role,
         'inviteCode': invite,
-        'isActive': _active,
+        'isActive': _controller.active,
         FirestoreFields.staffLinkStatus:
             widget.initialData?[FirestoreFields.staffLinkStatus] ??
             ((widget.initialData?['linkedUid'] ??
@@ -274,82 +148,87 @@ class _StaffFormPageState extends State<StaffFormPage> {
             widget.initialData?['requireVerifiedEmailForInvite'] ?? false,
 
         // İşlerim / görev akışı: çoğu personelde açık olmalı.
-        'canWorkAssignedAppointments': _canWorkAssignedAppointments,
-        'workAssignedAppointments': _canWorkAssignedAppointments,
-        'appointmentWork': _canWorkAssignedAppointments,
-        'appointmentStartFinish': _canWorkAssignedAppointments,
-        'completeAssignedAppointments': _canWorkAssignedAppointments,
-        'viewAppointments': _canWorkAssignedAppointments,
+        'canWorkAssignedAppointments': _controller.canWorkAssignedAppointments,
+        'workAssignedAppointments': _controller.canWorkAssignedAppointments,
+        'appointmentWork': _controller.canWorkAssignedAppointments,
+        'appointmentStartFinish': _controller.canWorkAssignedAppointments,
+        'completeAssignedAppointments': _controller.canWorkAssignedAppointments,
+        'viewAppointments': _controller.canWorkAssignedAppointments,
 
         // Erteleme / iptal / genel randevu değişikliği: ayrı ve özel yetki.
-        'canManageAppointments': _canManageAppointmentChanges,
-        'canManageAppointmentChanges': _canManageAppointmentChanges,
-        'manageAppointmentChanges': _canManageAppointmentChanges,
-        'canRescheduleAppointments': _canManageAppointmentChanges,
-        'canCancelAppointments': _canManageAppointmentChanges,
-        'appointmentManage': _canManageAppointmentChanges,
-        'appointmentReschedule': _canManageAppointmentChanges,
-        'appointmentCancel': _canManageAppointmentChanges,
-        'updateAppointments': _canManageAppointmentChanges,
-        'cancelAppointments': _canManageAppointmentChanges,
+        'canManageAppointments': _controller.canManageAppointmentChanges,
+        'canManageAppointmentChanges': _controller.canManageAppointmentChanges,
+        'manageAppointmentChanges': _controller.canManageAppointmentChanges,
+        'canRescheduleAppointments': _controller.canManageAppointmentChanges,
+        'canCancelAppointments': _controller.canManageAppointmentChanges,
+        'appointmentManage': _controller.canManageAppointmentChanges,
+        'appointmentReschedule': _controller.canManageAppointmentChanges,
+        'appointmentCancel': _controller.canManageAppointmentChanges,
+        'updateAppointments': _controller.canManageAppointmentChanges,
+        'cancelAppointments': _controller.canManageAppointmentChanges,
 
-        'canManageCampaigns': _canManageCampaigns,
+        'canManageCampaigns': _controller.canManageCampaigns,
 
         // Geriye uyumluluk: eski masraf/gider field'i tek switch olan expenseWrite'a bağlanır.
-        'canManageExpenses': _expenseWrite,
+        'canManageExpenses': _controller.expenseWrite,
 
         FirestoreFields.permissions: <String, dynamic>{
           if (existingPermissions is Map)
             ...Map<String, dynamic>.from(existingPermissions),
 
           // İşlerim / görev akışı.
-          'canWorkAssignedAppointments': _canWorkAssignedAppointments,
-          'workAssignedAppointments': _canWorkAssignedAppointments,
-          'appointmentWork': _canWorkAssignedAppointments,
-          'appointmentStartFinish': _canWorkAssignedAppointments,
-          'completeAssignedAppointments': _canWorkAssignedAppointments,
-          'viewAppointments': _canWorkAssignedAppointments,
+          'canWorkAssignedAppointments':
+              _controller.canWorkAssignedAppointments,
+          'workAssignedAppointments': _controller.canWorkAssignedAppointments,
+          'appointmentWork': _controller.canWorkAssignedAppointments,
+          'appointmentStartFinish': _controller.canWorkAssignedAppointments,
+          'completeAssignedAppointments':
+              _controller.canWorkAssignedAppointments,
+          'viewAppointments': _controller.canWorkAssignedAppointments,
 
           // Randevu değişiklik yönetimi.
-          'canManageAppointments': _canManageAppointmentChanges,
-          'canManageAppointmentChanges': _canManageAppointmentChanges,
-          'manageAppointmentChanges': _canManageAppointmentChanges,
-          'canRescheduleAppointments': _canManageAppointmentChanges,
-          'canCancelAppointments': _canManageAppointmentChanges,
-          'appointmentManage': _canManageAppointmentChanges,
-          'appointmentReschedule': _canManageAppointmentChanges,
-          'appointmentCancel': _canManageAppointmentChanges,
-          'updateAppointments': _canManageAppointmentChanges,
-          'cancelAppointments': _canManageAppointmentChanges,
+          'canManageAppointments': _controller.canManageAppointmentChanges,
+          'canManageAppointmentChanges':
+              _controller.canManageAppointmentChanges,
+          'manageAppointmentChanges': _controller.canManageAppointmentChanges,
+          'canRescheduleAppointments': _controller.canManageAppointmentChanges,
+          'canCancelAppointments': _controller.canManageAppointmentChanges,
+          'appointmentManage': _controller.canManageAppointmentChanges,
+          'appointmentReschedule': _controller.canManageAppointmentChanges,
+          'appointmentCancel': _controller.canManageAppointmentChanges,
+          'updateAppointments': _controller.canManageAppointmentChanges,
+          'cancelAppointments': _controller.canManageAppointmentChanges,
 
-          'canManageCampaigns': _canManageCampaigns,
+          'canManageCampaigns': _controller.canManageCampaigns,
 
           // Muhasebe.
           ...accountingPermissions,
-          'viewFinance': _financeRead,
-          'canViewFinance': _financeRead,
-          'canManageFinance': _financeWrite,
-          'paymentCollect': _financeWrite || _receivableManage,
-          'enterExpenses': _expenseWrite,
-          'canManageExpenses': _expenseWrite,
-          'expenseManage': _expenseWrite,
-          'canManageReceivables': _receivableManage,
-          'receivableWrite': _receivableManage,
-          'canExportReports': _reportExport,
-          'financeExport': _reportExport,
+          'viewFinance': _controller.financeRead,
+          'canViewFinance': _controller.financeRead,
+          'canManageFinance': _controller.financeWrite,
+          'paymentCollect':
+              _controller.financeWrite || _controller.receivableManage,
+          'enterExpenses': _controller.expenseWrite,
+          'canManageExpenses': _controller.expenseWrite,
+          'expenseManage': _controller.expenseWrite,
+          'canManageReceivables': _controller.receivableManage,
+          'receivableWrite': _controller.receivableManage,
+          'canExportReports': _controller.reportExport,
+          'financeExport': _controller.reportExport,
         },
 
         // Flat field muhasebe uyumluluğu.
-        'viewFinance': _financeRead,
-        'canViewFinance': _financeRead,
-        'canManageFinance': _financeWrite,
-        'paymentCollect': _financeWrite || _receivableManage,
-        'enterExpenses': _expenseWrite,
-        'expenseManage': _expenseWrite,
-        'canManageReceivables': _receivableManage,
-        'receivableWrite': _receivableManage,
-        'canExportReports': _reportExport,
-        'financeExport': _reportExport,
+        'viewFinance': _controller.financeRead,
+        'canViewFinance': _controller.financeRead,
+        'canManageFinance': _controller.financeWrite,
+        'paymentCollect':
+            _controller.financeWrite || _controller.receivableManage,
+        'enterExpenses': _controller.expenseWrite,
+        'expenseManage': _controller.expenseWrite,
+        'canManageReceivables': _controller.receivableManage,
+        'receivableWrite': _controller.receivableManage,
+        'canExportReports': _controller.reportExport,
+        'financeExport': _controller.reportExport,
 
         'isAvailable': widget.initialData?['isAvailable'] ?? true,
         'currentWorkStatus':
@@ -376,7 +255,7 @@ class _StaffFormPageState extends State<StaffFormPage> {
         SnackBar(
           content: Text(
             widget.staffId == null
-                ? 'Personel eklendi. Davet kodu: $invite'
+                ? 'Personel eklendi. Kurumsal giriş kodu: $invite'
                 : 'Personel güncellendi.',
           ),
           behavior: SnackBarBehavior.floating,
@@ -391,7 +270,7 @@ class _StaffFormPageState extends State<StaffFormPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      setState(() => _saving = false);
+      _controller.setSaving(false);
     }
   }
 
@@ -452,8 +331,7 @@ class _StaffFormPageState extends State<StaffFormPage> {
               ),
             ),
             const SizedBox(height: 10),
-            if (_canWorkAssignedAppointments &&
-                _assignedServiceIds.isEmpty) ...[
+            if (_controller.requiresServiceMatchWarning) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -482,7 +360,9 @@ class _StaffFormPageState extends State<StaffFormPage> {
               SizedBox(height: 10),
             ],
             ...services.map((service) {
-              final checked = _assignedServiceIds.contains(service.id);
+              final checked = _controller.assignedServiceIds.contains(
+                service.id,
+              );
 
               return CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -498,15 +378,8 @@ class _StaffFormPageState extends State<StaffFormPage> {
                     if (service.price.trim().isNotEmpty) '${service.price} TL',
                   ].join(' • '),
                 ),
-                onChanged: (v) {
-                  setState(() {
-                    if (v == true) {
-                      _assignedServiceIds.add(service.id);
-                    } else {
-                      _assignedServiceIds.remove(service.id);
-                    }
-                  });
-                },
+                onChanged: (v) =>
+                    _controller.setServiceAssigned(service.id, v == true),
               );
             }),
           ],
@@ -519,175 +392,180 @@ class _StaffFormPageState extends State<StaffFormPage> {
   Widget build(BuildContext context) {
     final edit = widget.staffId != null;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Text(edit ? 'Personeli Düzenle' : 'Personel Ekle'),
-        backgroundColor: const Color(0xFFF8FAFC),
-        elevation: 0,
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: FilledButton.icon(
-          onPressed: _saving ? null : _save,
-          icon: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.save_outlined),
-          label: Text(_saving ? 'Kaydediliyor...' : 'Kaydet'),
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-          children: [
-            BusinessStaffCard(
-              title: 'Personelin kullanacağı işletme kodu',
-              child: Text(
-                widget.businessAccessCode,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                ),
-              ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            title: Text(edit ? 'Personeli Düzenle' : 'Personel Ekle'),
+            backgroundColor: const Color(0xFFF8FAFC),
+            elevation: 0,
+          ),
+          bottomNavigationBar: SafeArea(
+            minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: FilledButton.icon(
+              onPressed: _controller.saving ? null : _save,
+              icon: _controller.saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined),
+              label: Text(_controller.saving ? 'Kaydediliyor...' : 'Kaydet'),
             ),
-            BusinessStaffCard(
-              title: 'Personel Bilgileri',
-              child: Column(
-                children: [
-                  TextFormField(
-                    controller: _name,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Ad Soyad',
-                      border: OutlineInputBorder(),
+          ),
+          body: Form(
+            key: _formKey,
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+              children: [
+                BusinessStaffCard(
+                  title: 'Personelin kullanacağı işletme kodu',
+                  child: Text(
+                    widget.businessAccessCode,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Ad soyad gerekli'
-                        : null,
                   ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'E-posta',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'E-posta gerekli'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _role,
-                    decoration: const InputDecoration(
-                      labelText: 'Rol',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'manager',
-                        child: Text('Yönetici'),
+                ),
+                BusinessStaffCard(
+                  title: 'Personel Bilgileri',
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _name,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Ad Soyad',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'Ad soyad gerekli'
+                            : null,
                       ),
-                      DropdownMenuItem(value: 'staff', child: Text('Personel')),
-                      DropdownMenuItem(
-                        value: 'finance',
-                        child: Text('Finans Yetkilisi'),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'E-posta',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'E-posta gerekli'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _controller.role,
+                        decoration: const InputDecoration(
+                          labelText: 'Rol',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'manager',
+                            child: Text('Yönetici'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'staff',
+                            child: Text('Personel'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'finance',
+                            child: Text('Finans Yetkilisi'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v == null) return;
+                          _controller.setRole(v);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _permissionSwitch(
+                        title: _controller.active
+                            ? 'Aktif personel'
+                            : 'Pasif personel',
+                        subtitle:
+                            'Pasif personel randevu ve işlem akışında görünmez.',
+                        value: _controller.active,
+                        onChanged: _controller.setActive,
                       ),
                     ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      setState(() {
-                        _role = v;
-                        _applyFinanceRoleDefaultsIfNeeded(v);
-                      });
-                    },
                   ),
-                  const SizedBox(height: 12),
-                  _permissionSwitch(
-                    title: _active ? 'Aktif personel' : 'Pasif personel',
-                    subtitle:
-                        'Pasif personel randevu ve işlem akışında görünmez.',
-                    value: _active,
-                    onChanged: (v) => setState(() => _active = v),
+                ),
+                BusinessStaffCard(
+                  title: 'Hizmet Eşleşmesi',
+                  child: _serviceMatchingCard(),
+                ),
+                BusinessStaffCard(
+                  title: 'Yetkiler',
+                  child: Column(
+                    children: [
+                      _permissionSwitch(
+                        title: 'Görevlerim / iş başlat-bitir',
+                        subtitle:
+                            'Personel kendisine atanan randevuyu başlatabilir ve işlemi bitirebilir. Performans ve ödeme takibi bu akıştan beslenecek.',
+                        value: _controller.canWorkAssignedAppointments,
+                        onChanged: _controller.setCanWorkAssignedAppointments,
+                      ),
+                      _permissionSwitch(
+                        title: 'Randevu erteleme / iptal yönetimi',
+                        subtitle:
+                            'Randevu saatini değiştirme, erteleme veya iptal etme özel yetkidir.',
+                        value: _controller.canManageAppointmentChanges,
+                        onChanged: _controller.setCanManageAppointmentChanges,
+                      ),
+                      _permissionSwitch(
+                        title: 'Kampanya yönetimi',
+                        value: _controller.canManageCampaigns,
+                        onChanged: _controller.setCanManageCampaigns,
+                      ),
+                      _permissionSwitch(
+                        title: 'Muhasebe görüntüleme',
+                        subtitle: 'financeRead',
+                        value: _controller.financeRead,
+                        onChanged: _controller.setFinanceRead,
+                      ),
+                      _permissionSwitch(
+                        title: 'Satış ve tahsilat işlemleri',
+                        subtitle: 'financeWrite',
+                        value: _controller.financeWrite,
+                        onChanged: _controller.setFinanceWrite,
+                      ),
+                      _permissionSwitch(
+                        title: 'Gider / masraf işlemleri',
+                        subtitle:
+                            'expenseWrite. Masraf girişi ve gider işlemleri aynı yetkidir.',
+                        value: _controller.expenseWrite,
+                        onChanged: _controller.setExpenseWrite,
+                      ),
+                      _permissionSwitch(
+                        title: 'Alacak ve vade yönetimi',
+                        subtitle: 'receivableManage',
+                        value: _controller.receivableManage,
+                        onChanged: _controller.setReceivableManage,
+                      ),
+                      _permissionSwitch(
+                        title: 'Rapor/PDF dışa aktarma',
+                        subtitle: 'reportExport',
+                        value: _controller.reportExport,
+                        onChanged: _controller.setReportExport,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            BusinessStaffCard(
-              title: 'Hizmet Eşleşmesi',
-              child: _serviceMatchingCard(),
-            ),
-            BusinessStaffCard(
-              title: 'Yetkiler',
-              child: Column(
-                children: [
-                  _permissionSwitch(
-                    title: 'Görevlerim / iş başlat-bitir',
-                    subtitle:
-                        'Personel kendisine atanan randevuyu başlatabilir ve işlemi bitirebilir. Performans ve ödeme takibi bu akıştan beslenecek.',
-                    value: _canWorkAssignedAppointments,
-                    onChanged: (v) =>
-                        setState(() => _canWorkAssignedAppointments = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Randevu erteleme / iptal yönetimi',
-                    subtitle:
-                        'Randevu saatini değiştirme, erteleme veya iptal etme özel yetkidir.',
-                    value: _canManageAppointmentChanges,
-                    onChanged: (v) =>
-                        setState(() => _canManageAppointmentChanges = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Kampanya yönetimi',
-                    value: _canManageCampaigns,
-                    onChanged: (v) => setState(() => _canManageCampaigns = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Muhasebe görüntüleme',
-                    subtitle: 'financeRead',
-                    value: _financeRead,
-                    onChanged: (v) => setState(() => _financeRead = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Satış ve tahsilat işlemleri',
-                    subtitle: 'financeWrite',
-                    value: _financeWrite,
-                    onChanged: (v) => setState(() => _financeWrite = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Gider / masraf işlemleri',
-                    subtitle:
-                        'expenseWrite. Masraf girişi ve gider işlemleri aynı yetkidir.',
-                    value: _expenseWrite,
-                    onChanged: (v) => setState(() => _expenseWrite = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Alacak ve vade yönetimi',
-                    subtitle: 'receivableManage',
-                    value: _receivableManage,
-                    onChanged: (v) => setState(() => _receivableManage = v),
-                  ),
-                  _permissionSwitch(
-                    title: 'Rapor/PDF dışa aktarma',
-                    subtitle: 'reportExport',
-                    value: _reportExport,
-                    onChanged: (v) => setState(() => _reportExport = v),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

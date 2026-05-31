@@ -63,7 +63,9 @@ void main() {
       expect(BusinessAppointmentDashboardPolicy.serviceNameOf(row), 'Muayene');
       expect(BusinessAppointmentDashboardPolicy.customerNameOf({}), 'Müşteri');
       expect(
-        BusinessAppointmentDashboardPolicy.timeText(DateTime(2026, 5, 30, 8, 5)),
+        BusinessAppointmentDashboardPolicy.timeText(
+          DateTime(2026, 5, 30, 8, 5),
+        ),
         '08:05',
       );
       expect(
@@ -106,18 +108,19 @@ void main() {
     });
 
     test('filters active appointments for the visible month only', () {
-      final items = BusinessAppointmentDashboardPolicy.activeAppointmentsForMonth(
-        appointments: [
-          {FirestoreFields.startAtIso: '2026-05-01T09:00:00.000'},
-          {
-            FirestoreFields.startAtIso: '2026-05-02T09:00:00.000',
-            FirestoreFields.status: 'cancelled',
-          },
-          {FirestoreFields.startAtIso: '2026-06-01T09:00:00.000'},
-          {FirestoreFields.appointmentDate: '03.05.2026'},
-        ],
-        visibleMonth: DateTime(2026, 5),
-      );
+      final items =
+          BusinessAppointmentDashboardPolicy.activeAppointmentsForMonth(
+            appointments: [
+              {FirestoreFields.startAtIso: '2026-05-01T09:00:00.000'},
+              {
+                FirestoreFields.startAtIso: '2026-05-02T09:00:00.000',
+                FirestoreFields.status: 'cancelled',
+              },
+              {FirestoreFields.startAtIso: '2026-06-01T09:00:00.000'},
+              {FirestoreFields.appointmentDate: '03.05.2026'},
+            ],
+            visibleMonth: DateTime(2026, 5),
+          );
 
       expect(items.length, 2);
     });
@@ -133,10 +136,7 @@ void main() {
             FirestoreFields.staffName: ' Duplicate ',
             FirestoreFields.staffUid: ' staff_1 ',
           },
-          {
-            FirestoreFields.name: ' Mehmet ',
-            '__docId': ' staff_2 ',
-          },
+          {FirestoreFields.name: ' Mehmet ', '__docId': ' staff_2 '},
         ],
         appointments: const [],
       );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:rxpro_mobile/core/businesses/business_category.dart';
 import 'package:rxpro_mobile/core/businesses/business_directory_cache_service.dart';
 
 import '../domain/home_explore_category_counts.dart';
@@ -25,9 +26,14 @@ class HomeExploreController extends ChangeNotifier {
 
   List<BusinessDirectoryItem> _businesses = <BusinessDirectoryItem>[];
   Object? _businessLoadError;
+  Position? _currentPosition;
   Position? _lastLocationQueryPosition;
+  String _queryText = '';
+  String _selectedCategory = BusinessCategories.allLabel;
   String _detectedCity = '';
   String _detectedDistrict = '';
+  double _radiusKm = 10;
+  HomeExploreSortMode _sortMode = HomeExploreSortMode.recommended;
   bool _loadingBusinesses = false;
   bool _loadingLocation = false;
   bool _hasCompletedInitialBusinessLoad = false;
@@ -35,8 +41,13 @@ class HomeExploreController extends ChangeNotifier {
 
   List<BusinessDirectoryItem> get businesses => _businesses;
   Object? get businessLoadError => _businessLoadError;
+  Position? get currentPosition => _currentPosition;
+  String get queryText => _queryText;
+  String get selectedCategory => _selectedCategory;
   String get detectedCity => _detectedCity;
   String get detectedDistrict => _detectedDistrict;
+  double get radiusKm => _radiusKm;
+  HomeExploreSortMode get sortMode => _sortMode;
   bool get loadingBusinesses => _loadingBusinesses;
   bool get loadingLocation => _loadingLocation;
   bool get hasCompletedInitialBusinessLoad => _hasCompletedInitialBusinessLoad;
@@ -47,7 +58,67 @@ class HomeExploreController extends ChangeNotifier {
         _businesses.isEmpty;
   }
 
+  void resetSessionState() {
+    _currentPosition = null;
+    _lastLocationQueryPosition = null;
+    _queryText = '';
+    _selectedCategory = BusinessCategories.allLabel;
+    _detectedCity = '';
+    _detectedDistrict = '';
+    _radiusKm = 10;
+    _sortMode = HomeExploreSortMode.recommended;
+    _loadingLocation = false;
+    notifyListeners();
+  }
+
+  void resetFilters() {
+    _queryText = '';
+    _selectedCategory = BusinessCategories.allLabel;
+    _radiusKm = 10;
+    _sortMode = HomeExploreSortMode.recommended;
+    notifyListeners();
+  }
+
+  void setQueryText(String value) {
+    if (_queryText == value) return;
+    _queryText = value;
+    notifyListeners();
+  }
+
+  void clearQueryText() {
+    if (_queryText.isEmpty) return;
+    _queryText = '';
+    notifyListeners();
+  }
+
+  void setSelectedCategory(String value) {
+    if (_selectedCategory == value) return;
+    _selectedCategory = value;
+    notifyListeners();
+  }
+
+  void setRadiusKm(double value) {
+    if (_radiusKm == value) return;
+    _radiusKm = value;
+    notifyListeners();
+  }
+
+  void setSortMode(HomeExploreSortMode value) {
+    if (_sortMode == value) return;
+    _sortMode = value;
+    notifyListeners();
+  }
+
+  void setCurrentPosition(Position position, {bool notify = true}) {
+    _currentPosition = position;
+    if (_sortMode == HomeExploreSortMode.distance) {
+      _sortMode = HomeExploreSortMode.recommended;
+    }
+    if (notify) notifyListeners();
+  }
+
   void resetLocationContext() {
+    _currentPosition = null;
     _lastLocationQueryPosition = null;
     _detectedCity = '';
     _detectedDistrict = '';
@@ -74,7 +145,6 @@ class HomeExploreController extends ChangeNotifier {
 
   void markLocationQueryApplied(Position position) {
     _lastLocationQueryPosition = position;
-    notifyListeners();
   }
 
   Future<bool> reloadBusinesses({

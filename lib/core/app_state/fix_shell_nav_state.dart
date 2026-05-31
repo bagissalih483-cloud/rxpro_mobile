@@ -8,10 +8,12 @@ class FixShellNavState {
   static int corporateIndex = 0;
 
   static final ValueNotifier<int> guestIndexNotifier = ValueNotifier<int>(0);
-  static final ValueNotifier<int> individualIndexNotifier =
-      ValueNotifier<int>(0);
-  static final ValueNotifier<int> corporateIndexNotifier =
-      ValueNotifier<int>(0);
+  static final ValueNotifier<int> individualIndexNotifier = ValueNotifier<int>(
+    0,
+  );
+  static final ValueNotifier<int> corporateIndexNotifier = ValueNotifier<int>(
+    0,
+  );
 
   static void setGuestIndex(int index) {
     guestIndex = index;

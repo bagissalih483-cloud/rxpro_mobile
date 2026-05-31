@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/features/businesses/data/business_customer_message_repository.dart';
+import 'package:rxpro_mobile/features/businesses/presentation/business_customer_direct_message_controller.dart';
 
 class BusinessCustomerDirectMessagePage extends StatefulWidget {
   const BusinessCustomerDirectMessagePage({
@@ -29,7 +30,8 @@ class _BusinessCustomerDirectMessagePageState
   final TextEditingController _messageController = TextEditingController();
   final BusinessCustomerMessageRepository _messageRepository =
       BusinessCustomerMessageRepository();
-  bool _sending = false;
+  final BusinessCustomerDirectMessageController _controller =
+      BusinessCustomerDirectMessageController();
 
   String get _threadId {
     final business = widget.businessId.replaceAll(
@@ -65,6 +67,7 @@ class _BusinessCustomerDirectMessagePageState
 
   @override
   void dispose() {
+    _controller.dispose();
     _messageController.dispose();
     super.dispose();
   }
@@ -73,16 +76,16 @@ class _BusinessCustomerDirectMessagePageState
     final text = _messageController.text.trim();
 
     if (text.isEmpty) {
-      _show('Mesaj metni boş olamaz.');
+      _show('Mesaj metni bos olamaz.');
       return;
     }
 
     if (widget.customerUid.trim().isEmpty || widget.customerUid == '-') {
-      _show('Bireysel kullanıcı ID bilgisi bulunamadı.');
+      _show('Bireysel kullanici ID bilgisi bulunamadi.');
       return;
     }
 
-    setState(() => _sending = true);
+    _controller.setSending(true);
 
     try {
       await _messageRepository.sendMessage(
@@ -101,15 +104,15 @@ class _BusinessCustomerDirectMessagePageState
       if (!mounted) return;
 
       _messageController.clear();
-      _show('Mesaj bireysel kullanıcıya gönderildi.');
+      _show('Mesaj bireysel kullaniciya gonderildi.');
 
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      _show('Mesaj gönderilemedi: $e');
+      _show('Mesaj gonderilemedi: $e');
     } finally {
       if (mounted) {
-        setState(() => _sending = false);
+        _controller.setSending(false);
       }
     }
   }
@@ -123,7 +126,7 @@ class _BusinessCustomerDirectMessagePageState
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Bireysel Kullanıcıya Mesaj'),
+        title: const Text('Bireysel Kullanıcıyla Mesaj'),
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
       ),
@@ -210,9 +213,8 @@ class _BusinessCustomerDirectMessagePageState
             maxLines: 8,
             textInputAction: TextInputAction.newline,
             decoration: InputDecoration(
-              labelText: 'Mesajınız',
-              hintText:
-                  'Bireysel kullanıcıya göndermek istediğiniz mesajı yazın.',
+              labelText: 'Mesajiniz',
+              hintText: 'Bireysel kullaniciya gonderilecek mesaji yazin.',
               alignLabelWithHint: true,
               filled: true,
               fillColor: Colors.white,
@@ -222,13 +224,20 @@ class _BusinessCustomerDirectMessagePageState
             ),
           ),
           const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: _sending ? null : _sendMessage,
-            icon: const Icon(Icons.send_rounded),
-            label: Text(_sending ? 'Gönderiliyor...' : 'Mesaj Gönder'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              return FilledButton.icon(
+                onPressed: _controller.sending ? null : _sendMessage,
+                icon: const Icon(Icons.send_rounded),
+                label: Text(
+                  _controller.sending ? 'Gonderiliyor...' : 'Mesaj Gonder',
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              );
+            },
           ),
         ],
       ),

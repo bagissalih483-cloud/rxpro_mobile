@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rxpro_mobile/features/business_analysis/business_product_movement_models.dart';
+import 'package:rxpro_mobile/features/business_analysis/presentation/business_product_movement_controller.dart';
 import 'package:rxpro_mobile/features/business_analysis/services/business_product_movement_service.dart';
 
 class BusinessProductMovementPage extends StatefulWidget {
@@ -21,18 +22,22 @@ class _BusinessProductMovementPageState
     extends State<BusinessProductMovementPage> {
   final BusinessProductMovementService _movementService =
       BusinessProductMovementService();
-
-  int mode = 0;
+  late final BusinessProductMovementController _controller;
 
   final productController = TextEditingController();
   final quantityController = TextEditingController(text: '1');
   final amountController = TextEditingController();
   final noteController = TextEditingController();
 
-  bool saving = false;
+  @override
+  void initState() {
+    super.initState();
+    _controller = BusinessProductMovementController();
+  }
 
   @override
   void dispose() {
+    _controller.dispose();
     productController.dispose();
     quantityController.dispose();
     amountController.dispose();
@@ -52,13 +57,11 @@ class _BusinessProductMovementPageState
   }
 
   bool get canSave {
-    return productController.text.trim().isNotEmpty && !saving;
+    return _controller.canSave;
   }
 
   BusinessProductMovementType get movementType {
-    return mode == 0
-        ? BusinessProductMovementType.sale
-        : BusinessProductMovementType.purchase;
+    return _controller.movementType;
   }
 
   Future<void> _save() async {
@@ -72,7 +75,7 @@ class _BusinessProductMovementPageState
       return;
     }
 
-    setState(() => saving = true);
+    _controller.setSaving(true);
 
     try {
       await _movementService.createMovement(
@@ -92,20 +95,17 @@ class _BusinessProductMovementPageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            mode == 0
-                ? 'Ürün satışı kaydedildi.'
-                : 'Ürün alımı kaydedildi.',
+            _controller.successMessage,
           ),
           behavior: SnackBarBehavior.floating,
         ),
       );
 
       productController.clear();
+      _controller.clearProductName();
       quantityController.text = '1';
       amountController.clear();
       noteController.clear();
-
-      setState(() {});
     } catch (e) {
       if (!mounted) return;
 
@@ -116,7 +116,7 @@ class _BusinessProductMovementPageState
         ),
       );
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) _controller.setSaving(false);
     }
   }
 
@@ -153,7 +153,13 @@ class _BusinessProductMovementPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final mode = _controller.mode;
+        final saving = _controller.saving;
+
+        return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text('Ürün Hareketi'),
@@ -182,20 +188,18 @@ class _BusinessProductMovementPageState
                 ],
                 selected: {mode},
                 onSelectionChanged: (value) {
-                  setState(() => mode = value.first);
+                  _controller.selectMode(value.first);
                 },
               ),
             ),
             const SizedBox(height: 14),
             _Card(
-              title: mode == 0
-                  ? 'Ürün Satışı Kaydet'
-                  : 'Ürün Alımı Kaydet',
+              title: mode == 0 ? 'Ürün Satışı Kaydet' : 'Ürün Alımı Kaydet',
               child: Column(
                 children: [
                   TextField(
                     controller: productController,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: _controller.setProductName,
                     decoration: const InputDecoration(
                       labelText: 'Ürün adı',
                       hintText: 'Örn. Şampuan, krem, serum',
@@ -244,9 +248,7 @@ class _BusinessProductMovementPageState
             ),
             const SizedBox(height: 14),
             _Card(
-              title: mode == 0
-                  ? 'Son Ürün Satışları'
-                  : 'Son Ürün Alımları',
+              title: mode == 0 ? 'Son Ürün Satışları' : 'Son Ürün Alımları',
               child: StreamBuilder<List<BusinessProductMovementRecord>>(
                 stream: _recentStream(),
                 builder: (context, snapshot) {
@@ -324,6 +326,8 @@ class _BusinessProductMovementPageState
           label: Text(saving ? 'Kaydediliyor...' : 'Kaydet'),
         ),
       ),
+        );
+      },
     );
   }
 }

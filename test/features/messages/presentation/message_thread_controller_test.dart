@@ -20,13 +20,25 @@ void main() {
       expect(source.markReadCalls, 2);
     });
 
+    test('does not mark read for own or already read messages', () async {
+      final source = _FakeMessageThreadDataSource();
+      final controller = _controller(source);
+      addTearDown(controller.dispose);
+
+      controller.markReadForMessageList([
+        _message('own', senderUid: 'uid'),
+        _message('read', readByCustomer: true),
+      ]);
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(source.markReadCalls, 0);
+    });
+
     test('sends trimmed message and clears compose text', () async {
       final source = _FakeMessageThreadDataSource();
       final compose = MessageComposeController(initialText: '  Merhaba  ');
-      final controller = _controller(
-        source,
-        initialComposeController: compose,
-      );
+      final controller = _controller(source, initialComposeController: compose);
       addTearDown(() {
         controller.dispose();
         compose.dispose();
@@ -42,10 +54,7 @@ void main() {
     test('does not send blank messages', () async {
       final source = _FakeMessageThreadDataSource();
       final compose = MessageComposeController(initialText: '   ');
-      final controller = _controller(
-        source,
-        initialComposeController: compose,
-      );
+      final controller = _controller(source, initialComposeController: compose);
       addTearDown(() {
         controller.dispose();
         compose.dispose();
@@ -56,22 +65,25 @@ void main() {
       expect(source.sentTexts, isEmpty);
     });
 
-    test('recalls only current user messages and controls thread status', () async {
-      final source = _FakeMessageThreadDataSource();
-      final controller = _controller(source);
-      addTearDown(controller.dispose);
+    test(
+      'recalls only current user messages and controls thread status',
+      () async {
+        final source = _FakeMessageThreadDataSource();
+        final controller = _controller(source);
+        addTearDown(controller.dispose);
 
-      await controller.recallMessage(_message('own', senderUid: 'uid'));
-      await controller.recallMessage(_message('other', senderUid: 'other'));
-      await controller.recallMessage(
-        _message('recalled', senderUid: 'uid', recalled: true),
-      );
-      await controller.closeThread();
-      await controller.openThread();
+        await controller.recallMessage(_message('own', senderUid: 'uid'));
+        await controller.recallMessage(_message('other', senderUid: 'other'));
+        await controller.recallMessage(
+          _message('recalled', senderUid: 'uid', recalled: true),
+        );
+        await controller.closeThread();
+        await controller.openThread();
 
-      expect(source.recalledMessageIds, ['own']);
-      expect(source.statuses, ['closed', 'open']);
-    });
+        expect(source.recalledMessageIds, ['own']);
+        expect(source.statuses, ['closed', 'open']);
+      },
+    );
   });
 }
 
@@ -92,6 +104,7 @@ MessageThreadController _controller(
 MessageItem _message(
   String id, {
   String senderUid = 'other',
+  bool? readByCustomer,
   bool recalled = false,
 }) {
   return MessageItem(
@@ -100,7 +113,7 @@ MessageItem _message(
     senderName: 'Sender',
     senderRole: 'customer',
     text: 'Message',
-    readByCustomer: senderUid == 'uid',
+    readByCustomer: readByCustomer ?? senderUid == 'uid',
     readByBusiness: false,
     createdAt: '2026-05-29T00:00:00Z',
     recalled: recalled,

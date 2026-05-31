@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:rxpro_mobile/core/responsive/rx_adaptive_modal.dart';
 import 'package:rxpro_mobile/core/session/app_session_scope.dart';
 
 import '../data/accounting_repository.dart';
 import '../data/callable_accounting_repository.dart';
 import '../models/accounting_models.dart';
+import '../presentation/accounting_reports_controller.dart';
 
 class AccountingReportsPage extends StatefulWidget {
   AccountingReportsPage({
@@ -25,17 +27,23 @@ class AccountingReportsPage extends StatefulWidget {
 
 class _AccountingReportsPageState extends State<AccountingReportsPage>
     with AutomaticKeepAliveClientMixin {
-  String _reportType = 'summary';
+  final AccountingReportsController _controller = AccountingReportsController();
   String? _summaryStreamKey;
   Stream<AccountingSummary>? _summaryStream;
 
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   void _showExportPreview(String type, AccountingSummary summary) {
-    showModalBottomSheet<void>(
+    showRxAdaptiveModal<void>(
       context: context,
-      showDragHandle: true,
+      desktopMaxWidth: 560,
       builder: (context) {
         final title = type == 'pdf'
             ? 'PDF rapor tasla\u011f\u0131'
@@ -55,14 +63,20 @@ class _AccountingReportsPageState extends State<AccountingReportsPage>
               ),
               const SizedBox(height: 10),
               _InfoRow(label: 'D\u00f6nem', value: widget.periodLabel),
-              _InfoRow(label: 'Rapor', value: _reportTypeLabel(_reportType)),
+              _InfoRow(
+                label: 'Rapor',
+                value: _reportTypeLabel(_controller.reportType),
+              ),
               _InfoRow(label: 'Ciro', value: _money(summary.totalSalesKurus)),
-              _InfoRow(label: 'Tahsilat', value: _money(summary.collectedKurus)),
+              _InfoRow(
+                label: 'Tahsilat',
+                value: _money(summary.collectedKurus),
+              ),
               _InfoRow(label: 'Gider', value: _money(summary.expenseKurus)),
               _InfoRow(label: 'Net', value: _money(summary.netKurus)),
               const SizedBox(height: 12),
               const Text(
-                'PDF/Excel dışa aktarımı sonraki sunucu adımında dosya olarak üretilecek. Bu ekran şimdiden seçili dönemin canlı özetini kullanır.',
+                'Seçili dönemin özetini buradan kontrol edebilir, dışa aktarma hazır olduğunda raporu dosya olarak alabilirsiniz.',
                 style: TextStyle(color: Color(0xFF64748B), height: 1.35),
               ),
               const SizedBox(height: 12),
@@ -99,39 +113,40 @@ class _AccountingReportsPageState extends State<AccountingReportsPage>
     final session = AppSessionScope.maybeOf(context);
     final businessId = session?.businessId ?? '';
 
-    return StreamBuilder<AccountingSummary>(
-      stream: _watchSummaryFor(
-        businessId: businessId,
-      ),
-      builder: (context, snapshot) {
-        final summary =
-            snapshot.data ??
-            AccountingSummary(
-              businessId: businessId,
-              periodLabel: widget.periodLabel,
-            );
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return StreamBuilder<AccountingSummary>(
+          stream: _watchSummaryFor(businessId: businessId),
+          builder: (context, snapshot) {
+            final summary =
+                snapshot.data ??
+                AccountingSummary(
+                  businessId: businessId,
+                  periodLabel: widget.periodLabel,
+                );
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _ReportMetricsGrid(summary: summary),
-            const SizedBox(height: 12),
-            _ReportFilterCard(
-              reportType: _reportType,
-              onReportTypeChanged: (value) {
-                setState(() => _reportType = value);
-              },
-            ),
-            const SizedBox(height: 12),
-            _ReportPreviewCard(
-              periodLabel: widget.periodLabel,
-              reportTypeLabel: _reportTypeLabel(_reportType),
-              onPdf: () => _showExportPreview('pdf', summary),
-              onExcel: () => _showExportPreview('excel', summary),
-            ),
-            const SizedBox(height: 12),
-            _ReportBreakdownCard(summary: summary),
-          ],
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _ReportMetricsGrid(summary: summary),
+                const SizedBox(height: 12),
+                _ReportFilterCard(
+                  reportType: _controller.reportType,
+                  onReportTypeChanged: _controller.setReportType,
+                ),
+                const SizedBox(height: 12),
+                _ReportPreviewCard(
+                  periodLabel: widget.periodLabel,
+                  reportTypeLabel: _reportTypeLabel(_controller.reportType),
+                  onPdf: () => _showExportPreview('pdf', summary),
+                  onExcel: () => _showExportPreview('excel', summary),
+                ),
+                const SizedBox(height: 12),
+                _ReportBreakdownCard(summary: summary),
+              ],
+            );
+          },
         );
       },
     );
@@ -349,10 +364,7 @@ class _ReportPreviewCard extends StatelessWidget {
             const SizedBox(height: 10),
             _InfoRow(label: 'D\u00f6nem', value: periodLabel),
             _InfoRow(label: 'Tip', value: reportTypeLabel),
-            const _InfoRow(
-              label: 'Durum',
-              value: 'Seçili dönem verisi hazır',
-            ),
+            const _InfoRow(label: 'Durum', value: 'Seçili dönem verisi hazır'),
             const SizedBox(height: 12),
             Row(
               children: [

@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxpro_mobile/core/businesses/business_directory_query_budget_policy.dart';
 import 'package:rxpro_mobile/core/firestore/firestore_collections.dart';
 
 class BusinessDirectoryRawDoc {
-  const BusinessDirectoryRawDoc({
-    required this.id,
-    required this.data,
-  });
+  const BusinessDirectoryRawDoc({required this.id, required this.data});
 
   final String id;
   final Map<String, dynamic> data;
@@ -22,14 +20,16 @@ class BusinessDirectoryFirestoreRepository {
     required int pageCap,
     required Duration timeout,
   }) async {
+    final safePageSize = BusinessDirectoryQueryBudgetPolicy.pageSize(pageSize);
+    final safePageCap = BusinessDirectoryQueryBudgetPolicy.pageCap(pageCap);
     final docs = <BusinessDirectoryRawDoc>[];
     DocumentSnapshot<Map<String, dynamic>>? lastDoc;
 
-    while (docs.length < pageCap) {
+    while (docs.length < safePageCap) {
       Query<Map<String, dynamic>> query = _firestore
           .collection(FirestoreCollections.businesses)
           .orderBy(FieldPath.documentId)
-          .limit(pageSize);
+          .limit(safePageSize);
 
       if (lastDoc != null) {
         query = query.startAfterDocument(lastDoc);
@@ -41,15 +41,17 @@ class BusinessDirectoryFirestoreRepository {
 
       if (snapshot.docs.isEmpty) break;
 
-      final remaining = pageCap - docs.length;
+      final remaining = safePageCap - docs.length;
       docs.addAll(
-        snapshot.docs.take(remaining).map(
-          (doc) => BusinessDirectoryRawDoc(id: doc.id, data: doc.data()),
-        ),
+        snapshot.docs
+            .take(remaining)
+            .map(
+              (doc) => BusinessDirectoryRawDoc(id: doc.id, data: doc.data()),
+            ),
       );
       lastDoc = snapshot.docs.last;
 
-      if (snapshot.docs.length < pageSize) break;
+      if (snapshot.docs.length < safePageSize) break;
     }
 
     return docs;
@@ -62,10 +64,15 @@ class BusinessDirectoryFirestoreRepository {
     required int limit,
     required Duration timeout,
   }) async {
+    final safePrefixes = BusinessDirectoryQueryBudgetPolicy.whereInPrefixes(
+      prefixes,
+    );
+    if (safePrefixes.isEmpty) return const <BusinessDirectoryRawDoc>[];
+
     final snapshot = await _firestore
         .collection(collection)
-        .where(prefixField, whereIn: prefixes)
-        .limit(limit)
+        .where(prefixField, whereIn: safePrefixes)
+        .limit(BusinessDirectoryQueryBudgetPolicy.nearbyLimit(limit))
         .get(const GetOptions(source: Source.serverAndCache))
         .timeout(timeout);
 

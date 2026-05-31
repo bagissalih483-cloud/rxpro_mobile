@@ -1,12 +1,11 @@
 {
-    "name": "fix",
-    "short_name": "fix",
+    "name": "Fix",
+    "short_name": "Fix",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "fix mobile service marketplace app.",
-    "orientation": "portrait-primary",
+    "background_color": "#F4F7F8",
+    "theme_color": "#1DB954",
+    "description": "Fix randevu ve işletme yönetimi uygulaması.",
     "prefer_related_applications": false,
     "icons": [
         {
